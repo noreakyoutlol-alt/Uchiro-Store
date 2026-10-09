@@ -1,0 +1,29 @@
+{
+  "name": "uchiro-store-v3",
+  "version": "3.0.0",
+  "description": "Uchiro Store - Premium Telegram Gaming Mini App, Store Bot, Admin Bot, and API",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client-store",
+    "client-admin"
+  ],
+  "scripts": {
+    "start": "node server/dist/production.js",
+    "dev": "concurrently -n \"API,STORE,ADMIN,BOTS\" -c \"cyan,green,magenta,yellow\" \"npm run dev:api\" \"npm run dev:store\" \"npm run dev:admin\" \"npm run dev:bots\"",
+    "dev:store": "npm run --workspace=client-store dev",
+    "dev:admin": "npm run --workspace=client-admin dev",
+    "dev:api": "npm run --workspace=server dev",
+    "dev:bots": "npm run --workspace=server dev:bots",
+    "test": "npm run --workspace=server test",
+    "typecheck": "npm run --workspace=server typecheck && npm run --workspace=client-store typecheck && npm run --workspace=client-admin typecheck",
+    "build": "npm run --workspace=server build && npm run --workspace=client-store build && npm run --workspace=client-admin build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

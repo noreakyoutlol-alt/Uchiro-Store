@@ -1,0 +1,29 @@
+/**
+ * Client-side (Admin Mini App) Telegram Premium Custom Emoji Registry
+ * Re-exports EMOJI from shared/config/emoji.ts — single source of truth.
+ * Adds React component for <tg-emoji> rendering in Mini Apps.
+ */
+
+import React from 'react';
+import { EMOJI, tgEmoji } from '../../../shared/config/emoji';
+import { AppIcon } from '../components/common/AppIcon';
+
+export { EMOJI, tgEmoji, AppIcon };
+
+/**
+ * Renders a <tg-emoji> element (works in Telegram WebView) with a
+ * standard emoji text fallback for regular browsers.
+ */
+export const TgEmoji: React.FC<{ emoji: string | null; fallback: string }> = ({
+  emoji,
+  fallback,
+}) => {
+  if (!emoji) return <>{fallback}</>;
+  const CustomTag = 'tg-emoji' as any;
+  return <CustomTag emoji-id={emoji}>{fallback}</CustomTag>;
+};
+
+/**
+ * Inline string helper for JSX text content.
+ */
+export const inlineEmoji = tgEmoji;

@@ -1,0 +1,276 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+export type Language = 'en' | 'km';
+
+const translations = {
+  en: {
+    // Navigation & Tabs
+    tab_home: 'Home',
+    tab_shop: 'Shop',
+    tab_gacha: 'Gacha',
+    tab_orders: 'Orders',
+    tab_profile: 'Profile',
+
+    // Header
+    store_title: 'UCHIRO STORE',
+    points_label: 'Points',
+    open_store: 'Open Store',
+
+    // Home
+    home_hero_title: 'MYTHICAL LEVEL GAMING',
+    home_hero_subtitle: 'Instant Delivery • 14-Day Warranty • 100% Safe',
+    in_stock_now: 'In-Stock Now',
+    in_stock_badge: 'Available',
+    instant_delivery_badge: 'Instant Delivery Available',
+    out_of_stock: 'Out of Stock',
+    coming_soon: 'Coming Back Soon',
+    filter_all: 'All',
+
+    // Shop
+    shop_title: 'Gaming Catalog',
+    shop_search_placeholder: 'Search accounts, items, fruits...',
+    select_game_category: 'Select Game / Category',
+    filter_accounts: 'Accounts',
+    filter_gifts: 'Gift Items',
+    filter_trades: 'Trade Items',
+    filter_codes: 'Digital Codes',
+    sort_featured: 'Featured',
+    sort_price_low: 'Price: Low to High',
+    sort_price_high: 'Price: High to Low',
+    sort_popular: 'Most Popular',
+
+    // Product Detail
+    specifications: 'Specifications',
+    warranty_info: '14-Day Protection Warranty',
+    warranty_desc: 'Guaranteed valid for 14 days provided original authenticator and email access remain active.',
+    viewers_watching: 'people viewing right now',
+    buy_now: 'Buy Now',
+    instant_buy: 'Instant Checkout',
+    roblox_username_required: 'Roblox Username is required for this trade/gift item.',
+    roblox_username_label: 'Your Roblox Username',
+
+    // Checkout & Payment
+    checkout_title: 'Confirm Purchase',
+    subtotal: 'Subtotal',
+    discount: 'Discount',
+    total_amount: 'Total Amount',
+    apply_coupon: 'Apply Coupon',
+    coupon_code: 'Coupon Code',
+    apply: 'Apply',
+    proceed_to_payment: 'Proceed to KHPay Checkout',
+    payment_title: 'Scan to Pay with KHPay',
+    payment_countdown: 'Payment window expires in',
+    open_aba: 'Open ABA Mobile',
+    open_bakong: 'Open Mobile Banking',
+    copy_payment_data: 'Copy Payment Reference',
+    verifying_payment: 'Verifying payment automatically...',
+    payment_successful: 'Payment Confirmed!',
+
+    // Delivered Order & Authenticator
+    order_delivered: 'Order Delivered Successfully',
+    credentials_vault: 'Secure Credentials Vault',
+    username: 'Username',
+    password: 'Password',
+    email: 'Email',
+    email_password: 'Email Password',
+    authenticator: 'Authenticator (2FA)',
+    live_totp_code: 'Live 6-Digit Authenticator Code',
+    expires_in: 'Expires in',
+    refresh: 'Refresh Code',
+    import_authenticator: 'Import to Authenticator App',
+    view_backup_codes: 'View Backup Codes',
+    copy: 'Copy',
+    copied: 'Copied!',
+    reveal: 'Reveal',
+    hide: 'Hide',
+    security_warning: 'Keep your authenticator and recovery email secure. Do not delete or remove them.',
+    warranty_status_active: '14-Day Warranty Active',
+
+    // Authenticator Modal
+    import_modal_title: 'Import Authenticator',
+    scan_qr: 'Scan QR Code',
+    copy_setup_key: 'Copy Setup Key',
+    copy_uri: 'Copy Authenticator URI',
+    setup_steps: '1. Open Google Authenticator or 1Password\n2. Add new account\n3. Scan QR or paste setup key\n4. Authenticator will generate 6-digit codes automatically.',
+
+    // Gacha & Rewards
+    gacha_title: 'Mythical Reward Chest',
+    gacha_subtitle: 'Blox Fruits & MM2 Points Rewards',
+    spin_cost: 'Spin Cost: 100 Points',
+    available_points: 'Available Points',
+    spin_now: 'Spin for 100 Points',
+    spinning: 'Summoning...',
+    reward_congratulations: 'Congratulations!',
+    redeem_coupon_from_points: 'Redeem $1 Coupon (100 Pts)',
+    daily_reward: 'Daily Check-in Reward',
+    claim_daily: 'Claim Daily Reward',
+    streak_days: 'Day Streak',
+    already_claimed_today: 'Claimed Today — Come back tomorrow!',
+
+    // Profile & Settings
+    profile_title: 'Player Profile',
+    total_spent: 'Total Spent',
+    total_orders: 'Total Orders',
+    uchiro_points: 'Uchiro Points',
+    referral_code: 'Referral Code',
+    points_history: 'Points Ledger',
+    theme_setting: 'Appearance Theme',
+    language_setting: 'Language / ភាសា',
+    music_toggle: 'Background Music',
+    support_tickets: 'Support Tickets',
+    open_support_ticket: 'Contact Support',
+  },
+  km: {
+    // Navigation & Tabs
+    tab_home: 'ទំព័រដើម',
+    tab_shop: 'ហាងទំនិញ',
+    tab_gacha: 'កាឆា',
+    tab_orders: 'ការបញ្ជាទិញ',
+    tab_profile: 'គណនី',
+
+    // Header
+    store_title: 'UCHIRO STORE',
+    points_label: 'ពិន្ទុ',
+    open_store: 'បើកហាង',
+
+    // Home
+    home_hero_title: 'ហ្គេម និងគណនីលំដាប់កំពូល',
+    home_hero_subtitle: 'ដឹកជញ្ជូនភ្លាមៗ • ធានា ១៤ ថ្ងៃ • សុវត្ថិភាព ១០០%',
+    in_stock_now: 'ទំនិញមានក្នុងស្តុក',
+    in_stock_badge: 'មានស្តុក',
+    instant_delivery_badge: 'ដឹកជញ្ជូនភ្លាមៗ',
+    out_of_stock: 'អស់ពីស្តុក',
+    coming_soon: 'នឹងមកដល់ឆាប់ៗ',
+    filter_all: 'ទាំងអស់',
+
+    // Shop
+    shop_title: 'បញ្ជីទំនិញហ្គេម',
+    shop_search_placeholder: 'ស្វែងរកគណនី, ផ្លែឈើ, កូដ...',
+    select_game_category: 'ជ្រើសរើសប្រភេទហ្គេម',
+    filter_accounts: 'គណនីហ្គេម',
+    filter_gifts: 'កាដូហ្គេម',
+    filter_trades: 'ទំនិញដោះដូរ',
+    filter_codes: 'កូដឌីជីថល',
+    sort_featured: 'ពិសេស',
+    sort_price_low: 'តម្លៃ៖ ទាបទៅខ្ពស់',
+    sort_price_high: 'តម្លៃ៖ ខ្ពស់ទៅទាប',
+    sort_popular: 'ពេញនិយមបំផុត',
+
+    // Product Detail
+    specifications: 'លក្ខណៈពិសេស',
+    warranty_info: 'ការធានារយៈពេល ១៤ ថ្ងៃ',
+    warranty_desc: 'ការធានាមានសុពលភាពដរាបណា Email និង Authenticator ដើមមិនត្រូវបានលុបចេញ។',
+    viewers_watching: 'នាក់កំពុងមើលឥឡូវនេះ',
+    buy_now: 'ទិញឥឡូវនេះ',
+    instant_buy: 'ទិញភ្លាមៗ',
+    roblox_username_required: 'តម្រូវឱ្យបញ្ចូលឈ្មោះ Roblox សម្រាប់ការផ្ញើទំនិញ។',
+    roblox_username_label: 'ឈ្មោះ Roblox របស់អ្នក',
+
+    // Checkout & Payment
+    checkout_title: 'បញ្ជាក់ការបញ្ជាទិញ',
+    subtotal: 'តម្លៃសរុប',
+    discount: 'បញ្ចុះតម្លៃ',
+    total_amount: 'ទឹកប្រាក់ត្រូវបង់',
+    apply_coupon: 'បញ្ចូលប័ណ្ណបញ្ចុះតម្លៃ',
+    coupon_code: 'លេខកូដប័ណ្ណ',
+    apply: 'ប្រើប្រាស់',
+    proceed_to_payment: 'បន្តទៅការបង់ប្រាក់ KHPay',
+    payment_title: 'ស្កេនទូទាត់ជាមួយ KHPay',
+    payment_countdown: 'រយៈពេលទូទាត់នៅសល់',
+    open_aba: 'បើក ABA Mobile',
+    open_bakong: 'បើកកម្មវិធីធនាគារ',
+    copy_payment_data: 'ចម្លងព័ត៌មានទូទាត់',
+    verifying_payment: 'កំពុងផ្ទៀងផ្ទាត់ការទូទាត់...',
+    payment_successful: 'ការទូទាត់ទទួលបានជោគជ័យ!',
+
+    // Delivered Order & Authenticator
+    order_delivered: 'ការដឹកជញ្ជូនបានជោគជ័យ',
+    credentials_vault: 'ប្រអប់សុវត្ថិភាពគណនី',
+    username: 'ឈ្មោះគណនី',
+    password: 'ពាក្យសម្ងាត់',
+    email: 'អ៊ីមែល',
+    email_password: 'ពាក្យសម្ងាត់អ៊ីមែល',
+    authenticator: 'ប្រព័ន្ធផ្ទៀងផ្ទាត់ (2FA)',
+    live_totp_code: 'កូដ Authenticator ៦ ខ្ទង់បន្តផ្ទាល់',
+    expires_in: 'ផុតកំណត់ក្នុងរយះពេល',
+    refresh: 'ទាញយកកូដថ្មី',
+    import_authenticator: 'បញ្ចូលទៅកាន់ Authenticator App',
+    view_backup_codes: 'មើលកូដបម្រុងទុក',
+    copy: 'ចម្លង',
+    copied: 'បានចម្លង!',
+    reveal: 'បង្ហាញ',
+    hide: 'លាក់',
+    security_warning: 'សូមរក្សា Authenticator និង Email ឱ្យមានសុវត្ថិភាព។ កុំលុបពួកវាចោល។',
+    warranty_status_active: 'ការធានា ១៤ ថ្ងៃកំពុងដំណើរការ',
+
+    // Authenticator Modal
+    import_modal_title: 'បញ្ចូល Authenticator',
+    scan_qr: 'ស្កេន QR Code',
+    copy_setup_key: 'ចម្លង Setup Key',
+    copy_uri: 'ចម្លង Authenticator URI',
+    setup_steps: '១. បើក Google Authenticator ឬ 1Password\n២. បន្ថែមគណនីថ្មី\n៣. ស្កេន QR ឬបិទភ្ជាប់ setup key\n៤. កម្មវិធីនឹងបង្កើតកូដ ៦ ខ្ទង់ដោយស្វ័យប្រវត្តិ។',
+
+    // Gacha & Rewards
+    gacha_title: 'ហឹបកំណប់សំណាង',
+    gacha_subtitle: 'រង្វាន់ពិន្ទុ Blox Fruits & MM2',
+    spin_cost: 'តម្លៃបង្វិល៖ ១០០ ពិន្ទុ',
+    available_points: 'ពិន្ទុរបស់អ្នក',
+    spin_now: 'បង្វិល (១០០ ពិន្ទុ)',
+    spinning: 'កំពុងបើករង្វាន់...',
+    reward_congratulations: 'អបអរសាទរ!',
+    redeem_coupon_from_points: 'ប្តូរយកប័ណ្ណ $1 (១០០ ពិន្ទុ)',
+    daily_reward: 'រង្វាន់ចូលប្រចាំថ្ងៃ',
+    claim_daily: 'ទទួលយករង្វាន់ប្រចាំថ្ងៃ',
+    streak_days: 'ថ្ងៃជាប់ៗគ្នា',
+    already_claimed_today: 'បានទទួលថ្ងៃនេះរួចរាល់ហើយ — សូមមកម្តងទៀតថ្ងៃស្អែក!',
+
+    // Profile & Settings
+    profile_title: 'ព័ត៌មានគណនី',
+    total_spent: 'ការចំណាយសរុប',
+    total_orders: 'ចំនួនកុម្ម៉ង់សរុប',
+    uchiro_points: 'ពិន្ទុ Uchiro',
+    referral_code: 'កូដណែនាំ',
+    points_history: 'ប្រវត្តិពិន្ទុ',
+    theme_setting: 'រូបរាង / ពណ៌',
+    language_setting: 'ភាសា / Language',
+    music_toggle: 'តន្ត្រីផ្ទៃខាងក្រោយ',
+    support_tickets: 'ជំនួយ និងសេវាកម្ម',
+    open_support_ticket: 'ទាក់ទងផ្នែកជំនួយ',
+  },
+};
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: keyof typeof translations.en) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType>({
+  language: 'en',
+  setLanguage: () => {},
+  t: (key) => key,
+});
+
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [language, setLangState] = useState<Language>(() => {
+    const saved = localStorage.getItem('uchiro_store_lang');
+    return (saved === 'km' || saved === 'en') ? saved : 'en';
+  });
+
+  const setLanguage = (lang: Language) => {
+    setLangState(lang);
+    localStorage.setItem('uchiro_store_lang', lang);
+  };
+
+  const t = (key: keyof typeof translations.en): string => {
+    return translations[language][key] || translations.en[key] || key;
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+};
+
+export const useLanguage = () => useContext(LanguageContext);

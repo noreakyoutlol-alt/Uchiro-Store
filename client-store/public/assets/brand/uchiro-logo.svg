@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="uchiroGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE082"/>
+      <stop offset="50%" stop-color="#FFD166"/>
+      <stop offset="100%" stop-color="#D49A00"/>
+    </linearGradient>
+    <linearGradient id="uchiroCrimson" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4D5E"/>
+      <stop offset="50%" stop-color="#E63946"/>
+      <stop offset="100%" stop-color="#800F1C"/>
+    </linearGradient>
+    <linearGradient id="uchiroDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141824"/>
+      <stop offset="100%" stop-color="#080A10"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background Shield Crest -->
+  <rect x="25" y="25" width="450" height="450" rx="90" fill="url(#uchiroDark)" stroke="url(#uchiroGold)" stroke-width="4" stroke-opacity="0.4"/>
+  <rect x="40" y="40" width="420" height="420" rx="75" fill="none" stroke="url(#uchiroCrimson)" stroke-width="2" stroke-opacity="0.6"/>
+
+  <!-- Gaming Crest Hexagon / Diamond -->
+  <polygon points="250,70 390,150 390,320 250,400 110,320 110,150" fill="#0C0F17" stroke="url(#uchiroCrimson)" stroke-width="5" filter="url(#glow)"/>
+
+  <!-- Dynamic U Mark for UCHIRO -->
+  <path d="M 170 140 L 170 270 C 170 330, 210 355, 250 355 C 290 355, 330 330, 330 270 L 330 140 L 290 140 L 290 265 C 290 295, 275 315, 250 315 C 225 315, 210 295, 210 265 L 210 140 Z" fill="url(#uchiroGold)"/>
+
+  <!-- Katana / Blade Accent Angle Cutting Through -->
+  <path d="M 235 90 L 265 90 L 255 365 L 245 365 Z" fill="url(#uchiroCrimson)" opacity="0.9"/>
+  <polygon points="250,65 260,95 240,95" fill="#FFE082"/>
+
+  <!-- Energy Wings / Flame accents -->
+  <path d="M 135 220 Q 155 190 180 200 Q 165 240 135 250 Z" fill="url(#uchiroCrimson)" opacity="0.8"/>
+  <path d="M 365 220 Q 345 190 320 200 Q 335 240 365 250 Z" fill="url(#uchiroCrimson)" opacity="0.8"/>
+
+  <!-- Star Emblems -->
+  <polygon points="250,300 254,310 265,312 257,320 259,330 250,324 241,330 243,320 235,312 246,310" fill="#FFE082"/>
+
+  <!-- Brand Typography -->
+  <text x="250" y="440" font-family="'Impact', 'Arial Black', sans-serif" font-size="28" font-weight="900" fill="url(#uchiroGold)" text-anchor="middle" letter-spacing="6">UCHIRO STORE</text>
+</svg>

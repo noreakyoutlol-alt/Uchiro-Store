@@ -1,0 +1,526 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  X,
+  Tag,
+  ShieldCheck,
+  Loader2,
+  ArrowRight,
+  CheckCircle2,
+  Sparkles,
+  AlertCircle,
+  UserCheck,
+  Gift,
+  Zap,
+} from 'lucide-react';
+import { Product, CouponValidationResult, RobloxProfile, formatDeliveryMode } from '../../types';
+import { StoreAPI } from '../../services/api';
+
+interface CheckoutModalProps {
+  product: Product;
+  quantity?: number;
+  initialQuantity?: number;
+  robloxUsername?: string;
+  robloxDisplayName?: string;
+  robloxUserId?: string;
+  onClose: () => void;
+  onOrderCreated: (order: any, payment: any) => void;
+}
+
+export const CheckoutModal: React.FC<CheckoutModalProps> = ({
+  product,
+  quantity: propQuantity,
+  initialQuantity,
+  robloxUsername: initialRobloxUsername,
+  robloxDisplayName: initialRobloxDisplayName,
+  robloxUserId: initialRobloxUserId,
+  onClose,
+  onOrderCreated,
+}) => {
+  const isAccount = product.delivery_mode === 'auto_account' || product.product_type === 'account';
+  const isGift = product.delivery_mode === 'manual_service' || product.product_type === 'gift';
+  const isTrade = product.delivery_mode === 'trade_item' || product.product_type === 'trade';
+  const isMultiQtyEligible = !isAccount && (
+    product.delivery_mode === 'digital_code' ||
+    product.delivery_mode === 'manual_service' ||
+    product.delivery_mode === 'trade_item'
+  );
+  const showQuantityControls = Boolean(isMultiQtyEligible && product.stock >= 2);
+  const maxStock = Math.max(1, product.stock || 1);
+
+  const [quantity, setQuantity] = useState<number>(() => {
+    if (isAccount) return 1;
+    const initial = propQuantity || initialQuantity || 1;
+    return Math.max(1, Math.min(initial, maxStock));
+  });
+
+  useEffect(() => {
+    if (isAccount) {
+      setQuantity(1);
+    } else if (propQuantity && propQuantity > 0) {
+      setQuantity(Math.min(propQuantity, maxStock));
+    }
+  }, [propQuantity, isAccount, maxStock]);
+
+  const effectiveQuantity = isAccount ? 1 : Math.min(Math.max(1, quantity), maxStock);
+  const subtotal = Number((product.price * effectiveQuantity).toFixed(2));
+
+  const requiresRoblox = Boolean(
+    product.requires_roblox_username ||
+    product.requires_roblox_verification ||
+    isGift ||
+    isTrade
+  );
+
+  // Roblox verification state
+  const [robloxUsernameInput, setRobloxUsernameInput] = useState(initialRobloxUsername || '');
+  const [verifiedProfile, setVerifiedProfile] = useState<RobloxProfile | null>(() => {
+    if (initialRobloxUsername && initialRobloxUserId) {
+      return {
+        id: Number(initialRobloxUserId) || 0,
+        name: initialRobloxUsername,
+        displayName: initialRobloxDisplayName || initialRobloxUsername,
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${initialRobloxUsername}`,
+        isVerified: true,
+      };
+    }
+    return null;
+  });
+  const [isVerifyingRoblox, setIsVerifyingRoblox] = useState(false);
+  const [robloxVerifyError, setRobloxVerifyError] = useState<string | null>(null);
+  const [recipientConfirmed, setRecipientConfirmed] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [couponResult, setCouponResult] = useState<CouponValidationResult | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // If initial username was provided without full verified profile, verify on mount
+  useEffect(() => {
+    if (initialRobloxUsername && !verifiedProfile?.avatarUrl) {
+      verifyUsername(initialRobloxUsername);
+    }
+  }, [initialRobloxUsername]);
+
+  const verifyUsername = async (username: string) => {
+    const clean = username.trim();
+    if (!clean) {
+      setVerifiedProfile(null);
+      setRobloxVerifyError(null);
+      return;
+    }
+
+    setIsVerifyingRoblox(true);
+    setRobloxVerifyError(null);
+    try {
+      const profile = await StoreAPI.verifyRobloxUsername(clean);
+      if (profile) {
+        setVerifiedProfile(profile);
+        setRobloxVerifyError(null);
+      } else {
+        setVerifiedProfile(null);
+        setRobloxVerifyError('Roblox user not found. Please verify spelling.');
+      }
+    } catch {
+      setVerifiedProfile(null);
+      setRobloxVerifyError('Unable to reach Roblox verification service.');
+    } finally {
+      setIsVerifyingRoblox(false);
+    }
+  };
+
+  const handleRobloxInputChange = (val: string) => {
+    setRobloxUsernameInput(val);
+    setRecipientConfirmed(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      verifyUsername(val);
+    }, 600);
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setIsValidatingCoupon(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await StoreAPI.validateCoupon(couponCode.trim(), subtotal);
+      setCouponResult(res);
+      if (!res.isValid) {
+        setErrorMessage(res.error || 'Invalid or expired coupon code');
+      }
+    } catch {
+      setErrorMessage('Failed to validate coupon');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  // Dynamically revalidate applied coupon if quantity/subtotal changes
+  useEffect(() => {
+    if (couponResult?.isValid && couponCode.trim()) {
+      StoreAPI.validateCoupon(couponCode.trim(), subtotal)
+        .then((res) => {
+          if (res.isValid) {
+            setCouponResult(res);
+          } else {
+            setCouponResult(null);
+            setErrorMessage(res.error || 'Coupon no longer valid for this quantity/amount');
+          }
+        })
+        .catch(() => {});
+    }
+  }, [effectiveQuantity, product.price]);
+
+  const discountAmount = couponResult?.isValid ? couponResult.discountAmount : 0;
+  const finalTotal = Math.max(0.1, Number((subtotal - discountAmount).toFixed(2)));
+
+  const isFulfillmentReady = !requiresRoblox || (Boolean(verifiedProfile) && recipientConfirmed);
+
+  const handleProceedToPayment = async () => {
+    if (requiresRoblox) {
+      if (!verifiedProfile) {
+        setErrorMessage('Please enter and verify the recipient Roblox username before proceeding.');
+        return;
+      }
+      if (!recipientConfirmed) {
+        setErrorMessage('Please confirm that this is the correct recipient account.');
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    const idempotencyKey = `idemp-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const orderPayload = {
+      productId: product.id,
+      quantity: effectiveQuantity,
+      couponCode: couponResult?.isValid ? couponCode.trim() : undefined,
+      robloxUsername: verifiedProfile?.name || robloxUsernameInput.trim() || undefined,
+      robloxDisplayName: verifiedProfile?.displayName || undefined,
+      robloxUserId: verifiedProfile?.id ? String(verifiedProfile.id) : undefined,
+      idempotencyKey,
+    };
+
+    try {
+      const result = await StoreAPI.createOrder(orderPayload);
+      onOrderCreated(result.order, result.payment);
+    } catch (err: any) {
+      // If 401 received, trigger immediate silent re-authentication with Telegram initData and retry
+      if (err.response?.status === 401) {
+        try {
+          const tg = (window as any).Telegram?.WebApp;
+          const initData = tg?.initData || '';
+          await StoreAPI.authenticateTelegram(initData);
+          const retryResult = await StoreAPI.createOrder(orderPayload);
+          onOrderCreated(retryResult.order, retryResult.payment);
+          return;
+        } catch (retryErr: any) {
+          setErrorMessage(
+            retryErr.response?.data?.error?.message || 'Authentication expired. Please refresh the app.'
+          );
+          return;
+        }
+      }
+
+      setErrorMessage(
+        err.response?.data?.error?.message || 'Failed to initialize payment order.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getGuaranteeText = () => {
+    if (isGift) return 'Guaranteed Roblox Gift Delivery via KHPay Gateway.';
+    if (isTrade) return 'Guaranteed In-Game Trade Delivery via KHPay Gateway.';
+    if (product.delivery_mode === 'digital_code') return 'Guaranteed Instant Digital Key via KHPay Gateway.';
+    return 'Guaranteed Instant Delivery via KHPay Gateway.';
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+      <div
+        className="w-full max-w-md bg-[#0E121E] border border-white/10 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-[#FFD166]" />
+            <h3 className="font-black text-white text-base">ORDER CHECKOUT</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+          {/* Product Summary */}
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex gap-3 items-center">
+            <img
+              src={
+                product.media?.[0]?.url ||
+                'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80'
+              }
+              alt=""
+              className="w-14 h-14 rounded-xl object-cover bg-black/40 border border-white/10 flex-shrink-0"
+              loading="lazy"
+              decoding="async"
+            />
+            <div className="flex-1 min-w-0">
+              <h4 className="font-bold text-xs text-white truncate">{product.title}</h4>
+              <p className="text-[11px] text-slate-400">
+                {isGift
+                  ? 'Roblox Gift Delivery'
+                  : isTrade
+                  ? 'In-Game Trade'
+                  : formatDeliveryMode(product.delivery_mode)}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-sm font-black text-[#FFD166]">
+                  ${subtotal.toFixed(2)}
+                </span>
+                {effectiveQuantity > 1 && (
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    (${product.price.toFixed(2)} × {effectiveQuantity})
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quantity Controls (if multi-quantity supported and stock >= 2) */}
+          {showQuantityControls && (
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10">
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-white">Quantity</span>
+                <span className="text-[10px] text-slate-400">
+                  {product.stock} available in stock
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {effectiveQuantity === 1 ? (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs flex items-center gap-1 transition-all border border-rose-500/30 active:scale-95"
+                    title="Remove item"
+                  >
+                    <span>🗑️ Remove</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                    className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white font-black text-sm flex items-center justify-center transition-all active:scale-95"
+                    aria-label="Decrease quantity"
+                  >
+                    -
+                  </button>
+                )}
+                <span className="w-8 text-center font-black text-sm text-[#FFD166]">
+                  {effectiveQuantity}
+                </span>
+                <button
+                  type="button"
+                  disabled={effectiveQuantity >= product.stock}
+                  onClick={() => setQuantity((prev) => Math.min(prev + 1, product.stock))}
+                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white font-black text-sm flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Verification Enforcement for Gift & Trade Items */}
+          {requiresRoblox && (
+            <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4 text-[#FFD166]" />
+                  <span>Recipient Roblox Account</span>
+                </label>
+                <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">
+                  * Required
+                </span>
+              </div>
+
+              {/* Input with inline verification loader */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={robloxUsernameInput}
+                  onChange={(e) => handleRobloxInputChange(e.target.value)}
+                  placeholder="Enter exact Roblox username..."
+                  className="w-full pl-3 pr-9 py-2.5 rounded-xl bg-[#141926] border border-white/15 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-[#FFD166]"
+                />
+                {isVerifyingRoblox && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 text-[#FFD166] animate-spin" />
+                  </div>
+                )}
+              </div>
+
+              {/* Verified Recipient Card */}
+              {verifiedProfile && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 animate-fadeIn">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {verifiedProfile.avatarUrl ? (
+                      <img
+                        src={verifiedProfile.avatarUrl}
+                        alt={verifiedProfile.name}
+                        className="w-10 h-10 rounded-full object-cover bg-black/40 border border-emerald-500/40 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-bold text-xs shrink-0">
+                        {verifiedProfile.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 text-xs font-bold text-emerald-300 truncate">
+                        <span>{verifiedProfile.displayName || verifiedProfile.name}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                        <span>@{verifiedProfile.name}</span>
+                        {verifiedProfile.id > 0 && (
+                          <span className="font-mono text-slate-500">ID: {verifiedProfile.id}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase shrink-0">
+                    Verified
+                  </span>
+                </div>
+              )}
+
+              {/* Error state */}
+              {robloxVerifyError && !isVerifyingRoblox && (
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{robloxVerifyError}</span>
+                </div>
+              )}
+
+              {/* Recipient Confirmation Checkbox */}
+              {verifiedProfile && (
+                <label className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={recipientConfirmed}
+                    onChange={(e) => setRecipientConfirmed(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-0 focus:ring-offset-0 bg-black/40 border-white/20 cursor-pointer"
+                  />
+                  <span className="text-[11px] text-slate-300 leading-snug">
+                    I confirm this is my exact Roblox account{' '}
+                    <strong className="text-white">(@{verifiedProfile.name})</strong> and understand gift/trade deliveries cannot be transferred once sent.
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          {/* Coupon Code Input */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-[#FFD166]" />
+              <span>Promo / Coupon Code</span>
+            </label>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                placeholder="e.g. UCHIRO10"
+                className="flex-1 px-3 py-2.5 rounded-xl bg-black/50 border border-white/20 text-white text-xs uppercase placeholder:text-slate-500 focus:outline-none focus:border-[#FFD166]"
+              />
+              <button
+                type="button"
+                onClick={handleApplyCoupon}
+                disabled={isValidatingCoupon || !couponCode.trim()}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all disabled:opacity-50"
+              >
+                {isValidatingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Apply'}
+              </button>
+            </div>
+
+            {couponResult?.isValid && (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Coupon Applied: -${couponResult.discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Pricing Breakdown */}
+          <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-2 text-xs">
+            <div className="flex justify-between text-slate-400">
+              <span>Subtotal {effectiveQuantity > 1 && `(${effectiveQuantity} items)`}</span>
+              <span className="text-white font-bold">${subtotal.toFixed(2)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-400 font-bold">
+                <span>Coupon Discount</span>
+                <span>-${discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="border-t border-white/10 pt-2 flex justify-between items-center">
+              <span className="font-bold text-white text-sm">Total Due</span>
+              <span className="font-black text-[#FFD166] text-lg">
+                ${finalTotal.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Warranty Guarantee */}
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-black/40 border border-white/5 text-[11px] text-slate-400">
+            <ShieldCheck className="w-4 h-4 text-[#FFD166] flex-shrink-0" />
+            <span>{getGuaranteeText()}</span>
+          </div>
+
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+              {errorMessage}
+            </div>
+          )}
+        </div>
+
+        {/* Footer / Action */}
+        <div className="p-4 bg-[#0A0D14] border-t border-white/10">
+          <button
+            disabled={isSubmitting || !isFulfillmentReady}
+            onClick={handleProceedToPayment}
+            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#E63946] via-[#FFD166] to-[#E63946] bg-[length:200%_auto] hover:bg-right font-black text-sm text-black shadow-lg shadow-[#E63946]/30 flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin text-black" />
+                <span>Generating KHPay QR...</span>
+              </>
+            ) : requiresRoblox && !verifiedProfile ? (
+              <span>ENTER VERIFIED ROBLOX RECIPIENT</span>
+            ) : requiresRoblox && !recipientConfirmed ? (
+              <span>CONFIRM RECIPIENT TO PROCEED</span>
+            ) : (
+              <>
+                <span>PAY ${finalTotal.toFixed(2)} WITH KHPAY</span>
+                <ArrowRight className="w-4 h-4 text-black" />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

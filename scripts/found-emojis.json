@@ -1,0 +1,685 @@
+[
+  {
+    "emoji": "ℹ️",
+    "codePoints": "U+2139 U+FE0F",
+    "occurrences": [
+      "server\\src\\run-bots.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\server.ts"
+    ]
+  },
+  {
+    "emoji": "⏱️",
+    "codePoints": "U+23F1 U+FE0F",
+    "occurrences": [
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\workers\\payment.worker.ts"
+    ]
+  },
+  {
+    "emoji": "⏳",
+    "codePoints": "U+23F3",
+    "occurrences": [
+      "server\\src\\services\\fulfillment.service.ts"
+    ]
+  },
+  {
+    "emoji": "⏹️",
+    "codePoints": "U+23F9 U+FE0F",
+    "occurrences": [
+      "server\\src\\workers\\payment.worker.ts"
+    ]
+  },
+  {
+    "emoji": "★",
+    "codePoints": "U+2605",
+    "occurrences": [
+      "client-admin\\src\\components\\products\\MediaManager.tsx"
+    ]
+  },
+  {
+    "emoji": "⚔️",
+    "codePoints": "U+2694 U+FE0F",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx"
+    ]
+  },
+  {
+    "emoji": "⚙️",
+    "codePoints": "U+2699 U+FE0F",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "⚠️",
+    "codePoints": "U+26A0 U+FE0F",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\production.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\server.ts",
+      "server\\src\\services\\admin.service.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "client-admin\\src\\pages\\BackupPage.tsx"
+    ]
+  },
+  {
+    "emoji": "⚡",
+    "codePoints": "U+26A1",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\server.ts",
+      "server\\src\\services\\broadcast.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts",
+      "server\\src\\tests\\critical-fixes-verification.test.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx",
+      "client-store\\src\\components\\product\\ProductCard.tsx",
+      "client-store\\src\\components\\product\\ProductDetailModal.tsx"
+    ]
+  },
+  {
+    "emoji": "⛔",
+    "codePoints": "U+26D4",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts"
+    ]
+  },
+  {
+    "emoji": "✅",
+    "codePoints": "U+2705",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\config\\emoji.ts",
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\production.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\server.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts"
+    ]
+  },
+  {
+    "emoji": "✨",
+    "codePoints": "U+2728",
+    "occurrences": [
+      "server\\src\\scripts\\test-sample-delivery.ts"
+    ]
+  },
+  {
+    "emoji": "❌",
+    "codePoints": "U+274C",
+    "occurrences": [
+      "server\\src\\run-bots.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "❤️",
+    "codePoints": "U+2764 U+FE0F",
+    "occurrences": [
+      "server\\src\\production.ts"
+    ]
+  },
+  {
+    "emoji": "⭐",
+    "codePoints": "U+2B50",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\database\\data-store.ts"
+    ]
+  },
+  {
+    "emoji": "🆔",
+    "codePoints": "U+1F194",
+    "occurrences": [
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "🇬🇧",
+    "codePoints": "U+1F1EC U+1F1E7",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts"
+    ]
+  },
+  {
+    "emoji": "🇰🇭",
+    "codePoints": "U+1F1F0 U+1F1ED",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts",
+      "client-store\\src\\components\\profile\\ProfilePage.tsx"
+    ]
+  },
+  {
+    "emoji": "🇺🇸",
+    "codePoints": "U+1F1FA U+1F1F8",
+    "occurrences": [
+      "client-store\\src\\components\\profile\\ProfilePage.tsx"
+    ]
+  },
+  {
+    "emoji": "🌐",
+    "codePoints": "U+1F310",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\run-bots.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "🎁",
+    "codePoints": "U+1F381",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\admin.service.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts",
+      "client-store\\src\\components\\product\\ProductCard.tsx",
+      "client-store\\src\\components\\product\\ProductDetailModal.tsx",
+      "client-admin\\src\\pages\\ProductsPage.tsx"
+    ]
+  },
+  {
+    "emoji": "🎉",
+    "codePoints": "U+1F389",
+    "occurrences": [
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "🎟️",
+    "codePoints": "U+1F39F U+FE0F",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx"
+    ]
+  },
+  {
+    "emoji": "🎡",
+    "codePoints": "U+1F3A1",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "🎮",
+    "codePoints": "U+1F3AE",
+    "occurrences": [
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\notification.service.ts",
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx"
+    ]
+  },
+  {
+    "emoji": "🎯",
+    "codePoints": "U+1F3AF",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx"
+    ]
+  },
+  {
+    "emoji": "🎰",
+    "codePoints": "U+1F3B0",
+    "occurrences": [
+      "client-store\\src\\config\\emoji.tsx"
+    ]
+  },
+  {
+    "emoji": "🏃",
+    "codePoints": "U+1F3C3",
+    "occurrences": [
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx"
+    ]
+  },
+  {
+    "emoji": "👑",
+    "codePoints": "U+1F451",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\database\\data-store.ts",
+      "server\\src\\tests\\critical-fixes-verification.test.ts"
+    ]
+  },
+  {
+    "emoji": "👤",
+    "codePoints": "U+1F464",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "client-admin\\src\\pages\\ProductsPage.tsx"
+    ]
+  },
+  {
+    "emoji": "💎",
+    "codePoints": "U+1F48E",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\database\\data-store.ts"
+    ]
+  },
+  {
+    "emoji": "💡",
+    "codePoints": "U+1F4A1",
+    "occurrences": [
+      "server\\src\\services\\fulfillment.service.ts"
+    ]
+  },
+  {
+    "emoji": "💬",
+    "codePoints": "U+1F4AC",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\admin.service.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "server\\src\\tests\\telegram-sample-delivery.test.ts"
+    ]
+  },
+  {
+    "emoji": "💰",
+    "codePoints": "U+1F4B0",
+    "occurrences": [
+      "server\\src\\workers\\payment.worker.ts"
+    ]
+  },
+  {
+    "emoji": "💳",
+    "codePoints": "U+1F4B3",
+    "occurrences": [
+      "client-store\\src\\config\\emoji.tsx"
+    ]
+  },
+  {
+    "emoji": "💵",
+    "codePoints": "U+1F4B5",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\broadcast.service.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "📁",
+    "codePoints": "U+1F4C1",
+    "occurrences": [
+      "server\\src\\production.ts"
+    ]
+  },
+  {
+    "emoji": "📄",
+    "codePoints": "U+1F4C4",
+    "occurrences": [
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\fulfillment.service.ts"
+    ]
+  },
+  {
+    "emoji": "📅",
+    "codePoints": "U+1F4C5",
+    "occurrences": [
+      "server\\src\\services\\fulfillment.service.ts"
+    ]
+  },
+  {
+    "emoji": "📈",
+    "codePoints": "U+1F4C8",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "📊",
+    "codePoints": "U+1F4CA",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "📍",
+    "codePoints": "U+1F4CD",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "📜",
+    "codePoints": "U+1F4DC",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "📝",
+    "codePoints": "U+1F4DD",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "📡",
+    "codePoints": "U+1F4E1",
+    "occurrences": [
+      "server\\src\\production.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\server.ts"
+    ]
+  },
+  {
+    "emoji": "📢",
+    "codePoints": "U+1F4E2",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "📦",
+    "codePoints": "U+1F4E6",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\broadcast.service.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "server\\src\\tests\\telegram-webapp-https-fix.test.ts"
+    ]
+  },
+  {
+    "emoji": "📱",
+    "codePoints": "U+1F4F1",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "📲",
+    "codePoints": "U+1F4F2",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts"
+    ]
+  },
+  {
+    "emoji": "📷",
+    "codePoints": "U+1F4F7",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\tests\\telegram-sample-delivery.test.ts"
+    ]
+  },
+  {
+    "emoji": "🔄",
+    "codePoints": "U+1F504",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "client-admin\\src\\pages\\ProductsPage.tsx"
+    ]
+  },
+  {
+    "emoji": "🔍",
+    "codePoints": "U+1F50D",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "🔎",
+    "codePoints": "U+1F50E",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\tests\\telegram-webapp-https-fix.test.ts"
+    ]
+  },
+  {
+    "emoji": "🔐",
+    "codePoints": "U+1F510",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts"
+    ]
+  },
+  {
+    "emoji": "🔑",
+    "codePoints": "U+1F511",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "client-store\\src\\components\\product\\ProductCard.tsx",
+      "client-store\\src\\components\\product\\ProductDetailModal.tsx"
+    ]
+  },
+  {
+    "emoji": "🔒",
+    "codePoints": "U+1F512",
+    "occurrences": [
+      "client-store\\src\\components\\product\\ProductCard.tsx",
+      "client-store\\src\\components\\product\\ProductDetailModal.tsx"
+    ]
+  },
+  {
+    "emoji": "🔔",
+    "codePoints": "U+1F514",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "🔗",
+    "codePoints": "U+1F517",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "🔢",
+    "codePoints": "U+1F522",
+    "occurrences": [
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\tests\\telegram-sample-delivery.test.ts"
+    ]
+  },
+  {
+    "emoji": "🔥",
+    "codePoints": "U+1F525",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\database\\data-store.ts",
+      "server\\src\\services\\admin.service.ts",
+      "server\\src\\services\\broadcast.service.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts",
+      "server\\src\\tests\\critical-fixes-verification.test.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts"
+    ]
+  },
+  {
+    "emoji": "🔧",
+    "codePoints": "U+1F527",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "🔪",
+    "codePoints": "U+1F52A",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx"
+    ]
+  },
+  {
+    "emoji": "🔴",
+    "codePoints": "U+1F534",
+    "occurrences": [
+      "client-admin\\src\\pages\\InventoryPage.tsx"
+    ]
+  },
+  {
+    "emoji": "🚀",
+    "codePoints": "U+1F680",
+    "occurrences": [
+      "server\\src\\production.ts",
+      "server\\src\\run-bots.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\services\\notification.service.ts"
+    ]
+  },
+  {
+    "emoji": "🚨",
+    "codePoints": "U+1F6A8",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\services\\order.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "🛍️",
+    "codePoints": "U+1F6CD U+FE0F",
+    "occurrences": [
+      "server\\src\\bots\\store-bot\\index.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts"
+    ]
+  },
+  {
+    "emoji": "🛑",
+    "codePoints": "U+1F6D1",
+    "occurrences": [
+      "server\\src\\production.ts",
+      "server\\src\\run-bots.ts"
+    ]
+  },
+  {
+    "emoji": "🛒",
+    "codePoints": "U+1F6D2",
+    "occurrences": [
+      "server\\src\\production.ts",
+      "server\\src\\run-bots.ts",
+      "server\\src\\server.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\telegram-webapp-https-fix.test.ts"
+    ]
+  },
+  {
+    "emoji": "🛡️",
+    "codePoints": "U+1F6E1 U+FE0F",
+    "occurrences": [
+      "server\\src\\bots\\admin-bot\\index.ts",
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\production.ts",
+      "server\\src\\run-bots.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\server.ts",
+      "server\\src\\services\\admin.service.ts",
+      "server\\src\\services\\fulfillment.service.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts",
+      "server\\src\\tests\\telegram-sample-delivery.test.ts",
+      "server\\src\\tests\\telegram-webapp-https-fix.test.ts",
+      "server\\src\\utils\\receipt.util.ts"
+    ]
+  },
+  {
+    "emoji": "🟡",
+    "codePoints": "U+1F7E1",
+    "occurrences": [
+      "client-store\\src\\components\\product\\ProductCard.tsx",
+      "client-admin\\src\\pages\\InventoryPage.tsx",
+      "client-admin\\src\\pages\\ProductsPage.tsx"
+    ]
+  },
+  {
+    "emoji": "🟢",
+    "codePoints": "U+1F7E2",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts",
+      "client-store\\src\\components\\product\\ProductCard.tsx",
+      "client-admin\\src\\pages\\InventoryPage.tsx",
+      "client-admin\\src\\pages\\ProductsPage.tsx"
+    ]
+  },
+  {
+    "emoji": "🟣",
+    "codePoints": "U+1F7E3",
+    "occurrences": [
+      "client-admin\\src\\pages\\InventoryPage.tsx"
+    ]
+  },
+  {
+    "emoji": "🤖",
+    "codePoints": "U+1F916",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\production.ts",
+      "server\\src\\run-bots.ts",
+      "server\\src\\scripts\\test-sample-delivery.ts",
+      "server\\src\\server.ts"
+    ]
+  },
+  {
+    "emoji": "🤝",
+    "codePoints": "U+1F91D",
+    "occurrences": [
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\badge-bots-broadcast-sprint.test.ts",
+      "client-store\\src\\components\\product\\ProductCard.tsx",
+      "client-store\\src\\components\\product\\ProductDetailModal.tsx"
+    ]
+  },
+  {
+    "emoji": "🥚",
+    "codePoints": "U+1F95A",
+    "occurrences": [
+      "client-store\\src\\components\\home\\CollectionsGrid.tsx"
+    ]
+  },
+  {
+    "emoji": "🧾",
+    "codePoints": "U+1F9FE",
+    "occurrences": [
+      "server\\src\\config\\telegram-emojis.ts",
+      "server\\src\\services\\notification.service.ts",
+      "server\\src\\tests\\telegram-emojis-system.test.ts"
+    ]
+  }
+]
