@@ -38,3 +38,4 @@ Thumbs.db
 # Testing coverage
 coverage/
 *.lcov
+server/data/ 
