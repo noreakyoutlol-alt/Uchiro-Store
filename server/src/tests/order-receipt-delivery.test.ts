@@ -1,13 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
 import app from '../server';
 import { DataStore } from '../database/data-store';
 import { OrderService } from '../services/order.service';
 import { buildReceiptPdfBuffer } from '../services/receipt-pdf.service';
 import { env } from '../config/env';
+import { NotificationService } from '../services/notification.service';
+import { FulfillmentService } from '../services/fulfillment.service';
 
 describe('Order Receipt & Secure Delivery System Test Suite', () => {
+  beforeEach(() => {
+    vi.spyOn(NotificationService, 'sendAdminBotAlert').mockResolvedValue();
+    vi.spyOn(NotificationService, 'sendStoreBotMessage').mockResolvedValue(true);
+    vi.spyOn(NotificationService, 'alertAdminRealOrderPaid').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyOrderDelivered').mockResolvedValue();
+    vi.spyOn(NotificationService, 'alertAdminManualFulfillmentRequired').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyManualProcessing').mockResolvedValue();
+    vi.spyOn(FulfillmentService, 'fulfillTelegramAccountOrder').mockResolvedValue({ pdfSent: false, messageSent: false });
+  });
   const customerTelegramId = 88880001;
   const customerToken = jwt.sign(
     {

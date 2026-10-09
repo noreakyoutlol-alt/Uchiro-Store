@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
 import app from '../server';
 import { DataStore } from '../database/data-store';
 import { env } from '../config/env';
+import { NotificationService } from '../services/notification.service';
+import { FulfillmentService } from '../services/fulfillment.service';
 
 describe('Uchiro Store Product Types & Stock Management Verification', () => {
   let adminToken: string;
@@ -11,6 +14,14 @@ describe('Uchiro Store Product Types & Stock Management Verification', () => {
   const testCustomerTgId = 99887766;
 
   beforeAll(async () => {
+    vi.spyOn(NotificationService, 'sendAdminBotAlert').mockResolvedValue();
+    vi.spyOn(NotificationService, 'sendStoreBotMessage').mockResolvedValue(true);
+    vi.spyOn(NotificationService, 'alertAdminRealOrderPaid').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyOrderDelivered').mockResolvedValue();
+    vi.spyOn(NotificationService, 'alertAdminManualFulfillmentRequired').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyManualProcessing').mockResolvedValue();
+    vi.spyOn(FulfillmentService, 'fulfillTelegramAccountOrder').mockResolvedValue({ pdfSent: false, messageSent: false });
+
     adminToken = jwt.sign(
       {
         id: 'admin-super-1',

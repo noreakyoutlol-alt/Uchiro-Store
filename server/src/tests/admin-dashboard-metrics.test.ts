@@ -1,14 +1,25 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
+import axios from 'axios';
 import app from '../server';
 import { DataStore } from '../database/data-store';
 import { AdminService } from '../services/admin.service';
 import { OrderService } from '../services/order.service';
+import { NotificationService } from '../services/notification.service';
+import { FulfillmentService } from '../services/fulfillment.service';
 
 describe('Admin Dashboard Real Data & Metrics Integrity (Task 6)', () => {
   const adminTelegramId = 123456789;
 
   beforeEach(() => {
+    vi.spyOn(NotificationService, 'sendAdminBotAlert').mockResolvedValue();
+    vi.spyOn(NotificationService, 'sendStoreBotMessage').mockResolvedValue(true);
+    vi.spyOn(NotificationService, 'alertAdminRealOrderPaid').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyOrderDelivered').mockResolvedValue();
+    vi.spyOn(NotificationService, 'alertAdminManualFulfillmentRequired').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyManualProcessing').mockResolvedValue();
+    vi.spyOn(FulfillmentService, 'fulfillTelegramAccountOrder').mockResolvedValue({ pdfSent: false, messageSent: false });
+
     // Clear orders array for clean test isolation
     const allOrders = DataStore.getAllOrdersAdmin();
     allOrders.length = 0;

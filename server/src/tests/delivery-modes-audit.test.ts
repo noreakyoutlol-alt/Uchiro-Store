@@ -1,8 +1,10 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import axios from 'axios';
 import { DataStore } from '../database/data-store';
 import { AdminService } from '../services/admin.service';
 import { OrderService } from '../services/order.service';
 import { NotificationService } from '../services/notification.service';
+import { FulfillmentService } from '../services/fulfillment.service';
 import { TOTPService } from '../security/totp';
 
 describe('Uchiro Store - Delivery Modes End-to-End Audit', () => {
@@ -10,6 +12,14 @@ describe('Uchiro Store - Delivery Modes End-to-End Audit', () => {
   const adminTelegramId = 123456789;
 
   beforeAll(() => {
+    vi.spyOn(NotificationService, 'sendAdminBotAlert').mockResolvedValue();
+    vi.spyOn(NotificationService, 'sendStoreBotMessage').mockResolvedValue(true);
+    vi.spyOn(NotificationService, 'alertAdminRealOrderPaid').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyOrderDelivered').mockResolvedValue();
+    vi.spyOn(NotificationService, 'alertAdminManualFulfillmentRequired').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyManualProcessing').mockResolvedValue();
+    vi.spyOn(FulfillmentService, 'fulfillTelegramAccountOrder').mockResolvedValue({ pdfSent: false, messageSent: false });
+
     DataStore.findOrCreateTelegramUser({
       telegram_id: customerTelegramId,
       first_name: 'AuditCustomer',

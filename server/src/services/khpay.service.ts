@@ -103,7 +103,10 @@ export class KHPayService {
           data?.bakong_deeplink ||
           (qrString ? `bakong://pay?qr=${encodeURIComponent(qrString)}` : '');
 
-        const md5Hash = transactionId || crypto.createHash('md5').update(`${orderId}-${amount}`).digest('hex');
+        const rawHash = String(data?.md5 || data?.md5_hash || data?.hash || '');
+        const md5Hash = (rawHash && rawHash.length === 32)
+          ? rawHash
+          : crypto.createHash('md5').update(`${transactionId || orderId}-${amount}-${orderNumber}`).digest('hex');
 
         return {
           transaction_id: transactionId || md5Hash,

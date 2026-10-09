@@ -1,12 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
 import { KHPayService } from '../services/khpay.service';
 import { PaymentWorker } from '../workers/payment.worker';
 import { PaymentService } from '../services/payment.service';
 import { OrderService } from '../services/order.service';
+import { NotificationService } from '../services/notification.service';
+import { FulfillmentService } from '../services/fulfillment.service';
 import { DataStore } from '../database/data-store';
 import { checkSupabaseHealth } from '../database/supabase';
 import { paymentRouter } from '../routes/payment.routes';
@@ -17,7 +20,17 @@ describe('KHPay & Railway Phase Complete Verification', () => {
   let app: express.Application;
 
   beforeEach(() => {
+    // Mock all notification and Telegram HTTP dispatches
+    vi.spyOn(NotificationService, 'sendAdminBotAlert').mockResolvedValue();
+    vi.spyOn(NotificationService, 'sendStoreBotMessage').mockResolvedValue(true);
+    vi.spyOn(NotificationService, 'alertAdminRealOrderPaid').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyOrderDelivered').mockResolvedValue();
+    vi.spyOn(NotificationService, 'alertAdminManualFulfillmentRequired').mockResolvedValue();
+    vi.spyOn(NotificationService, 'notifyManualProcessing').mockResolvedValue();
+    vi.spyOn(FulfillmentService, 'fulfillTelegramAccountOrder').mockResolvedValue({ pdfSent: false, messageSent: false });
+
     app = express();
+    app.set('trust proxy', 1);
     app.use(express.json());
     app.use('/api/payments', paymentRouter);
     app.use('/api/bots', botsRouter);

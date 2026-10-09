@@ -87,6 +87,7 @@ function formatMaskedToken(token: string): string {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Security Headers & CORS
 app.use(

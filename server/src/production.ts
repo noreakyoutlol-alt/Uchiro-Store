@@ -21,6 +21,7 @@ import { KHPayService } from './services/khpay.service';
 import { checkSupabaseHealth } from './database/supabase';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || env.PORT || 5000);
 const HOST = '0.0.0.0';
 

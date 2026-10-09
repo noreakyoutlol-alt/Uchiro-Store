@@ -386,6 +386,7 @@ export class OrderService {
     // Section C: Telegram Automatic Receipt Notification (Idempotent)
     if (!order.receipt_notified) {
       order.receipt_notified = true;
+      DataStore.saveOrder(order);
       const warrantyDuration = `${order.warranty_days || 14} Days Replacement Warranty`;
       NotificationService.notifyPaymentReceipt(
         order.telegram_id,
@@ -397,6 +398,7 @@ export class OrderService {
       ).catch(console.error);
     }
 
+    DataStore.saveOrder(order);
     return order;
   }
 

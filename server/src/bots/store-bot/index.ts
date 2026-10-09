@@ -59,34 +59,41 @@ export function formatTelegramHtml(text: string): string {
 /**
  * Telegram strictly requires https:// for inline keyboard web_app buttons.
  * If target URL does not start with https://:
- * - If PUBLIC_URL starts with https://, use PUBLIC_URL instead.
- * - Otherwise fallback to a standard link button (url: targetUrl) to prevent Telegram API Error 400.
+ * - Replace any fallback with: (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')
+ * - Ensure all buttons using Markup.button.webApp(...) or Markup.button.url(...) strictly use appUrl or a valid HTTPS URL (no http:// and no localhost).
  */
 export function createWebAppOrUrlButton(text: string, targetUrl: string) {
-  const publicUrl = (process.env.PUBLIC_URL || env.PUBLIC_URL || '').trim();
+  const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
 
-  // If the target URL already starts with https://, use webApp button
-  if (targetUrl.startsWith('https://')) {
+  // If the target URL already starts with https://
+  if (targetUrl && targetUrl.startsWith('https://')) {
+    // If it is a Telegram deep link (e.g. https://t.me/...), it must use url button, not webApp
+    if (targetUrl.startsWith('https://t.me/')) {
+      return Markup.button.url(text, targetUrl);
+    }
     return Markup.button.webApp(text, targetUrl);
   }
 
-  // If PUBLIC_URL starts with https://, use PUBLIC_URL instead
-  if (publicUrl.startsWith('https://')) {
-    let resolvedUrl = publicUrl;
+  // If targetUrl does not start with https:// (e.g. http://localhost:3000 or relative path), resolve path & query onto appUrl
+  let resolvedUrl = appUrl;
+  if (targetUrl) {
     try {
       const parsed = new URL(targetUrl);
       const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
       if (pathAndQuery) {
-        resolvedUrl = `${publicUrl.replace(/\/+$/, '')}${pathAndQuery}`;
+        resolvedUrl = `${appUrl}${pathAndQuery}`;
       }
     } catch {
-      resolvedUrl = publicUrl;
+      resolvedUrl = appUrl;
     }
-    return Markup.button.webApp(text, resolvedUrl);
   }
 
-  // Fallback to a standard link button to prevent Telegram API Error 400 during local development
-  return Markup.button.url(text, targetUrl);
+  // Guarantee strictly HTTPS URL (never http:// or localhost)
+  if (!resolvedUrl.startsWith('https://')) {
+    resolvedUrl = 'https://web-production-2d8bd.up.railway.app';
+  }
+
+  return Markup.button.webApp(text, resolvedUrl);
 }
 
 /**
@@ -111,7 +118,7 @@ export function createEmojiInlineButton(opts: {
   if (opts.targetUrl) {
     btn = createWebAppOrUrlButton(finalText, opts.targetUrl);
   } else if (opts.url) {
-    btn = Markup.button.url(finalText, opts.url);
+    btn = createWebAppOrUrlButton(finalText, opts.url);
   } else if (opts.callbackData) {
     btn = Markup.button.callback(finalText, opts.callbackData);
   } else {
@@ -145,40 +152,46 @@ export function getLanguageSelectionKeyboard() {
  * [ My Inventory & Vault ] (icon: PACKAGE) [ Orders ] (icon: SCROLL)
  * [ ភាសា / Language ] (icon: GLOBE) [ 24/7 Support ] (icon: SUPPORT)
  */
-export function getMainMenuKeyboard(storeWebAppUrl: string) {
+export function getMainMenuKeyboard(storeWebAppUrl?: string) {
+  const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
   const rawSupport = process.env.SUPPORT_TELEGRAM_USERNAME || env.TELEGRAM_SUPPORT_USERNAME || 'UchiroSupport';
   const supportUsername = rawSupport.replace('@', '');
+  const supportUrl = `https://t.me/${supportUsername}`;
+
+  const resolvedStoreUrl = (storeWebAppUrl && storeWebAppUrl.startsWith('https://'))
+    ? storeWebAppUrl.replace(/\/$/, '')
+    : appUrl;
 
   return Markup.inlineKeyboard([
     [
       createEmojiInlineButton({
         text: 'OPEN UCHIRO STORE (Mini App)',
         emojiKey: 'SHOPPING_BAGS',
-        targetUrl: storeWebAppUrl,
+        targetUrl: resolvedStoreUrl,
       }),
     ],
     [
       createEmojiInlineButton({
         text: 'Play Gacha',
         emojiKey: 'FERRIS_WHEEL',
-        targetUrl: `${storeWebAppUrl}?tab=gacha`,
+        targetUrl: `${resolvedStoreUrl}?tab=gacha`,
       }),
       createEmojiInlineButton({
         text: 'Daily Points',
         emojiKey: 'GIFT',
-        targetUrl: `${storeWebAppUrl}?tab=rewards`,
+        targetUrl: `${resolvedStoreUrl}?tab=rewards`,
       }),
     ],
     [
       createEmojiInlineButton({
         text: 'My Inventory & Vault',
         emojiKey: 'PACKAGE',
-        targetUrl: `${storeWebAppUrl}?tab=vault`,
+        targetUrl: `${resolvedStoreUrl}?tab=vault`,
       }),
       createEmojiInlineButton({
         text: 'Orders',
         emojiKey: 'SCROLL',
-        targetUrl: `${storeWebAppUrl}?tab=orders`,
+        targetUrl: `${resolvedStoreUrl}?tab=orders`,
       }),
     ],
     [
@@ -252,7 +265,12 @@ export class StoreBotService {
   private setupHandlers(): void {
     if (!this.bot) return;
 
-    const storeWebAppUrl = env.STORE_WEBAPP_URL || env.CLIENT_STORE_URL || 'http://localhost:3000';
+    const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const storeWebAppUrl = (env.STORE_WEBAPP_URL && env.STORE_WEBAPP_URL.startsWith('https://'))
+      ? env.STORE_WEBAPP_URL
+      : (env.CLIENT_STORE_URL && env.CLIENT_STORE_URL.startsWith('https://'))
+        ? env.CLIENT_STORE_URL
+        : appUrl;
 
     // /start command: Prompt for language if not yet chosen
     this.bot.start(async (ctx) => {
@@ -526,7 +544,8 @@ export class StoreBotService {
   }
 
   public async sendMessage(chatId: number, text: string, replyMarkup?: any): Promise<boolean> {
-    if (!this.bot) {
+    const isTestRunner = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
+    if (isTestRunner || !this.bot) {
       console.log(`[STORE BOT to ${chatId}]:\n${text}`);
       return true;
     }

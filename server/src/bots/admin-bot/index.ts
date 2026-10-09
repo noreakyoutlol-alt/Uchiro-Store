@@ -94,7 +94,12 @@ export class AdminBotService {
   private setupHandlers(): void {
     if (!this.bot) return;
 
-    const adminWebAppUrl = env.ADMIN_WEBAPP_URL || env.CLIENT_ADMIN_URL || 'http://localhost:3001';
+    const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const adminWebAppUrl = (env.ADMIN_WEBAPP_URL && env.ADMIN_WEBAPP_URL.startsWith('https://'))
+      ? env.ADMIN_WEBAPP_URL
+      : (env.CLIENT_ADMIN_URL && env.CLIENT_ADMIN_URL.startsWith('https://'))
+        ? env.CLIENT_ADMIN_URL
+        : `${appUrl}/admin`;
 
     // Security middleware: Ensure caller is authorized admin
     this.bot.use(async (ctx, next) => {
