@@ -13,7 +13,7 @@ COPY client-store/package.json ./client-store/
 COPY client-admin/package.json ./client-admin/
 
 # Install dependencies across all workspaces
-RUN npm ci
+RUN npm install
 
 # Copy full repository source
 COPY . .
