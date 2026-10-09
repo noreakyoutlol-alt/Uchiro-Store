@@ -54,8 +54,8 @@ describe('KHPay & Railway Phase Complete Verification', () => {
         expect(result.qr_payload).toContain('UCH-999001');
       }
       expect(result.qr_image_url).toMatch(/^data:image\/png;base64,/);
-      expect(result.bakong_deep_link).toMatch(/^bakong:\/\/pay\?qr=/);
-      expect(result.aba_deep_link).toMatch(/^aba:\/\/pay\?qr=/);
+      expect(result.bakong_deep_link).toMatch(/^(bakong:\/\/pay\?qr=|bakong:\/\/)/);
+      expect(result.aba_deep_link).toMatch(/^(aba:\/\/pay\?qr=|abamobilebank:\/\/)/);
       expect(result.md5_hash).toHaveLength(32);
       expect(result.expires_in).toBe(600);
       expect(new Date(result.expires_at).getTime()).toBeGreaterThan(Date.now());

@@ -195,7 +195,7 @@
 ## NEXT STEPS FOR PRODUCTION
 1. Set actual environment variables in Railway/dashboard
 2. Replace placeholder KHPay credentials with live keys
-3. Register Telegram bot webhooks (@UchiroStoreBot and @UchiroAdminBot)
+3. Register Telegram bot webhooks (@UchiroStore_BOT and @uchiro_v2_admin_bot)
 4. Deploy to Railway and verify health checks
 5. Test live KHPay transactions in production mode
 6. Verify admin bot commands work in production

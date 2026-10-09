@@ -99,17 +99,23 @@ const envSchema = z.object({
   SUPABASE_ANON_KEY: z.string().default('your-anon-key'),
   DATABASE_URL: z.string().optional(),
 
-  // Store Bot (@UchiroStoreBot - CUSTOMERS ONLY)
+  // Store Bot (@UchiroStore_BOT - CUSTOMERS ONLY)
   STORE_BOT_TOKEN: z.string().default('').transform((val) => val.trim()),
-  STORE_BOT_USERNAME: z.string().default('UchiroStoreBot'),
+  STORE_BOT_USERNAME: z
+    .string()
+    .default('UchiroStore_BOT')
+    .transform((val) => val.replace(/^@/, '').trim()),
   TELEGRAM_CHANNEL_USERNAME: z.string().default('UchiroStore'),
   TELEGRAM_SUPPORT_USERNAME: z.string().default('UchiroSupport'),
   STORE_BOT_WEBHOOK_URL: z.string().default('http://localhost:5000/api/webhook/store-bot'),
   STORE_BOT_WEBHOOK_SECRET: z.string().default('uchiro_store_webhook_secret_key_v3'),
 
-  // Admin Bot (@UchiroAdminBot - INTERNAL ADMINISTRATION ONLY)
+  // Admin Bot (@uchiro_v2_admin_bot - INTERNAL ADMINISTRATION ONLY)
   ADMIN_BOT_TOKEN: z.string().default('').transform((val) => val.trim()),
-  ADMIN_BOT_USERNAME: z.string().default('UchiroAdminBot'),
+  ADMIN_BOT_USERNAME: z
+    .string()
+    .default('uchiro_v2_admin_bot')
+    .transform((val) => val.replace(/^@/, '').trim()),
   ADMIN_BOT_WEBHOOK_URL: z.string().default('http://localhost:5000/api/webhook/admin-bot'),
   ADMIN_BOT_WEBHOOK_SECRET: z.string().default('uchiro_admin_webhook_secret_key_v3'),
   ADMIN_TELEGRAM_USER_IDS: z.string().default('123456789,987654321').transform((val) =>

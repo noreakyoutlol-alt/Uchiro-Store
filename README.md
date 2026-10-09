@@ -12,8 +12,8 @@ Uchiro Store V3 is a full-stack, enterprise-grade digital marketplace platform b
 ### Core Ecosystem Components:
 1. **`server/`** — Node.js / Express / TypeScript backend running on port `5000`:
    - Dual Telegram Bots:
-     - `@UchiroStoreBot`: Customer catalog browsing, order notifications, live KHQR payment links, instant credential delivery, and support ticket relay.
-     - `@UchiroAdminBot`: Real-time purchase alerts, manual order fulfillment notifications, low-stock warnings, and direct WebApp launcher.
+     - `@UchiroStore_BOT`: Customer catalog browsing, order notifications, live KHQR payment links, instant credential delivery, and support ticket relay.
+     - `@uchiro_v2_admin_bot`: Real-time purchase alerts, manual order fulfillment notifications, low-stock warnings, and direct WebApp launcher.
    - Genuine Bakong KHQR generation with deep linking for ABA Mobile and Bakong App.
    - Real-time payment verification with mock test mode simulation.
    - Server-authoritative Gacha engine with transparent probability tables.
@@ -61,9 +61,9 @@ ADMIN_WEBAPP_URL=http://localhost:3001
 
 # Telegram Bots
 STORE_BOT_TOKEN=your_telegram_store_bot_token
-STORE_BOT_USERNAME=UchiroStoreBot
+STORE_BOT_USERNAME=UchiroStore_BOT
 ADMIN_BOT_TOKEN=your_telegram_admin_bot_token
-ADMIN_BOT_USERNAME=UchiroAdminBot
+ADMIN_BOT_USERNAME=uchiro_v2_admin_bot
 ADMIN_TELEGRAM_IDS=123456789,987654321
 
 # Bakong KHQR

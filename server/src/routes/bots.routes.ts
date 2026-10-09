@@ -7,7 +7,7 @@ export const botsRouter = Router();
 export const webhookRouter = Router();
 
 /**
- * Store Bot Webhook Handler (@UchiroStoreBot)
+ * Store Bot Webhook Handler (@UchiroStore_BOT)
  * Validates incoming Telegram updates and secret token, then processes commands & customer fulfillment
  */
 export async function handleStoreBotWebhook(req: Request, res: Response): Promise<void> {
@@ -34,7 +34,7 @@ export async function handleStoreBotWebhook(req: Request, res: Response): Promis
 }
 
 /**
- * Admin Bot Webhook Handler (@UchiroAdminBot)
+ * Admin Bot Webhook Handler (@uchiro_v2_admin_bot)
  * Validates incoming Telegram updates and secret token, then processes admin actions & alerts
  */
 export async function handleAdminBotWebhook(req: Request, res: Response): Promise<void> {

@@ -9,6 +9,33 @@ import { formatShortOrderId } from '../../utils/order.util';
 
 export { createWebAppOrUrlButton };
 
+export const ADMIN_BOT_DEFAULT_USERNAME = 'uchiro_v2_admin_bot';
+export const ADMIN_BOT_DISPLAY_NAME = 'uchiro_v2_admin_bot';
+export const ADMIN_BOT_USERNAME = ADMIN_BOT_DEFAULT_USERNAME;
+
+/**
+ * Returns the resolved Admin Bot username (without leading '@').
+ * Dynamic lookup: env.ADMIN_BOT_USERNAME || process.env.ADMIN_BOT_USERNAME || 'uchiro_v2_admin_bot'.
+ */
+export function getAdminBotUsername(): string {
+  const raw = process.env.ADMIN_BOT_USERNAME || env.ADMIN_BOT_USERNAME || ADMIN_BOT_DEFAULT_USERNAME;
+  return raw.replace(/^@/, '').trim();
+}
+
+/**
+ * Generates dynamic deep links to the Admin Telegram Bot.
+ * e.g. https://t.me/uchiro_v2_admin_bot or https://t.me/uchiro_v2_admin_bot?start=panel
+ */
+export function getAdminBotLink(startParam?: string): string {
+  const username = getAdminBotUsername();
+  if (startParam) {
+    return `https://t.me/${username}?start=${encodeURIComponent(startParam)}`;
+  }
+  return `https://t.me/${username}`;
+}
+
+export const getAdminBotUrl = getAdminBotLink;
+
 export function getAdminKeyboard(adminWebAppUrl: string) {
   return Markup.inlineKeyboard([
     [
@@ -317,6 +344,18 @@ export class AdminBotService {
     return this.bot;
   }
 
+  public getDisplayName(): string {
+    return ADMIN_BOT_DISPLAY_NAME;
+  }
+
+  public getUsername(): string {
+    return getAdminBotUsername();
+  }
+
+  public getBotLink(startParam?: string): string {
+    return getAdminBotLink(startParam);
+  }
+
   public async startPolling(): Promise<void> {
     if (!this.bot) {
       this.initBot();
@@ -327,7 +366,7 @@ export class AdminBotService {
     }
     try {
       await this.bot.launch();
-      console.log('✅ [ADMIN BOT] Running and listening for authorized admins (@UchiroAdminBot)...');
+      console.log(`✅ [ADMIN BOT] Running and listening for authorized admins (@${getAdminBotUsername()})...`);
     } catch (err: any) {
       console.warn('⚠️ [ADMIN BOT] Polling launch warning:', err.message);
     }

@@ -151,8 +151,8 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`🛒 Store Mini App: http://${HOST}:${PORT}/`);
     console.log(`🛡️ Admin Portal: http://${HOST}:${PORT}/admin/`);
     console.log(`❤️ Health Check: http://${HOST}:${PORT}/health`);
-    console.log(`🤖 Store Bot: @${env.STORE_BOT_USERNAME}`);
-    console.log(`🤖 Admin Bot: @${env.ADMIN_BOT_USERNAME}`);
+    console.log(`🤖 Store Bot: @${(env.STORE_BOT_USERNAME || 'UchiroStore_BOT').replace(/^@/, '')}`);
+    console.log(`🤖 Admin Bot: @${(env.ADMIN_BOT_USERNAME || 'uchiro_v2_admin_bot').replace(/^@/, '')}`);
     console.log('====================================================');
 
     // Start background payment worker

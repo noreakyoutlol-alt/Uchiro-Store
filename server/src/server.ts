@@ -204,8 +204,8 @@ if (!isTestEnv) {
     console.log(`📡 URL: http://${HOST}:${PORT}`);
     console.log(`🛒 Store WebApp: ${env.CLIENT_STORE_URL}`);
     console.log(`🛡️ Admin WebApp: ${env.CLIENT_ADMIN_URL}`);
-    console.log(`🤖 Store Bot: @${env.STORE_BOT_USERNAME}`);
-    console.log(`🤖 Admin Bot: @${env.ADMIN_BOT_USERNAME}`);
+    console.log(`🤖 Store Bot: @${(env.STORE_BOT_USERNAME || 'UchiroStore_BOT').replace(/^@/, '')}`);
+    console.log(`🤖 Admin Bot: @${(env.ADMIN_BOT_USERNAME || 'uchiro_v2_admin_bot').replace(/^@/, '')}`);
     console.log(`====================================================`);
 
     // Start polling in development if bots are configured

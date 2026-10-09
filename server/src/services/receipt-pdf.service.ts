@@ -310,7 +310,7 @@ export function buildReceiptPdfBuffer(receipt: OrderReceipt): Buffer {
   stream.push('/F1 8 Tf');
   stream.push('0.400 0.450 0.520 rg');
   stream.push(`120 ${cardY + 15} Td`);
-  stream.push('(UCHIRO STORE  *  Telegram Gaming Mini App  *  Verified Transaction Proof  *  Support: @UchiroStoreBot) Tj');
+  stream.push('(UCHIRO STORE  *  Telegram Gaming Mini App  *  Verified Transaction Proof  *  Support: @UchiroStore_BOT) Tj');
   stream.push('ET');
 
   const streamContent = stream.join('\n');

@@ -6,6 +6,46 @@ import { FulfillmentService } from '../../services/fulfillment.service';
 
 export { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis };
 
+export const STORE_BOT_DEFAULT_USERNAME = 'UchiroStore_BOT';
+export const STORE_BOT_DISPLAY_NAME = 'UchiroStore_BOT';
+export const STORE_BOT_USERNAME = STORE_BOT_DEFAULT_USERNAME;
+
+/**
+ * Returns the resolved Store Bot username (without leading '@').
+ * Dynamic lookup: env.STORE_BOT_USERNAME || process.env.STORE_BOT_USERNAME || 'UchiroStore_BOT'.
+ */
+export function getStoreBotUsername(): string {
+  const raw = process.env.STORE_BOT_USERNAME || env.STORE_BOT_USERNAME || STORE_BOT_DEFAULT_USERNAME;
+  return raw.replace(/^@/, '').trim();
+}
+
+/**
+ * Generates dynamic deep links to the Store Telegram Bot.
+ * e.g. https://t.me/UchiroStore_BOT or https://t.me/UchiroStore_BOT?start=referral_code
+ */
+export function getStoreBotLink(startParam?: string): string {
+  const username = getStoreBotUsername();
+  if (startParam) {
+    return `https://t.me/${username}?start=${encodeURIComponent(startParam)}`;
+  }
+  return `https://t.me/${username}`;
+}
+
+/**
+ * Generates dynamic Telegram Mini App direct links.
+ * e.g. https://t.me/UchiroStore_BOT?startapp=tab_orders
+ */
+export function getStoreBotMiniAppLink(startAppParam?: string): string {
+  const username = getStoreBotUsername();
+  if (startAppParam) {
+    return `https://t.me/${username}?startapp=${encodeURIComponent(startAppParam)}`;
+  }
+  return `https://t.me/${username}`;
+}
+
+export const getStoreBotUrl = getStoreBotLink;
+export const getBotLink = getStoreBotLink;
+
 /**
  * Format message HTML, normalize custom Telegram emoji tags,
  * and enrich raw emojis with configured custom Telegram emojis.
@@ -447,6 +487,18 @@ export class StoreBotService {
     return this.bot;
   }
 
+  public getDisplayName(): string {
+    return STORE_BOT_DISPLAY_NAME;
+  }
+
+  public getUsername(): string {
+    return getStoreBotUsername();
+  }
+
+  public getBotLink(startParam?: string): string {
+    return getStoreBotLink(startParam);
+  }
+
   public async startPolling(): Promise<void> {
     if (!this.bot) {
       this.initBot();
@@ -457,7 +509,7 @@ export class StoreBotService {
     }
     try {
       await this.bot.launch();
-      console.log('✅ [STORE BOT] Running and listening for customers (@UchiroStoreBot)...');
+      console.log(`✅ [STORE BOT] Running and listening for customers (@${getStoreBotUsername()})...`);
     } catch (err: any) {
       console.warn('⚠️ [STORE BOT] Polling launch warning:', err.message);
     }
