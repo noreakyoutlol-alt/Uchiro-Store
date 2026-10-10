@@ -39,12 +39,9 @@ export const getAdminBotUrl = getAdminBotLink;
 
 export function getAdminKeyboard(adminWebAppUrl?: string, lang: string = 'en') {
   const isKm = lang === 'km';
-  const defaultAdminUrl = `${(process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')}/admin/`;
-  let adminUrl = adminWebAppUrl && adminWebAppUrl !== '/' ? adminWebAppUrl : defaultAdminUrl;
-  // Ensure this URL is NEVER '/' (store front)
-  if (adminUrl === '/' || adminUrl === (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')) {
-    adminUrl = defaultAdminUrl;
-  }
+  const rawPublicUrl = process.env.PUBLIC_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://web-production-2d8bd.up.railway.app');
+  const publicUrl = rawPublicUrl.replace(/\/$/, '');
+  const adminUrl = `${publicUrl}/admin/`;
   return Markup.inlineKeyboard([
     [
       createEmojiInlineButton({
@@ -102,8 +99,9 @@ export class AdminBotService {
   private setupHandlers(): void {
     if (!this.bot) return;
 
-    const adminUrl = `${(process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')}/admin/`;
-    const adminWebAppUrl = adminUrl;
+    const rawPublicUrl = process.env.PUBLIC_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://web-production-2d8bd.up.railway.app');
+    const publicUrl = rawPublicUrl.replace(/\/$/, '');
+    const adminUrl = `${publicUrl}/admin/`;
 
     // Set Telegram chat menu button for the admin bot to strictly open the Admin Portal Mini App
     try {
@@ -154,7 +152,7 @@ export class AdminBotService {
 
       await ctx.reply(formatTelegramHtml(message), {
         parse_mode: 'HTML',
-        ...getAdminKeyboard(adminWebAppUrl),
+        ...getAdminKeyboard(adminUrl),
       });
     });
 
@@ -173,7 +171,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('🛡️ បើក ADMIN PORTAL', adminWebAppUrl)],
+          [createWebAppOrUrlButton('🛡️ បើក ADMIN PORTAL', adminUrl)],
         ]),
       });
     });
@@ -195,7 +193,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('📜 គ្រប់គ្រងការបញ្ជាទិញ', `${adminWebAppUrl}orders`)],
+          [createWebAppOrUrlButton('📜 គ្រប់គ្រងការបញ្ជាទិញ', adminUrl)],
         ]),
       });
     });
@@ -218,7 +216,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('📦 គ្រប់គ្រងស្តុកទំនិញ', `${adminWebAppUrl}inventory`)],
+          [createWebAppOrUrlButton('📦 គ្រប់គ្រងស្តុកទំនិញ', adminUrl)],
         ]),
       });
     });
@@ -240,7 +238,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('🎁 ពិនិត្យការស្នើសុំរង្វាន់', `${adminWebAppUrl}claims`)],
+          [createWebAppOrUrlButton('🎁 ពិនិត្យការស្នើសុំរង្វាន់', adminUrl)],
         ]),
       });
     });
@@ -284,7 +282,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('🛡️ បើក ADMIN PORTAL', adminWebAppUrl)],
+          [createWebAppOrUrlButton('🛡️ បើក ADMIN PORTAL', adminUrl)],
         ]),
       });
     });
@@ -309,7 +307,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('📦 គ្រប់គ្រងស្តុកទំនិញ', `${adminWebAppUrl}inventory`)],
+          [createWebAppOrUrlButton('📦 គ្រប់គ្រងស្តុកទំនិញ', adminUrl)],
         ]),
       });
     });
@@ -329,7 +327,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('📢 បើកផ្ទាំងផ្សព្វផ្សាយ', `${adminWebAppUrl}broadcast`)],
+          [createWebAppOrUrlButton('📢 បើកផ្ទាំងផ្សព្វផ្សាយ', adminUrl)],
         ]),
       });
     });
@@ -352,7 +350,7 @@ export class AdminBotService {
       await ctx.reply(formatTelegramHtml(text), {
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard([
-          [createWebAppOrUrlButton('⚙️ ការកំណត់ប្រព័ន្ធបន្ថែម', `${adminWebAppUrl}settings`)],
+          [createWebAppOrUrlButton('⚙️ ការកំណត់ប្រព័ន្ធបន្ថែម', adminUrl)],
         ]),
       });
     });

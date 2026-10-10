@@ -89,6 +89,7 @@ function findDistPath(subDir: string): string {
     path.resolve(process.cwd(), subDir, 'dist'),
     path.resolve(__dirname, '..', '..', subDir, 'dist'),
     path.resolve(__dirname, '..', subDir, 'dist'),
+    path.resolve(process.cwd(), '..', subDir, 'dist'),
     path.resolve(process.cwd(), 'dist', subDir),
   ];
   for (const c of candidates) {
@@ -111,8 +112,7 @@ const clientAdminDist = findDistPath('client-admin');
 // 1. Admin API (/api/admin/*)
 app.use('/api/admin', adminRouter);
 
-// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
-app.use('/admin', adminStaticGuard);
+// 2. Admin Static & SPA (Serve client-admin/dist on /admin and /admin/* BEFORE store wildcard route)
 if (fs.existsSync(clientAdminDist)) {
   console.log(`📁 [PRODUCTION] Serving Admin frontend from: ${clientAdminDist}`);
   app.use('/admin', express.static(clientAdminDist, { index: false, redirect: false }));

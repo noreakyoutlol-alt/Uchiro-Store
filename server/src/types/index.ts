@@ -11,6 +11,9 @@ export interface TelegramUser {
   is_blocked?: boolean;
   created_at: string;
   updated_at: string;
+  points?: number;
+  reward_points?: number;
+  last_daily_claim_at?: string | null;
 }
 
 export interface Profile {
@@ -19,6 +22,7 @@ export interface Profile {
   points: number;
   loyalty_points?: number;
   reward_points?: number;
+  last_daily_claim_at?: string | null;
   gacha_tickets: number;
   total_spent: number;
   total_orders: number;

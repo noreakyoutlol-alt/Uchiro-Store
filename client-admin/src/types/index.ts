@@ -135,6 +135,9 @@ export interface CustomerUser {
   first_name: string;
   last_name: string | null;
   created_at: string;
+  points?: number;
+  reward_points?: number;
+  last_daily_claim_at?: string | null;
 }
 
 export interface AuditLog {

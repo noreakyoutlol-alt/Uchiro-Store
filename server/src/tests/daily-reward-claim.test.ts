@@ -55,5 +55,41 @@ describe('Daily Reward Claim & Bulletproof Points Flow', () => {
     expect(user?.telegram_id).toBe(testTgId);
     expect(profile).toBeDefined();
     expect(profile!.points).toBeGreaterThanOrEqual(5);
+    expect(user!.points).toBeGreaterThanOrEqual(5);
+    expect(user!.last_daily_claim_at).toBeDefined();
+    expect(profile!.last_daily_claim_at).toBeDefined();
+  });
+
+  it('guarantees existingUser.points is NEVER overwritten with 0 on app refresh or subsequent logins', () => {
+    const testTgId = 1234567800;
+    // Step 1: Create user with initial points
+    const created = DataStore.findOrCreateTelegramUser({
+      telegram_id: testTgId,
+      first_name: 'LoyalCustomer',
+    });
+    expect(created.user.points).toBe(0);
+
+    // Step 2: Award points
+    const claimRes = DataStore.claimDailyReward(testTgId);
+    expect(claimRes.success).toBe(true);
+    expect(claimRes.newBalance).toBe(5);
+
+    const userBefore = DataStore.getTelegramUser(testTgId);
+    expect(userBefore?.points).toBe(5);
+
+    // Step 3: Simulate app refresh / subsequent login
+    const refreshed = DataStore.findOrCreateTelegramUser({
+      telegram_id: testTgId,
+      first_name: 'LoyalCustomer Updated Name',
+    });
+
+    expect(refreshed.user.points).toBe(5);
+    expect(refreshed.profile.points).toBe(5);
+    expect((refreshed as any).points).toBe(5);
+    expect(refreshed.user.last_daily_claim_at).toBeDefined();
+
+    // Verify in data store
+    const userAfter = DataStore.getTelegramUser(testTgId);
+    expect(userAfter?.points).toBe(5);
   });
 });

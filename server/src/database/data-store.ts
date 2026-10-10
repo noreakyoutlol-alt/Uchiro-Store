@@ -1623,7 +1623,11 @@ export class DataStore {
 
   private static readonly PERSIST_FILE = path.resolve(__dirname, '../../data/store-data.json');
 
-  private static persistToDisk(): void {
+  public static saveToDisk(): void {
+    this.persistToDisk();
+  }
+
+  public static persistToDisk(): void {
     try {
       const dir = path.dirname(this.PERSIST_FILE);
       if (!fs.existsSync(dir)) {
@@ -1638,10 +1642,69 @@ export class DataStore {
           is_sold: i.is_sold,
           order_id: i.order_id,
         })),
+        users: Array.from(this.users.values()),
+        profiles: Array.from(this.profiles.values()),
+        dailyRewards: Array.from(this.dailyRewards.entries()).map(([k, v]) => ({
+          telegramId: k,
+          ...v,
+        })),
+        pointLedger: this.pointLedger,
       };
       fs.writeFileSync(this.PERSIST_FILE, JSON.stringify(data, null, 2), 'utf-8');
     } catch {
       // Non-fatal fallback for tests or read-only disks
+    }
+  }
+
+  public static loadFromDisk(): void {
+    try {
+      if (!fs.existsSync(this.PERSIST_FILE)) return;
+      const raw = fs.readFileSync(this.PERSIST_FILE, 'utf-8');
+      if (!raw || !raw.trim()) return;
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.orders)) {
+        this.orders = data.orders;
+      }
+      if (Array.isArray(data.inventory)) {
+        data.inventory.forEach((saved: any) => {
+          const item = this.inventory.find((i) => i.id === saved.id);
+          if (item) {
+            item.status = saved.status;
+            item.is_sold = saved.is_sold;
+            item.order_id = saved.order_id;
+          }
+        });
+      }
+      if (Array.isArray(data.users)) {
+        data.users.forEach((u: TelegramUser) => {
+          if (u && typeof u.telegram_id === 'number') {
+            this.users.set(u.telegram_id, u);
+          }
+        });
+      }
+      if (Array.isArray(data.profiles)) {
+        data.profiles.forEach((p: Profile) => {
+          if (p && typeof p.telegram_id === 'number') {
+            this.profiles.set(p.telegram_id, p);
+          }
+        });
+      }
+      if (Array.isArray(data.dailyRewards)) {
+        data.dailyRewards.forEach((r: any) => {
+          if (r && typeof r.telegramId === 'number') {
+            this.dailyRewards.set(r.telegramId, {
+              lastClaimed: r.lastClaimed,
+              streak: r.streak,
+              totalPoints: r.totalPoints,
+            });
+          }
+        });
+      }
+      if (Array.isArray(data.pointLedger)) {
+        this.pointLedger = data.pointLedger;
+      }
+    } catch {
+      // Non-fatal fallback for tests or unformatted files
     }
   }
 
@@ -2357,33 +2420,96 @@ export class DataStore {
     language_code?: string;
     language_preference?: string | null;
   }): { user: TelegramUser; profile: Profile } {
-    let user = this.users.get(userData.telegram_id);
+    let existingUser = this.users.get(userData.telegram_id);
     let profile = this.profiles.get(userData.telegram_id);
 
-    if (!user) {
-      const userId = uuidv4();
-      user = {
-        id: userId,
-        telegram_id: userData.telegram_id,
-        username: userData.username || null,
-        first_name: userData.first_name,
-        last_name: userData.last_name || null,
-        photo_url: userData.photo_url || null,
-        language_code: userData.language_code || 'km',
-        language_preference: userData.language_preference || null,
-        is_bot: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      this.users.set(userData.telegram_id, user);
+    if (existingUser) {
+      existingUser.first_name = userData.first_name || existingUser.first_name;
+      existingUser.username = userData.username || existingUser.username;
+      existingUser.last_name = userData.last_name || existingUser.last_name;
+      if (userData.photo_url) existingUser.photo_url = userData.photo_url;
+      existingUser.updated_at = new Date().toISOString();
 
+      if (!profile) {
+        const refCode = `UCH${userData.telegram_id.toString(36).toUpperCase()}`;
+        profile = {
+          id: existingUser.id,
+          telegram_id: userData.telegram_id,
+          points: existingUser.points || 0,
+          loyalty_points: existingUser.reward_points || 0,
+          reward_points: existingUser.reward_points || 0,
+          last_daily_claim_at: existingUser.last_daily_claim_at || null,
+          gacha_tickets: 0,
+          total_spent: 0,
+          total_orders: 0,
+          gacha_spins_count: 0,
+          last_gacha_roll_at: null,
+          next_gacha_roll_at: null,
+          referral_code: refCode,
+          referred_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.profiles.set(userData.telegram_id, profile);
+      } else {
+        // Strictly preserve existing points and daily claim state
+        if (typeof existingUser.points === 'number' && existingUser.points > (profile.points || 0)) {
+          profile.points = existingUser.points;
+        } else if (typeof profile.points === 'number') {
+          existingUser.points = profile.points;
+        }
+        if (profile.last_daily_claim_at && !existingUser.last_daily_claim_at) {
+          existingUser.last_daily_claim_at = profile.last_daily_claim_at;
+        }
+      }
+
+      // DO NOT overwrite existingUser.points or existingUser.last_daily_claim_at
+      this.saveToDisk();
+
+      const returnObj = {
+        user: existingUser,
+        profile: profile!,
+        ...existingUser,
+        points: existingUser.points ?? profile?.points ?? 0,
+        reward_points: existingUser.reward_points ?? profile?.reward_points ?? 0,
+        last_daily_claim_at: existingUser.last_daily_claim_at || profile?.last_daily_claim_at || null,
+      };
+      return returnObj as any;
+    }
+
+    // ONLY brand-new users start at 0 (or inherit from existing profile if present):
+    const userId = profile?.id || uuidv4();
+    const initialPoints = profile?.points || 0;
+    const initialRewardPoints = profile?.reward_points || 0;
+    const initialLastClaim = profile?.last_daily_claim_at || null;
+
+    const newUser: TelegramUser = {
+      id: userId,
+      telegram_id: userData.telegram_id,
+      username: userData.username || null,
+      first_name: userData.first_name,
+      last_name: userData.last_name || null,
+      photo_url: userData.photo_url || null,
+      language_code: userData.language_code || 'km',
+      language_preference: userData.language_preference || null,
+      is_bot: false,
+      points: initialPoints,
+      reward_points: initialRewardPoints,
+      last_daily_claim_at: initialLastClaim,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.users.set(userData.telegram_id, newUser);
+
+    if (!profile) {
       const refCode = `UCH${userData.telegram_id.toString(36).toUpperCase()}`;
       profile = {
         id: userId,
         telegram_id: userData.telegram_id,
-        points: 0,
-        loyalty_points: 0,
-        reward_points: 0,
+        points: initialPoints,
+        loyalty_points: initialRewardPoints,
+        reward_points: initialRewardPoints,
+        last_daily_claim_at: initialLastClaim,
         gacha_tickets: 0,
         total_spent: 0,
         total_orders: 0,
@@ -2396,16 +2522,18 @@ export class DataStore {
         updated_at: new Date().toISOString(),
       };
       this.profiles.set(userData.telegram_id, profile);
-    } else {
-      // Update details if changed
-      user.first_name = userData.first_name;
-      user.last_name = userData.last_name || null;
-      user.username = userData.username || null;
-      if (userData.photo_url) user.photo_url = userData.photo_url;
-      user.updated_at = new Date().toISOString();
     }
+    this.saveToDisk();
 
-    return { user, profile: profile! };
+    const returnObj = {
+      user: newUser,
+      profile,
+      ...newUser,
+      points: newUser.points,
+      reward_points: newUser.reward_points,
+      last_daily_claim_at: newUser.last_daily_claim_at,
+    };
+    return returnObj as any;
   }
 
   static getTelegramUser(telegramId: number): TelegramUser | null {
@@ -2679,31 +2807,40 @@ export class DataStore {
       totalPoints: (record?.totalPoints || 0) + totalPointsAwarded,
     });
 
-    // Record separate or clear transactions according to requirement
-    this.addPointTransaction(
-      telegramId,
-      baseReward,
-      'daily_reward',
-      `+${baseReward} Daily Reward`
-    );
+    let user = this.users.get(telegramId);
+    let profile = this.profiles.get(telegramId);
 
-    if (isBonus) {
-      this.addPointTransaction(
-        telegramId,
-        streakBonus,
-        'streak_bonus',
-        `+${streakBonus} Streak Bonus`
-      );
+    if (!user || !profile) {
+      const created = this.findOrCreateTelegramUser({
+        telegram_id: telegramId,
+        first_name: 'Customer',
+      });
+      user = this.users.get(telegramId) || created.user;
+      profile = this.profiles.get(telegramId) || created.profile;
     }
 
-    const finalProfile = this.profiles.get(telegramId);
+    const pointsAwarded = totalPointsAwarded;
+    user.points = (user.points || 0) + pointsAwarded;
+    user.last_daily_claim_at = new Date().toISOString();
+    if (profile) {
+      profile.points = user.points;
+      profile.last_daily_claim_at = user.last_daily_claim_at;
+    }
 
-    return {
-      success: true,
-      pointsAwarded: totalPointsAwarded,
-      newBalance: finalProfile?.points || 0,
-      streak: newStreak,
+    const ledgerEntry: PointLedgerEntry = {
+      id: uuidv4(),
+      telegram_id: telegramId,
+      amount: pointsAwarded,
+      type: 'daily_reward',
+      description: isBonus ? `+${pointsAwarded} Daily Reward & Streak Bonus` : `+${pointsAwarded} Daily Reward`,
+      reference_id: null,
+      balance_after: user.points,
+      created_at: new Date().toISOString(),
     };
+    this.pointLedger.unshift(ledgerEntry);
+
+    this.saveToDisk();
+    return { success: true, pointsAwarded, newBalance: user.points, streak: newStreak };
   }
 
   // ================= COUPON REDEMPTION FROM POINTS (3 TIERS) =================
@@ -3407,3 +3544,6 @@ export class DataStore {
     };
   }
 }
+
+// Automatically restore persisted data from disk on module initialization
+DataStore.loadFromDisk();

@@ -66,6 +66,13 @@ export function tgEmoji(key: keyof typeof EMOJI, fallback: string): string {
 }
 
 /**
+ * Returns the Telegram sticker CDN URL for a given custom emoji ID.
+ */
+export function getEmojiCdnUrl(emojiId: string): string {
+  return `https://t.me/i/emoji/${emojiId}.webp`;
+}
+
+/**
  * Build a map of semantic keys → Telegram entity objects for sendMessage entities.
  * Useful when you need the full entity structure instead of inline HTML.
  */
