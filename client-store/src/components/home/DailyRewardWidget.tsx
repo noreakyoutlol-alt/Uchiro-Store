@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Gift, Flame, CheckCircle, Sparkles, Loader2, Crown, Clock } from 'lucide-react';
 import { StoreAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
@@ -14,6 +14,7 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
   const [isLoading, setIsLoading] = useState(true);
   const [isClaiming, setIsClaiming] = useState(false);
   const [countdown, setCountdown] = useState<number>(0);
+  const targetEndRef = useRef<number>(0);
 
   const [claimFeedback, setClaimFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -21,26 +22,34 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
     loadStatus();
   }, []);
 
+  // Bulletproof timestamp-based countdown timer:
+  // Never drifts when the tab is backgrounded or phone screen locked.
   useEffect(() => {
     if (countdown <= 0) return;
+
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          loadStatus();
-          return 0;
-        }
-        return prev - 1;
-      });
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((targetEndRef.current - now) / 1000));
+      setCountdown(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        loadStatus();
+      }
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [countdown]);
+  }, [countdown > 0]);
 
   const loadStatus = async () => {
     try {
       const data: DailyRewardStatus = await StoreAPI.getDailyRewardStatus();
       setStatus(data);
       if (data.seconds_remaining && data.seconds_remaining > 0) {
+        targetEndRef.current = Date.now() + data.seconds_remaining * 1000;
         setCountdown(data.seconds_remaining);
+      } else {
+        setCountdown(0);
       }
     } catch {
       setStatus({
@@ -56,14 +65,17 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
           isToday: d === 1,
           isBonus: d === 7,
         })),
+        total_check_ins: 0,
+        seconds_remaining: 0,
       });
+      setCountdown(0);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClaim = async () => {
-    if (isClaiming) return;
+    if (isClaiming || !status?.can_claim) return;
     setIsClaiming(true);
     setClaimFeedback(null);
 
@@ -71,12 +83,21 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
       const res = await StoreAPI.claimDailyReward();
 
       if (res && res.success) {
+        const remaining = res.seconds_remaining ?? res.status?.seconds_remaining ?? 0;
+        if (remaining > 0) {
+          targetEndRef.current = Date.now() + remaining * 1000;
+          setCountdown(remaining);
+        } else {
+          loadStatus();
+        }
+
         setStatus((prev) =>
           prev
             ? {
                 ...prev,
                 can_claim: false,
                 current_streak: res.streak,
+                seconds_remaining: remaining,
                 streak_days: prev.streak_days?.map((d) =>
                   d.day === res.streak ? { ...d, isClaimed: true } : d
                 ),
@@ -85,26 +106,40 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
         );
 
         const newPoints = res.points ?? res.newBalance;
-        window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: newPoints } }));
-        window.dispatchEvent(
-          new CustomEvent('uchiro_points_updated', {
-            detail: { points: newPoints },
-          })
-        );
+        if (typeof newPoints === 'number') {
+          window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: newPoints } }));
+          window.dispatchEvent(
+            new CustomEvent('uchiro_points_updated', {
+              detail: { points: newPoints },
+            })
+          );
 
-        if (onRewardClaimed && typeof newPoints === 'number') {
-          onRewardClaimed(newPoints);
+          if (onRewardClaimed) {
+            onRewardClaimed(newPoints);
+          }
         }
-      }
 
-      setClaimFeedback({
-        type: 'success',
-        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
-      });
+        setClaimFeedback({
+          type: 'success',
+          text: res.message || '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+        });
+      } else {
+        const remaining = res?.seconds_remaining ?? res?.status?.seconds_remaining ?? 0;
+        if (remaining > 0) {
+          targetEndRef.current = Date.now() + remaining * 1000;
+          setCountdown(remaining);
+        }
+        setStatus((prev) => (prev ? { ...prev, can_claim: false } : null));
+        setClaimFeedback({
+          type: 'error',
+          text: res?.message || 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
+        });
+      }
     } catch {
+      loadStatus();
       setClaimFeedback({
-        type: 'success',
-        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+        type: 'error',
+        text: 'សូមព្យាយាមម្តងទៀត',
       });
     } finally {
       setIsClaiming(false);
@@ -153,10 +188,9 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
               {/* Countdown pill text-[10px] px-2 py-0.5 */}
               <span className="flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/30 text-[10px] font-bold text-orange-400">
                 <Flame className="w-2.5 h-2.5 text-orange-400" />
-                <span>{currentStreak}D</span>
+                <span>Streak {currentStreak}</span>
               </span>
             </div>
-            {/* Short gamer Khmer subtitle */}
             <p className="text-[10px] text-slate-300 font-medium">
               ចូលយករាល់ថ្ងៃ • ថ្ងៃទី៧ +15 Pts ពិសេស!
             </p>
@@ -167,7 +201,7 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
           <button
             onClick={handleClaim}
             disabled={isClaiming}
-            className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#FFD166]/30 transition-all shrink-0"
+            className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#FFD166]/30 transition-all shrink-0 cursor-pointer"
           >
             {isClaiming ? (
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -177,15 +211,12 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
             <span>+{status?.reward_points || 5} Pts</span>
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={handleClaim}
-            disabled={isClaiming}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800/80 border border-slate-700 hover:border-amber-500/40 text-slate-300 text-[10px] font-bold shrink-0 transition-colors active:scale-95"
+          <div
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800/90 border border-slate-700/80 text-slate-300 text-[11px] font-bold shrink-0 select-none cursor-default"
           >
-            <Clock className="w-3 h-3 text-[#FFD166]" />
-            <span>{formatCountdown(countdown)}</span>
-          </button>
+            <Clock className="w-3.5 h-3.5 text-[#FFD166]" />
+            <span className="tabular-nums tracking-wide">{formatCountdown(countdown)}</span>
+          </div>
         )}
       </div>
 
@@ -209,50 +240,42 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
         </div>
       )}
 
-      {/* 7-Day Visual Progression Bar: Streak day boxes py-1 px-0.5, fonts text-[9px] day, text-[10px] points, Day 7 crown icon */}
-      <div className="grid grid-cols-7 gap-1">
-        {streakDays.map((sd) => {
-          const isDone = sd.isClaimed;
-          const isSpecial = sd.isBonus || sd.day === 7;
+      {/* 7-Day Streak Road: Pocket Friendly Grid */}
+      <div className="relative z-10 grid grid-cols-7 gap-1 sm:gap-1.5 pt-1">
+        {streakDays.map((d) => {
+          const isClaimed = d.isClaimed;
+          const isToday = d.isToday && status?.can_claim;
+          const isBonus = d.isBonus;
+
           return (
             <div
-              key={sd.day}
-              className={`flex flex-col items-center justify-between py-1 px-0.5 rounded-lg border text-center transition-all ${
-                isDone
-                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                  : sd.isToday && status?.can_claim
-                  ? 'bg-[#FFD166]/20 border-[#FFD166] text-[#FFD166] ring-1 ring-[#FFD166]'
-                  : isSpecial
-                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                  : 'bg-white/5 border-white/10 text-slate-400'
+              key={d.day}
+              className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-lg border transition-all text-center ${
+                isClaimed
+                  ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-400 shadow-sm'
+                  : isToday
+                  ? 'bg-[#FFD166]/15 border-[#FFD166] text-[#FFD166] shadow-sm shadow-[#FFD166]/20 animate-pulse'
+                  : isBonus
+                  ? 'bg-purple-950/30 border-purple-500/40 text-purple-300'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-300'
               }`}
             >
-              <span className="text-[9px] font-bold uppercase tracking-wider opacity-80">
-                D{sd.day}
+              <span className="text-[9px] font-bold opacity-80 uppercase tracking-tighter">
+                D{d.day}
               </span>
 
-              <div className="my-0.5 flex items-center justify-center">
-                {isDone ? (
-                  <CheckCircle className="w-3 h-3 text-emerald-400" />
-                ) : isSpecial ? (
-                  <Crown className="w-3 h-3 text-amber-400" />
+              <div className="my-0.5">
+                {isClaimed ? (
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                ) : isBonus ? (
+                  <Crown className="w-3.5 h-3.5 text-[#FFD166]" />
                 ) : (
-                  <Gift className="w-2.5 h-2.5 text-slate-400" />
+                  <Sparkles className="w-3 h-3 text-slate-300" />
                 )}
               </div>
 
-              <span
-                className={`text-[10px] font-bold ${
-                  isDone
-                    ? 'text-emerald-400'
-                    : sd.isToday
-                    ? 'text-[#FFD166]'
-                    : isSpecial
-                    ? 'text-amber-300'
-                    : 'text-slate-400'
-                }`}
-              >
-                +{sd.points}
+              <span className="text-[9px] font-black">
+                +{d.points}
               </span>
             </div>
           );

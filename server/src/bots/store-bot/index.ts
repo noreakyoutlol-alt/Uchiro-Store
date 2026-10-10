@@ -77,14 +77,18 @@ export function createWebAppOrUrlButton(text: string, targetUrl: string) {
   // If targetUrl does not start with https:// (e.g. http://localhost:3000 or relative path), resolve path & query onto appUrl
   let resolvedUrl = appUrl;
   if (targetUrl) {
-    try {
-      const parsed = new URL(targetUrl);
-      const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
-      if (pathAndQuery) {
-        resolvedUrl = `${appUrl}${pathAndQuery}`;
+    if (targetUrl.startsWith('/')) {
+      resolvedUrl = `${appUrl}${targetUrl}`;
+    } else {
+      try {
+        const parsed = new URL(targetUrl);
+        const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
+        if (pathAndQuery) {
+          resolvedUrl = `${appUrl}${pathAndQuery}`;
+        }
+      } catch {
+        resolvedUrl = appUrl;
       }
-    } catch {
-      resolvedUrl = appUrl;
     }
   }
 
@@ -111,8 +115,9 @@ export function createEmojiInlineButton(opts: {
   const customEmojiId = emoji?.customEmojiId?.trim();
   const fallback = emoji?.fallback?.trim() || '';
 
-  // Safe Fallback: If icon_custom_emoji_id is empty or missing, prepend the fallback Unicode emoji in text
-  const finalText = customEmojiId ? opts.text : (fallback ? `${fallback} ${opts.text}` : opts.text);
+  // Safe Fallback: Ensure text always includes the Unicode fallback emoji so non-premium Telegram clients see crisp emojis
+  const hasFallback = fallback && opts.text.includes(fallback);
+  const finalText = hasFallback ? opts.text : (fallback ? `${fallback} ${opts.text}` : opts.text);
 
   let btn: any;
   if (opts.targetUrl) {

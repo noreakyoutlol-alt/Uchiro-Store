@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import express from 'express';
+import compression from 'compression';
 import helmet from 'helmet';
 import cors from 'cors';
 import { env } from './config/env';
@@ -23,6 +24,7 @@ import { adminStaticGuard, ADMIN_404_HTML } from './middleware/admin-guard';
 
 const app = express();
 app.set('trust proxy', 1);
+app.use(compression());
 const PORT = Number(process.env.PORT || env.PORT || 5000);
 const HOST = '0.0.0.0';
 
@@ -113,24 +115,45 @@ const storeDist = [
 console.log('[Static Check] Admin Dist Path:', adminDist, 'Exists:', fs.existsSync(adminDist));
 console.log('[Static Check] Store Dist Path:', storeDist, 'Exists:', fs.existsSync(storeDist));
 
-// A. Mount Admin Static Assets FIRST
-app.use('/admin', express.static(adminDist, { index: false, redirect: false }));
+// Strict redirect before static mount (only when path lacks trailing slash)
+app.get('/admin', (req, res, next) => {
+  if (req.path === '/admin') {
+    return res.redirect(301, '/admin/');
+  }
+  return next();
+});
 
-// B. Admin SPA Fallback (handles /admin, /admin/, and /admin/*)
-app.get(['/admin', '/admin/*'], (req, res, next) => {
+// Mount Admin assets
+app.use(
+  '/admin',
+  express.static(adminDist, {
+    maxAge: '1y',
+    immutable: true,
+    index: false,
+  })
+);
+
+// Direct Admin SPA fallback
+app.get('/admin/*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) return next();
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const adminIndex = path.join(adminDist, 'index.html');
   if (fs.existsSync(adminIndex)) {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.sendFile(adminIndex);
   }
   return res.status(404).send('Admin SPA build not found at: ' + adminIndex);
 });
 
-// C. Mount Store Static Assets SECOND
-app.use(express.static(storeDist));
+// Mount Store assets
+app.use(
+  express.static(storeDist, {
+    maxAge: '1y',
+    immutable: true,
+    index: false,
+  })
+);
 
-// D. Store SPA Fallback
+// Direct Store SPA fallback
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/webhook') || req.path.startsWith('/admin')) {
     return next();

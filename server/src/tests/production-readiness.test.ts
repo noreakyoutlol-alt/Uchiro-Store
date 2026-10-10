@@ -34,14 +34,19 @@ describe('Task 8: Production Readiness & Final Verification Suite', () => {
     });
 
     it('serves client-admin SPA at /admin and admin deep routes with cache-control headers', async () => {
-      // 1. Regular access to /admin serves Admin SPA index.html with HTTP 200
-      const res = await request(app).get('/admin');
+      // 1. Regular access to /admin performs strict 301 redirect to /admin/ (prevents Store SPA collision)
+      const redirectRes = await request(app).get('/admin');
+      expect(redirectRes.status).toBe(301);
+      expect(redirectRes.headers.location).toBe('/admin/');
+
+      // 2. Access to /admin/ serves Admin SPA index.html with HTTP 200 and no-cache headers
+      const res = await request(app).get('/admin/');
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/html');
       expect(res.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
       expect(res.text).toContain('UCHIRO ADMIN');
 
-      // 2. Deep routes (/admin/orders, /admin/settings) also serve Admin SPA index.html
+      // 3. Deep routes (/admin/orders, /admin/settings) also serve Admin SPA index.html
       const deepRes = await request(app).get('/admin/orders');
       expect(deepRes.status).toBe(200);
       expect(deepRes.headers['content-type']).toContain('text/html');

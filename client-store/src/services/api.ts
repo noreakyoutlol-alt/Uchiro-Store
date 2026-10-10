@@ -287,9 +287,14 @@ export const StoreAPI = {
     const data = res.data?.data || res.data;
     return {
       success: res.data?.success ?? data?.success ?? true,
-      pointsAwarded: res.data?.pointsAwarded ?? data?.pointsAwarded ?? 5,
-      newBalance: res.data?.newBalance ?? data?.newBalance,
-      message: res.data?.message || data?.message || '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+      pointsAwarded: res.data?.pointsAwarded ?? data?.pointsAwarded ?? 0,
+      newBalance: res.data?.newBalance ?? data?.newBalance ?? res.data?.points ?? data?.points,
+      points: res.data?.points ?? data?.points ?? res.data?.newBalance ?? data?.newBalance,
+      streak: res.data?.streak ?? data?.streak ?? 1,
+      seconds_remaining: res.data?.seconds_remaining ?? data?.seconds_remaining ?? 0,
+      next_claim_at: res.data?.next_claim_at ?? data?.next_claim_at ?? null,
+      message: res.data?.message || data?.message || '',
+      status: data,
       ...data,
     };
   },

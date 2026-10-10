@@ -249,24 +249,53 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
   }
 
   const result = DataStore.claimDailyReward(tgId);
+  const status = DataStore.getDailyRewardStatus(tgId);
   const profile = DataStore.getProfile(tgId);
-  const newBalance = profile?.points ?? result.newBalance ?? 5;
+  const currentBalance = profile?.points ?? result.newBalance ?? user.points ?? 0;
+
+  if (!result.success) {
+    return res.json({
+      success: false,
+      error: result.error || 'ALREADY_CLAIMED_TODAY',
+      points: currentBalance,
+      pointsAwarded: 0,
+      newBalance: currentBalance,
+      streak: result.streak,
+      seconds_remaining: status.seconds_remaining,
+      next_claim_at: status.next_claim_at,
+      message: 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
+      data: {
+        ...status,
+        success: false,
+        points: currentBalance,
+        pointsAwarded: 0,
+        newBalance: currentBalance,
+        streak: result.streak,
+        seconds_remaining: status.seconds_remaining,
+        next_claim_at: status.next_claim_at,
+      },
+    });
+  }
 
   return res.json({
     success: true,
-    points: newBalance,
-    pointsAwarded: result.pointsAwarded || 5,
-    newBalance,
+    points: result.newBalance,
+    pointsAwarded: result.pointsAwarded,
+    newBalance: result.newBalance,
     streak: result.streak,
-    message: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+    seconds_remaining: status.seconds_remaining,
+    next_claim_at: status.next_claim_at,
+    message: `🎉 ទទួលបាន +${result.pointsAwarded} ពិន្ទុជោគជ័យ!`,
     data: {
-      ...result,
+      ...status,
       success: true,
-      points: newBalance,
-      pointsAwarded: result.pointsAwarded || 5,
-      newBalance,
+      points: result.newBalance,
+      pointsAwarded: result.pointsAwarded,
+      newBalance: result.newBalance,
       streak: result.streak,
-      message: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+      seconds_remaining: status.seconds_remaining,
+      next_claim_at: status.next_claim_at,
+      message: `🎉 ទទួលបាន +${result.pointsAwarded} ពិន្ទុជោគជ័យ!`,
     },
   });
 };

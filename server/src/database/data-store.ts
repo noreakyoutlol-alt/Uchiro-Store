@@ -2773,6 +2773,8 @@ export class DataStore {
     pointsAwarded: number;
     newBalance: number;
     streak: number;
+    seconds_remaining?: number;
+    next_claim_at?: string | null;
     error?: string;
   } {
     const status = this.getDailyRewardStatus(telegramId);
@@ -2784,6 +2786,8 @@ export class DataStore {
         pointsAwarded: 0,
         newBalance: currentPoints,
         streak: status.current_streak,
+        seconds_remaining: status.seconds_remaining,
+        next_claim_at: status.next_claim_at,
         error: 'ALREADY_CLAIMED_TODAY',
       };
     }
@@ -2846,6 +2850,10 @@ export class DataStore {
     };
     this.pointLedger.unshift(ledgerEntry);
 
+    const nextDayStartMs = (todayIndex + 1) * 24 * 60 * 60 * 1000 - this.PHNOM_PENH_OFFSET_MS;
+    const secondsRemaining = Math.max(0, Math.ceil((nextDayStartMs - now) / 1000));
+    const nextClaimAt = new Date(nextDayStartMs).toISOString();
+
     this.saveToDisk();
     return {
       success: true,
@@ -2853,6 +2861,8 @@ export class DataStore {
       pointsAwarded,
       newBalance: user.points,
       streak: newStreak,
+      seconds_remaining: secondsRemaining,
+      next_claim_at: nextClaimAt,
     };
   }
 
