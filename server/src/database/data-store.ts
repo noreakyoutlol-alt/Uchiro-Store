@@ -522,7 +522,7 @@ const initialCoupons: Coupon[] = [
     min_order_amount: 5.0,
     max_discount_amount: 10.0,
     usage_limit: 1000,
-    times_used: 124,
+    times_used: 0,
     per_user_limit: 1,
     expires_at: new Date(Date.now() + 90 * 86400000).toISOString(),
     is_active: true,
@@ -537,7 +537,7 @@ const initialCoupons: Coupon[] = [
     min_order_amount: 10.0,
     max_discount_amount: 15.0,
     usage_limit: 500,
-    times_used: 48,
+    times_used: 0,
     per_user_limit: 1,
     expires_at: new Date(Date.now() + 60 * 86400000).toISOString(),
     is_active: true,
@@ -552,7 +552,7 @@ const initialCoupons: Coupon[] = [
     min_order_amount: 8.0,
     max_discount_amount: null,
     usage_limit: 2000,
-    times_used: 215,
+    times_used: 0,
     per_user_limit: 1,
     expires_at: new Date(Date.now() + 120 * 86400000).toISOString(),
     is_active: true,
@@ -571,7 +571,7 @@ const initialGachaPools: GachaPool[] = [
     spin_price: 1.5,
     is_active: true,
     banner_url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
-    total_spins: 1840,
+    total_spins: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
@@ -1738,6 +1738,16 @@ export class DataStore {
     }
     this.persistToDisk();
     return order;
+  }
+
+  static deleteOrder(orderId: string): boolean {
+    const idx = this.orders.findIndex((o) => o.id === orderId);
+    if (idx >= 0) {
+      this.orders.splice(idx, 1);
+      this.persistToDisk();
+      return true;
+    }
+    return false;
   }
 
   static getOrdersByCustomer(telegramId: number): Order[] {

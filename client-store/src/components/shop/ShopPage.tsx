@@ -348,7 +348,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
               key={product.id}
               product={product}
               onSelect={onSelectProduct}
-              onQuickBuy={onQuickBuy}
+              onQuickBuy={onSelectProduct}
             />
           ))}
         </div>

@@ -120,33 +120,33 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
   // Full detailed card view (Shop Page)
   if (variant === 'cards') {
     return (
-      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${className}`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 ${className}`}>
         {GAME_COLLECTIONS.map((c) => {
           return (
             <button
               type="button"
               key={c.slug}
               onClick={() => onSelectCollection(c.slug)}
-              className={`group flex items-center justify-between p-3.5 rounded-2xl border border-white/10 bg-[#0F1422]/90 dark:bg-[#0B0F19]/90 backdrop-blur-xl hover:border-white/25 transition-all duration-300 text-left active:scale-[0.98] shadow-lg ${c.borderHoverClass}`}
+              className={`group flex items-center justify-between p-3 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-[#0F1422] hover:border-amber-400/60 transition-colors text-left active:scale-[0.98] shadow-sm ${c.borderHoverClass}`}
             >
-              <div className="flex items-center gap-3.5 min-w-0">
-                {/* Modern Glowing Rounded Container */}
+              <div className="flex items-center gap-3 min-w-0">
+                {/* Modern Rounded Container */}
                 <div
-                  className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110 ${c.containerClass} ${c.glowClass}`}
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${c.containerClass}`}
                 >
-                  <span className="text-2xl select-none" role="img" aria-label={c.name}>
+                  <span className="text-xl select-none" role="img" aria-label={c.name}>
                     {c.emoji}
                   </span>
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="font-black text-sm text-white group-hover:text-amber-400 transition-colors truncate">
+                  <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-amber-400 transition-colors truncate">
                     {c.name}
                   </h3>
                 </div>
               </div>
 
-              <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:bg-white/10 transition-all shrink-0 ml-2">
+              <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 group-hover:text-amber-400 transition-colors shrink-0 ml-2">
                 <span className="text-sm font-bold">→</span>
               </div>
             </button>
@@ -158,25 +158,25 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
 
   // Default compact 4-col grid layout (Used on Home Page)
   return (
-    <div className={`grid grid-cols-4 gap-2.5 ${className}`}>
+    <div className={`grid grid-cols-4 gap-2 ${className}`}>
       {GAME_COLLECTIONS.map((c) => {
         return (
           <button
             type="button"
             key={c.slug}
             onClick={() => onSelectCollection(c.slug)}
-            className={`group flex flex-col items-center justify-center p-2.5 rounded-2xl border border-white/10 bg-[#0F1422]/70 dark:bg-[#0B0F19]/80 backdrop-blur-xl hover:border-white/25 transition-all duration-300 active:scale-95 text-center shadow-lg ${c.borderHoverClass}`}
+            className={`group flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0F1422] hover:border-amber-400/60 transition-colors active:scale-95 text-center shadow-sm ${c.borderHoverClass}`}
           >
-            {/* Modern Glowing Rounded Container */}
+            {/* Modern Rounded Container */}
             <div
-              className={`w-11 h-11 rounded-xl border flex items-center justify-center mb-1.5 transition-transform duration-300 group-hover:scale-110 ${c.containerClass} ${c.glowClass}`}
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center mb-1 transition-transform duration-200 group-hover:scale-105 ${c.containerClass}`}
             >
-              <span className="text-xl sm:text-2xl select-none" role="img" aria-label={c.name}>
+              <span className="text-lg sm:text-xl select-none" role="img" aria-label={c.name}>
                 {c.emoji}
               </span>
             </div>
 
-            <span className="text-[10px] sm:text-[11px] font-black text-white text-center truncate max-w-full group-hover:text-amber-400 transition-colors">
+            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 text-center truncate max-w-full group-hover:text-amber-400 transition-colors">
               {c.name}
             </span>
           </button>

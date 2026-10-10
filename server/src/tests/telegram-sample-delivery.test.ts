@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { DataStore } from '../database/data-store';
 import { FulfillmentService } from '../services/fulfillment.service';
 import { generateReceiptPdf } from '../utils/receipt.util';
@@ -156,5 +156,9 @@ describe('Telegram Account Delivery & Sample Dispatch Verification', () => {
     // Row 2: Contact Support
     const wRow2 = subWarranty.keyboard.inline_keyboard[1][0] as any;
     expect(wRow2.url).toMatch(/^https:\/\/t\.me\//);
+  });
+
+  afterAll(() => {
+    DataStore.deleteOrder(sampleOrderId);
   });
 });

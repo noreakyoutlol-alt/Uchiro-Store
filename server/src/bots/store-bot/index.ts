@@ -1,4 +1,4 @@
-import { Telegraf, Markup } from 'telegraf';
+﻿import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
 import { DataStore } from '../../database/data-store';
 import { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis } from '../../config/telegram-emojis';
@@ -152,11 +152,18 @@ export function getLanguageSelectionKeyboard() {
  * [ My Inventory & Vault ] (icon: PACKAGE) [ Orders ] (icon: SCROLL)
  * [ ភាសា / Language ] (icon: GLOBE) [ 24/7 Support ] (icon: SUPPORT)
  */
-export function getMainMenuKeyboard(storeWebAppUrl?: string) {
+/**
+ * Main menu 6-button interactive grid with Telegram custom emojis (Specification 2: 100% Khmer):
+ * [ បើក UCHIRO STORE (កម្មវិធី) ] (icon: SHOPPING_BAGS)
+ * [ បង្វិល Gacha ] (icon: FERRIS_WHEEL) [ ពិន្ទុប្រចាំថ្ងៃ ] (icon: GIFT)
+ * [ ទូផ្ទុកទំនិញ ] (icon: PACKAGE) [ ប្រវត្តិបញ្ជាទិញ ] (icon: SCROLL)
+ * [ 🇰🇭 ភាសាខ្មែរ / EN ] (icon: GLOBE) [ ជំនួយ ២៤/៧ ] (icon: SUPPORT)
+ */
+export function getMainMenuKeyboard(storeWebAppUrl?: string, lang: string = 'en') {
   const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
   const rawSupport = process.env.SUPPORT_TELEGRAM_USERNAME || env.TELEGRAM_SUPPORT_USERNAME || 'UchiroSupport';
   const supportUsername = rawSupport.replace('@', '');
-  const supportUrl = `https://t.me/${supportUsername}`;
+  const isKm = lang === 'km';
 
   const resolvedStoreUrl = (storeWebAppUrl && storeWebAppUrl.startsWith('https://'))
     ? storeWebAppUrl.replace(/\/$/, '')
@@ -165,43 +172,43 @@ export function getMainMenuKeyboard(storeWebAppUrl?: string) {
   return Markup.inlineKeyboard([
     [
       createEmojiInlineButton({
-        text: 'OPEN UCHIRO STORE (Mini App)',
+        text: isKm ? 'បើក UCHIRO STORE (កម្មវិធី)' : 'OPEN UCHIRO STORE (Mini App)',
         emojiKey: 'SHOPPING_BAGS',
         targetUrl: resolvedStoreUrl,
       }),
     ],
     [
       createEmojiInlineButton({
-        text: 'Play Gacha',
+        text: isKm ? 'បង្វិល Gacha' : 'Play Gacha',
         emojiKey: 'FERRIS_WHEEL',
         targetUrl: `${resolvedStoreUrl}?tab=gacha`,
       }),
       createEmojiInlineButton({
-        text: 'Daily Points',
+        text: isKm ? 'ពិន្ទុប្រចាំថ្ងៃ' : 'Daily Points',
         emojiKey: 'GIFT',
         targetUrl: `${resolvedStoreUrl}?tab=rewards`,
       }),
     ],
     [
       createEmojiInlineButton({
-        text: 'My Inventory & Vault',
+        text: isKm ? 'ទូផ្ទុកទំនិញ' : 'My Inventory & Vault',
         emojiKey: 'PACKAGE',
         targetUrl: `${resolvedStoreUrl}?tab=vault`,
       }),
       createEmojiInlineButton({
-        text: 'Orders',
+        text: isKm ? 'ប្រវត្តិបញ្ជាទិញ' : 'Orders',
         emojiKey: 'SCROLL',
         targetUrl: `${resolvedStoreUrl}?tab=orders`,
       }),
     ],
     [
       createEmojiInlineButton({
-        text: 'ភាសា / Language',
+        text: isKm ? '🇰🇭 ភាសាខ្មែរ / English' : 'ភាសា / Language',
         emojiKey: 'GLOBE',
         callbackData: 'select_language',
       }),
       createEmojiInlineButton({
-        text: '24/7 Support',
+        text: isKm ? 'ជំនួយ ២៤/៧' : '24/7 Support',
         emojiKey: 'SUPPORT',
         url: `https://t.me/${supportUsername}`,
       }),
@@ -212,11 +219,11 @@ export function getMainMenuKeyboard(storeWebAppUrl?: string) {
 export const storeKeyboard = getMainMenuKeyboard;
 export const mainMenuKeyboard = getMainMenuKeyboard;
 
-export function getWelcomeMessage(lang: string = 'en'): string {
+export function getWelcomeMessage(lang: string = 'km'): string {
   const lightning = renderTgEmoji('LIGHTNING');
   const fire = renderTgEmoji('FIRE');
 
-  if (lang === 'km') {
+  if (lang !== 'en') {
     return (
       `${lightning} <b>សូមស្វាគមន៍មកកាន់ UCHIRO STORE</b> ${lightning}\n\n` +
       `ហាងលក់ Account ហ្គេម វត្ថុក្នុងហ្គេម និងរង្វាន់ពិសេសៗ។\n\n` +
@@ -225,7 +232,7 @@ export function getWelcomeMessage(lang: string = 'en'): string {
       `• Blox Fruits, MM2, Blade Ball និង Evade\n` +
       `• កងបង្វិលរង្វាន់ Mythical Gacha ឱកាសឈ្នះខ្ពស់\n` +
       `• ទូទាត់រហ័សតាម KHQR / Bakong\n` +
-      `• សុវត្ថិភាព ១០០% ជាមួយការធានារយៈពេល ១៤ ថ្ងៃ\n\n` +
+      `• សុវត្ថិភាព ១០០% ជាមួយការធានារយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
       `ចុចប៊ូតុងខាងក្រោមដើម្បីបើកកម្មវិធី Store:`
     );
   }
@@ -266,19 +273,20 @@ export class StoreBotService {
     if (!this.bot) return;
 
     const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const supportUsername = (process.env.SUPPORT_TELEGRAM_USERNAME || env.TELEGRAM_SUPPORT_USERNAME || 'UchiroSupport').replace(/^@/, '');
     const storeWebAppUrl = (env.STORE_WEBAPP_URL && env.STORE_WEBAPP_URL.startsWith('https://'))
       ? env.STORE_WEBAPP_URL
       : (env.CLIENT_STORE_URL && env.CLIENT_STORE_URL.startsWith('https://'))
         ? env.CLIENT_STORE_URL
         : appUrl;
 
-    // /start command: Prompt for language if not yet chosen
+    // /start command: Defaults strictly to Khmer (Specification 2: 100% Khmer)
     this.bot.start(async (ctx) => {
       const from = ctx.from;
       if (!from) return;
 
       const existingUser = DataStore.getTelegramUser(from.id);
-      const userLang = existingUser?.language_preference;
+      const userLang = existingUser?.language_preference || 'km';
 
       // Register or update customer
       DataStore.findOrCreateTelegramUser({
@@ -286,31 +294,15 @@ export class StoreBotService {
         username: from.username || null,
         first_name: from.first_name,
         last_name: from.last_name || null,
-        language_code: from.language_code || 'en',
+        language_code: from.language_code || 'km',
       });
 
-      // If user has not selected language, prompt with a language selector keyboard
-      if (!userLang) {
-        await ctx.reply(
-          formatTelegramHtml(
-            `🌐 <b>សូមជ្រើសរើសភាសា / PLEASE CHOOSE A LANGUAGE</b>\n\n` +
-            `សូមជ្រើសរើសភាសារបស់អ្នកដើម្បីបន្តទៅកាន់ Uchiro Store:\n` +
-            `Please select your preferred language to proceed:`
-          ),
-          {
-            parse_mode: 'HTML',
-            ...getLanguageSelectionKeyboard(),
-          }
-        );
-        return;
-      }
-
-      // If already chosen, send localized welcome & main menu
+      // Send localized welcome & main menu in Khmer by default
       await ctx.reply(
         formatTelegramHtml(getWelcomeMessage(userLang)),
         {
           parse_mode: 'HTML',
-          ...getMainMenuKeyboard(storeWebAppUrl),
+          ...getMainMenuKeyboard(storeWebAppUrl, userLang),
         }
       );
     });
@@ -337,7 +329,7 @@ export class StoreBotService {
         formatTelegramHtml(getWelcomeMessage(lang)),
         {
           parse_mode: 'HTML',
-          ...getMainMenuKeyboard(storeWebAppUrl),
+          ...getMainMenuKeyboard(storeWebAppUrl, lang),
         }
       );
     });
@@ -373,19 +365,19 @@ export class StoreBotService {
       );
     });
 
-    // /help command
+    // /help command (Specification 2: 100% Khmer by default)
     this.bot.help(async (ctx) => {
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'en' : 'en';
+      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
       const helpText =
-        userLang === 'km'
-          ? `<b>ជំនួយ UCHIRO STORE</b>\n\n` +
-            `• ចុចប៊ូតុង <b>🛍️ OPEN UCHIRO STORE</b> ដើម្បីមើលទំនិញ ឬការកុម្ម៉ង់របស់អ្នក។\n` +
+        userLang === 'en'
+          ? `<b>UCHIRO STORE HELP</b>\n\n` +
+            `• Tap <b>🛍️ OPEN UCHIRO STORE</b> to browse items or check your orders.\n` +
+            `• Payments and account delivery are tracked securely inside the Mini App.\n` +
+            `• Need assistance? Contact our 24/7 Support: @${supportUsername}`
+          : `<b>ជំនួយ UCHIRO STORE</b>\n\n` +
+            `• ចុចប៊ូតុង <b>🛍️ បើក UCHIRO STORE</b> ដើម្បីមើលទំនិញ ឬការកុម្ម៉ង់របស់អ្នក។\n` +
             `• ការទូទាត់ និងការផ្ញើជូនទាំងអស់ត្រូវបានតាមដាននៅក្នុង Mini App។\n` +
-            `• សម្រាប់ការគាំទ្រ សូមទាក់ទងមកកាន់ក្រុមការងារ 24/7 Support។`
-          : `<b>UCHIRO STORE HELP</b>\n\n` +
-            `• Tap <b>🛍️ OPEN UCHIRO STORE</b> to browse items or view your orders.\n` +
-            `• All purchases and deliveries are tracked securely in the Mini App.\n` +
-            `• For assistance, contact our 24/7 customer support.`;
+            `• សម្រាប់ការគាំទ្រ សូមទាក់ទងមកកាន់ផ្នែកជំនួយ ២៤/៧៖ @${supportUsername}`;
 
       await ctx.reply(
         formatTelegramHtml(helpText),

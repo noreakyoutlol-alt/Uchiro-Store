@@ -85,9 +85,43 @@ storeRouter.get('/settings', (_req, res) => {
   });
 });
 
-// Roblox Username Verification
+// Roblox Username Verification Proxy & Instant Validator (Specification 1)
+storeRouter.post('/roblox/verify-user', async (req, res) => {
+  const raw = req.body?.username || req.body?.robloxUsername || '';
+  const clean = String(raw).trim();
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_ROBLOX_USERNAME', message: 'Roblox username must be 3-20 characters (alphanumeric and underscore only)' },
+    });
+    return;
+  }
+  const profile = await RobloxService.verifyUser(clean);
+  res.json({
+    success: true,
+    data: profile,
+  });
+});
+
+storeRouter.get('/roblox/user/:username', async (req, res) => {
+  const clean = String(req.params.username || '').trim();
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_ROBLOX_USERNAME', message: 'Roblox username must be 3-20 characters' },
+    });
+    return;
+  }
+  const profile = await RobloxService.verifyUser(clean);
+  res.json({
+    success: true,
+    data: profile,
+  });
+});
+
 storeRouter.get('/roblox/profile/:username', async (req, res) => {
-  const profile = await RobloxService.lookupUsername(req.params.username);
+  const clean = String(req.params.username || '').trim();
+  const profile = await RobloxService.verifyUser(clean);
   if (!profile) {
     res.status(404).json({
       success: false,

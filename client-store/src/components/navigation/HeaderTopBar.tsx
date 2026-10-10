@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Globe } from 'lucide-react';
+import { ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { TelegramUser, Profile } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
-import { MusicPlayerControl } from '../audio/MusicPlayerControl';
+import { SettingsModal } from '../settings/SettingsModal';
 import { StoreAPI } from '../../services/api';
 
 export interface HeaderTopBarProps {
@@ -68,6 +68,7 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
   onOpenProfile,
 }) => {
   const { language, setLanguage } = useLanguage();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const displayName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Telegram User';
   const hasUsername = Boolean(user?.username && user.username.trim().length > 0);
@@ -176,37 +177,52 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
         </button>
 
         {/* Center / Right controls */}
-        <div className="flex items-center gap-2">
-          {/* Music Controller */}
-          <MusicPlayerControl />
-
-          {/* Language Switcher */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Language Switcher with Flag Icons */}
           <button
+            type="button"
             onClick={() => setLanguage(language === 'en' ? 'km' : 'en')}
-            className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-amber-400/50 text-[10px] font-bold text-slate-700 dark:text-slate-200 transition-colors"
-            title="Switch Language"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-amber-400/50 flex items-center justify-center transition-all active:scale-95 shadow-sm text-base leading-none select-none"
+            title={language === 'en' ? 'Switch to Khmer (🇰🇭)' : 'Switch to English (🇺🇸)'}
+            aria-label="Switch Language"
           >
-            <Globe className="w-3 h-3 text-amber-500 dark:text-[#FFD166]" />
-            <span>{language === 'en' ? 'EN' : 'KH'}</span>
+            {language === 'en' ? '🇺🇸' : '🇰🇭'}
+          </button>
+
+          {/* Settings & BGM Audio Drawer Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-amber-400/50 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-amber-500 dark:hover:text-amber-400 transition-all active:scale-95 shadow-sm"
+            title="Settings & Audio"
+            aria-label="Settings"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
 
           {/* Luxury Cyberpunk Points Badge */}
           <button
             onClick={onOpenProfile}
             type="button"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950/90 border border-amber-500/60 shadow-[0_0_15px_rgba(245,158,11,0.35)] backdrop-blur-md hover:border-amber-400 hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] transition-all active:scale-95 group shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-950/90 border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.25)] hover:border-amber-400 transition-all active:scale-95 group shrink-0"
             title="Uchiro Reward Points"
           >
-            <GoldCoin3DIcon size={18} />
-            <span className="text-amber-400 font-black text-sm tracking-wide drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+            <GoldCoin3DIcon size={16} />
+            <span className="text-amber-400 font-black text-xs sm:text-sm tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
               {userPoints.toLocaleString()}
             </span>
-            <span className="text-amber-500 font-extrabold text-[11px] tracking-wider uppercase">
+            <span className="text-amber-500 font-extrabold text-[10px] sm:text-[11px] tracking-wider uppercase">
               PTS
             </span>
           </button>
         </div>
       </div>
+
+      {/* Settings & Audio Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </header>
   );
 };

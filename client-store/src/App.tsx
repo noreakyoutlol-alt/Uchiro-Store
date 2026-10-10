@@ -13,6 +13,7 @@ import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { KHQRPaymentScreen } from './components/payment/KHQRPaymentScreen';
 import { DeliveredOrderModal } from './components/orders/DeliveredOrderModal';
 import { OrderReceiptModal } from './components/orders/OrderReceiptModal';
+import { TelegramBrowserBlocked } from './components/common/TelegramBrowserBlocked';
 import { Product, Category, Order, TelegramUser, Profile, GachaPool } from './types';
 import { StoreAPI } from './services/api';
 import { Loader2 } from 'lucide-react';
@@ -38,6 +39,22 @@ const StoreAppContent: React.FC = () => {
 
   // Modals & Flows
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Dedicated Product Detail Navigation (/product/:id)
+  const handleSelectProduct = (product: Product | null) => {
+    setSelectedProduct(product);
+    if (product) {
+      const targetPath = `/product/${product.id}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ productId: product.id }, '', targetPath);
+      }
+    } else {
+      if (window.location.pathname.startsWith('/product/')) {
+        window.history.pushState(null, '', '/');
+      }
+    }
+  };
+
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [checkoutQuantity, setCheckoutQuantity] = useState<number>(1);
   const [checkoutRobloxUsername, setCheckoutRobloxUsername] = useState<string | undefined>();
@@ -164,12 +181,57 @@ const StoreAppContent: React.FC = () => {
           }
         }
       }
+
+      // Check if URL path starts with /product/:id
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/product/')) {
+        const prodId = currentPath.replace('/product/', '').split('/')[0].split('?')[0];
+        if (prodId) {
+          const found =
+            inStock.find((p: Product) => p.id === prodId) ||
+            shopProducts.find((p: Product) => p.id === prodId);
+          if (found) {
+            setSelectedProduct(found);
+          } else {
+            StoreAPI.getProductById(prodId).then((p: Product) => {
+              if (p) setSelectedProduct(p);
+            }).catch(() => {});
+          }
+        }
+      }
     } catch (err) {
       console.error('Failed to initialize Uchiro Store app:', err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Sync browser popstate navigation for /product/:id
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/product/')) {
+        const prodId = path.replace('/product/', '').split('/')[0].split('?')[0];
+        if (prodId) {
+          const found =
+            homeInStockProducts.find((p: Product) => p.id === prodId) ||
+            allShopProducts.find((p: Product) => p.id === prodId);
+          if (found) {
+            setSelectedProduct(found);
+          } else {
+            StoreAPI.getProductById(prodId).then((p: Product) => {
+              if (p) setSelectedProduct(p);
+            }).catch(() => {});
+          }
+        }
+      } else {
+        setSelectedProduct(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [homeInStockProducts, allShopProducts]);
 
   const refreshProfileAndOrders = async () => {
     try {
@@ -225,6 +287,28 @@ const StoreAppContent: React.FC = () => {
 
   const pendingOrdersCount = orders.filter((o) => o.status === 'pending_payment').length;
 
+  // Telegram BackButton support for modals
+  useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg?.BackButton) return;
+
+    if (selectedProduct) {
+      tg.BackButton.show();
+      const onBack = () => {
+        handleSelectProduct(null);
+      };
+      tg.BackButton.onClick(onBack);
+      return () => {
+        tg.BackButton.offClick(onBack);
+        if (!selectedProduct) {
+          tg.BackButton.hide();
+        }
+      };
+    } else if (!activePayment && !deliveredOrderModal && !checkoutProduct) {
+      tg.BackButton.hide();
+    }
+  }, [selectedProduct, activePayment, deliveredOrderModal, checkoutProduct]);
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-[#0B0E14] flex flex-col items-center justify-center gap-3">
@@ -258,8 +342,8 @@ const StoreAppContent: React.FC = () => {
         {activeTab === 'home' && (
           <HomePage
             inStockProducts={homeInStockProducts}
-            onSelectProduct={setSelectedProduct}
-            onQuickBuy={handleQuickBuy}
+            onSelectProduct={handleSelectProduct}
+            onQuickBuy={handleSelectProduct}
             onNavigateToShop={(slug?: string) => {
               setShopCategorySlug(slug || null);
               setActiveTab('shop');
@@ -274,8 +358,8 @@ const StoreAppContent: React.FC = () => {
             categories={categories}
             selectedCategorySlug={shopCategorySlug}
             onSelectCategory={setShopCategorySlug}
-            onSelectProduct={setSelectedProduct}
-            onQuickBuy={handleQuickBuy}
+            onSelectProduct={handleSelectProduct}
+            onQuickBuy={handleSelectProduct}
           />
         )}
 
@@ -312,14 +396,14 @@ const StoreAppContent: React.FC = () => {
         ordersBadgeCount={pendingOrdersCount}
       />
 
-      {/* Product Detail Modal */}
+      {/* Product Detail Dedicated View (/product/:id) */}
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
           initialQuantity={1}
-          onClose={() => setSelectedProduct(null)}
+          onClose={() => handleSelectProduct(null)}
           onProceedToCheckout={(product, robloxUsername, robloxDisplayName, robloxUserId, quantity) => {
-            setSelectedProduct(null);
+            handleSelectProduct(null);
             setCheckoutProduct(product);
             setCheckoutQuantity(quantity || 1);
             setCheckoutRobloxUsername(robloxUsername);
@@ -392,6 +476,14 @@ const StoreAppContent: React.FC = () => {
 };
 
 export const App: React.FC = () => {
+  const tg = (window as any).Telegram?.WebApp;
+  const isTelegramWebApp = Boolean(tg?.initData && tg.initData.trim().length > 0);
+  const isDev = Boolean((import.meta as any).env?.DEV && new URLSearchParams(window.location.search).get('dev') === 'true');
+
+  if (!isTelegramWebApp && !isDev) {
+    return <TelegramBrowserBlocked />;
+  }
+
   return (
     <ThemeProvider>
       <LanguageProvider>

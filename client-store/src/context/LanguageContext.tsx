@@ -25,6 +25,11 @@ const translations = {
     out_of_stock: 'Out of Stock',
     coming_soon: 'Coming Back Soon',
     filter_all: 'All',
+    collections: 'Collections',
+    featured_products: 'Featured Products',
+    all_products: 'All Products →',
+    view_all: 'View All',
+    shop_now: 'Shop Now',
 
     // Shop
     shop_title: 'Gaming Catalog',
@@ -142,6 +147,11 @@ const translations = {
     out_of_stock: 'អស់ពីស្តុក',
     coming_soon: 'នឹងមកដល់ឆាប់ៗ',
     filter_all: 'ទាំងអស់',
+    collections: 'បណ្តុំហ្គេម',
+    featured_products: 'ទំនិញលេចធ្លោ',
+    all_products: 'ទំនិញទាំងអស់ →',
+    view_all: 'មើលទាំងអស់',
+    shop_now: 'ទិញឥឡូវនេះ',
 
     // Shop
     shop_title: 'បញ្ជីទំនិញហ្គេម',
@@ -246,19 +256,21 @@ interface LanguageContextType {
 }
 
 const LanguageContext = createContext<LanguageContextType>({
-  language: 'en',
+  language: 'km',
   setLanguage: () => {},
   t: (key) => key,
 });
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Specification 2: Default language MUST be strictly set to 'km'
   const [language, setLangState] = useState<Language>(() => {
-    const saved = localStorage.getItem('uchiro_store_lang');
-    return (saved === 'km' || saved === 'en') ? saved : 'en';
+    const saved = localStorage.getItem('uchiro_lang') || localStorage.getItem('uchiro_store_lang');
+    return saved === 'en' ? 'en' : 'km';
   });
 
   const setLanguage = (lang: Language) => {
     setLangState(lang);
+    localStorage.setItem('uchiro_lang', lang);
     localStorage.setItem('uchiro_store_lang', lang);
   };
 

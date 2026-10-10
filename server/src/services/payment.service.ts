@@ -1,9 +1,10 @@
-import crypto from 'crypto';
+﻿import crypto from 'crypto';
 import { DataStore } from '../database/data-store';
 import { Payment } from '../types';
 import { AppError } from '../middleware/error-handler';
 import { OrderService } from './order.service';
 import { KHPayService } from './khpay.service';
+import { NotificationService } from './notification.service';
 import { env } from '../config/env';
 
 export class PaymentService {
@@ -203,7 +204,21 @@ export class PaymentService {
       payload.data?.paid === true;
 
     if (isPaid) {
-      await OrderService.processPaymentSuccess(payment.order_id, transactionRef);
+      const now = Date.now();
+      const expiry = payment.expires_at ? new Date(payment.expires_at).getTime() : 0;
+      const order = DataStore.getOrderById(payment.order_id);
+      const isExpiredOrTimedOut =
+        payment.status === 'expired' ||
+        (expiry > 0 && now > expiry) ||
+        order?.status === 'expired' ||
+        order?.status === 'cancelled' ||
+        (order?.status as string) === 'pending_admin_review';
+
+      if (isExpiredOrTimedOut) {
+        await PaymentService.handleExpiredQrConfirmedPayment(payment, transactionRef);
+      } else {
+        await OrderService.processPaymentSuccess(payment.order_id, transactionRef);
+      }
     } else if (rawStatus === 'EXPIRED' || rawStatus === 'CANCELLED' || rawStatus === 'FAILED') {
       payment.status = 'expired';
       payment.updated_at = new Date().toISOString();
@@ -212,5 +227,48 @@ export class PaymentService {
     }
 
     return { success: true };
+  }
+
+  /**
+   * ⚠️ Specification 6: EXPIRED QR WITH CONFIRMED PAYMENT FLOW
+   * When KHQR payment arrives or is confirmed for an order that timed out / expired:
+   * - DO NOT mark as failed or drop it.
+   * - Set order status to pending_admin_review.
+   * - Notify customer in Khmer:
+   *   "⚠️ ការទូទាត់ត្រូវបានទទួល ប៉ុន្តែកូដ QR បានផុតកំណត់។ Admin កំពុងត្រួតពិនិត្យ និងប្រគល់ទំនិញជូនលោកអ្នកក្នុងពេលបន្តិចទៀតនេះ។"
+   * - Alert Admin Bot (@uchiro_v2_admin_bot):
+   *   "⚠️ ការទូទាត់លើ QR ផុតកំណត់ - Order #UCH-{ID} (${AMOUNT})។ សូមពិនិត្យមើល និងចុចបញ្ជាក់ការដឹកជូន។"
+   *   Include inline button: admin_fulfill_expired:{ORDER_ID} ("🚀 បញ្ជាក់ និងប្រគល់ទំនិញភ្លាមៗ").
+   */
+  public static async handleExpiredQrConfirmedPayment(
+    payment: Payment,
+    transactionRef: string
+  ): Promise<void> {
+    payment.status = 'paid';
+    payment.paid_at = new Date().toISOString();
+    payment.transaction_reference = transactionRef;
+    payment.updated_at = new Date().toISOString();
+    DataStore.savePayment(payment);
+
+    const order = DataStore.getOrderById(payment.order_id);
+    if (order) {
+      DataStore.updateOrderStatus(order.id, 'pending_admin_review' as any);
+      order.status = 'pending_admin_review' as any;
+      order.updated_at = new Date().toISOString();
+      DataStore.saveOrder(order);
+
+      // Notify customer in Khmer
+      NotificationService.notifyCustomerExpiredQRPaymentReceived(
+        order.telegram_id,
+        order.order_number || order.id
+      ).catch(console.error);
+
+      // Alert Admin Bot with instant fulfill action button
+      NotificationService.alertAdminExpiredQRPayment(
+        order.id,
+        order.order_number || order.id,
+        order.total_amount
+      ).catch(console.error);
+    }
   }
 }

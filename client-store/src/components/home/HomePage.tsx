@@ -86,14 +86,14 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className="flex items-center justify-between px-0.5">
           <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
             <Gamepad2 className="w-3.5 h-3.5 text-amber-500 dark:text-[#FFD166]" />
-            <span>Collections</span>
+            <span>{t('collections')}</span>
           </div>
           <button
             type="button"
             onClick={() => onNavigateToShop()}
             className="text-[11px] text-amber-600 dark:text-[#FFD166] font-bold flex items-center hover:underline"
           >
-            <span>View All</span>
+            <span>{t('view_all')}</span>
             <ChevronRight className="w-3 h-3" />
           </button>
         </div>
@@ -114,10 +114,10 @@ export const HomePage: React.FC<HomePageProps> = ({
           <div className="flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-[#FFD166]" />
             <h2 className="font-black text-xs text-slate-900 dark:text-white tracking-wider uppercase">
-              Featured Products
+              {t('featured_products')}
             </h2>
             <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
-              {inStockProducts.length} In-Stock
+              {inStockProducts.length} {t('in_stock_badge')}
             </span>
           </div>
 
@@ -126,7 +126,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             onClick={() => onNavigateToShop()}
             className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold hover:text-slate-900 dark:hover:text-white transition-colors"
           >
-            All Products →
+            {t('all_products')}
           </button>
         </div>
 
@@ -137,7 +137,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 key={product.id}
                 product={product}
                 onSelect={onSelectProduct}
-                onQuickBuy={onQuickBuy}
+                onQuickBuy={onSelectProduct}
               />
             ))}
           </div>

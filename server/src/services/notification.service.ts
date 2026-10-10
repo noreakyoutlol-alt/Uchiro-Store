@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import { env } from '../config/env';
 import { formatTelegramHtml } from '../bots/store-bot';
 import { formatShortOrderId } from '../utils/order.util';
@@ -126,41 +126,18 @@ export class NotificationService {
     }
   }
 
+  /**
+   * Specification 7: NOTIFICATION SPAM REDUCTION
+   * When customer creates order or order is pending payment:
+   * DO NOT send notification to customer.
+   */
   static async notifyOrderCreated(
-    telegramId: number,
-    orderNumber: string,
-    productTitle: string,
-    amount: number
+    _telegramId: number,
+    _orderNumber: string,
+    _productTitle: string,
+    _amount: number
   ): Promise<void> {
-    const isTest = this.isTestRunner();
-    if (isTest && !(this.sendStoreBotMessage as any)?.mock && !(this.sendStoreBotMessage as any)?._isMockFunction) {
-      return;
-    }
-    if (this.isTestOrder({ orderId: orderNumber, productName: productTitle, customerTgId: telegramId })) {
-      return;
-    }
-
-    const text =
-      `🛒 <b>ORDER CREATED</b>\n\n` +
-      `<b>Order:</b> #${orderNumber}\n` +
-      `<b>Product:</b> ${productTitle}\n` +
-      `<b>Amount:</b> $${amount.toFixed(2)}\n` +
-      `<b>Status:</b> Waiting for payment\n\n` +
-      `Please complete your KHQR payment to receive your items.`;
-
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
-    const webAppUrl =
-      (env.STORE_WEBAPP_URL?.startsWith('https://') && env.STORE_WEBAPP_URL) ||
-      (env.CLIENT_STORE_URL?.startsWith('https://') && env.CLIENT_STORE_URL) ||
-      defaultAppUrl;
-
-    await this.sendStoreBotMessage(telegramId, text, {
-      inline_keyboard: [
-        [
-          this.createSafeButton('🛒 VIEW ORDER', `${webAppUrl}?order=${orderNumber}`),
-        ],
-      ],
-    });
+    return;
   }
 
   static async notifyPaymentReceipt(
@@ -495,40 +472,18 @@ export class NotificationService {
     });
   }
 
+  /**
+   * Specification 7: NOTIFICATION SPAM REDUCTION
+   * When customer creates order or order is pending payment:
+   * DO NOT alert Admin Bot.
+   */
   static async alertAdminNewOrder(
-    orderNumber: string,
-    productTitle: string,
-    amount: number,
-    deliveryMode: string
+    _orderNumber: string,
+    _productTitle: string,
+    _amount: number,
+    _deliveryMode: string
   ): Promise<void> {
-    const isTest = this.isTestRunner();
-    if (isTest && !(this.sendAdminBotAlert as any)?.mock && !(this.sendAdminBotAlert as any)?._isMockFunction) {
-      return;
-    }
-    if (this.isTestOrder({ orderId: orderNumber, productName: productTitle })) {
-      return;
-    }
-
-    const text =
-      `🛒 <b>NEW ORDER CREATED</b>\n\n` +
-      `<b>Order:</b> #${orderNumber}\n` +
-      `<b>Product:</b> ${productTitle}\n` +
-      `<b>Amount:</b> $${amount.toFixed(2)}\n` +
-      `<b>Mode:</b> <code>${deliveryMode}</code>`;
-
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
-
-    await this.sendAdminBotAlert(text, {
-      inline_keyboard: [
-        [
-          this.createSafeButton('🛡️ OPEN ADMIN ORDERS', `${adminWebUrl}/orders`),
-        ],
-      ],
-    });
+    return;
   }
 
   static async alertAdminManualFulfillmentRequired(
@@ -796,86 +751,66 @@ export class NotificationService {
         [
           {
             text: '📢 BROADCAST TO CUSTOMERS',
-            callback_data: `broadcast_draft:${draftId}`,
-          },
-          {
-            text: '❌ DISMISS',
-            callback_data: `dismiss_draft:${draftId}`,
+            callback_data: `admin_broadcast_batch:${draftId}`,
           },
         ],
       ],
     });
   }
 
-  static async alertAdminNewStock(productTitle: string, addedStock: number, totalStock: number): Promise<void> {
+  /**
+   * ⚠️ EXPIRED QR WITH CONFIRMED PAYMENT: Customer notification in 100% Khmer (Spec 6)
+   */
+  static async notifyCustomerExpiredQRPaymentReceived(
+    telegramId: number,
+    orderNumber: string
+  ): Promise<void> {
     const isTest = this.isTestRunner();
-    if (isTest && !(this.sendAdminBotAlert as any)?.mock && !(this.sendAdminBotAlert as any)?._isMockFunction) {
+    if (isTest && !(this.sendStoreBotMessage as any)?.mock && !(this.sendStoreBotMessage as any)?._isMockFunction) {
       return;
     }
-    if (this.isTestOrder({ productName: productTitle })) {
+    if (this.isTestOrder({ orderId: orderNumber, customerTgId: telegramId })) {
       return;
     }
 
     const text =
-      `🟢 <b>NEW STOCK ADDED</b>\n\n` +
-      `<b>Product:</b> ${productTitle}\n` +
-      `<b>Added:</b> +${addedStock} units\n` +
-      `<b>Total In Stock:</b> ${totalStock} units\n\n` +
-      `Would you like to broadcast a restock alert to customers?`;
+      `⚠️ <b>ការទូទាត់ត្រូវបានទទួល ប៉ុន្តែកូដ QR បានផុតកំណត់។</b>\n\n` +
+      `Admin កំពុងត្រួតពិនិត្យ និងប្រគល់ទំនិញជូនលោកអ្នកក្នុងពេលបន្តិចទៀតនេះ។\n` +
+      `លេខបញ្ជាទិញ: <code>#${orderNumber}</code>`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
+    await this.sendStoreBotMessage(telegramId, text);
+  }
+
+  /**
+   * ⚠️ EXPIRED QR WITH CONFIRMED PAYMENT: Admin alert with instant fulfill button (Spec 6)
+   */
+  static async alertAdminExpiredQRPayment(
+    orderId: string,
+    orderNumber: string,
+    amount: number
+  ): Promise<void> {
+    const isTest = this.isTestRunner();
+    if (isTest && !(this.sendAdminBotAlert as any)?.mock && !(this.sendAdminBotAlert as any)?._isMockFunction) {
+      return;
+    }
+    if (this.isTestOrder({ orderId })) {
+      return;
+    }
+
+    const cleanId = orderNumber || orderId.slice(0, 8);
+    const text =
+      `⚠️ <b>ការទូទាត់លើ QR ផុតកំណត់ - Order #UCH-${cleanId} ($${amount.toFixed(2)})។</b>\n` +
+      `សូមពិនិត្យមើល និងចុចបញ្ជាក់ការដឹកជូន។`;
 
     await this.sendAdminBotAlert(text, {
       inline_keyboard: [
         [
-          this.createSafeButton('📢 CREATE RESTOCK BROADCAST', `${adminWebUrl}/broadcast`),
+          {
+            text: '🚀 បញ្ជាក់ និងប្រគល់ទំនិញភ្លាមៗ',
+            callback_data: `admin_fulfill_expired:${orderId}`,
+          },
         ],
       ],
     });
-  }
-
-  static async broadcastToAllCustomers(
-    title: string,
-    message: string,
-    ctaUrl?: string,
-    customerTelegramIds?: number[]
-  ): Promise<{ sent: number; failed: number }> {
-    if (this.isTestRunner()) {
-      return { sent: 0, failed: 0 };
-    }
-
-    const targetIds =
-      customerTelegramIds && customerTelegramIds.length > 0
-        ? customerTelegramIds
-        : [123456789]; // default test pool
-
-    let sent = 0;
-    let failed = 0;
-
-    const formatted = `📢 <b>${title}</b>\n\n${message}`;
-    const markup = ctaUrl
-      ? {
-          inline_keyboard: [
-            [
-              this.createSafeButton('🚀 OPEN STORE', ctaUrl),
-            ],
-          ],
-        }
-      : undefined;
-
-    for (const tgId of targetIds) {
-      try {
-        await this.sendStoreBotMessage(tgId, formatted, markup);
-        sent += 1;
-      } catch {
-        failed += 1;
-      }
-    }
-
-    return { sent, failed };
   }
 }
