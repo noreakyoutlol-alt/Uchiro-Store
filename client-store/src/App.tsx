@@ -6,7 +6,7 @@ import { GamingDoodlePattern } from './components/background/GamingDoodlePattern
 import { HomePage } from './components/home/HomePage';
 import { ShopPage } from './components/shop/ShopPage';
 import { GachaPage } from './components/gacha/GachaPage';
-import { LiveActivityPage } from './components/activity/LiveActivityPage';
+import { OrdersPage } from './components/orders/OrdersPage';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { ProductDetailModal } from './components/product/ProductDetailModal';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
@@ -371,8 +371,26 @@ const StoreAppContent: React.FC = () => {
           />
         )}
 
-        {activeTab === 'activity' && (
-          <LiveActivityPage
+        {activeTab === 'orders' && (
+          <OrdersPage
+            orders={orders}
+            onSelectOrder={setDeliveredOrderModal}
+            onPayOrder={(order) => {
+              setActivePaymentOrder(order);
+              setActivePayment(
+                order.payment || {
+                  id: (order as any).payment_id || order.id,
+                  order_id: order.id,
+                  amount: order.total_amount,
+                  currency: 'USD',
+                  qr_payload: (order as any).khqr_data || (order as any).qr_code || null,
+                  qr_image_url: (order as any).khqr_image_url || (order as any).qr_image_url || null,
+                  status: 'pending',
+                  expires_at: new Date(Date.now() + 15 * 60000).toISOString(),
+                }
+              );
+            }}
+            onViewReceipt={(order) => setReceiptOrderModal(order)}
             onNavigateToShop={() => setActiveTab('shop')}
           />
         )}
@@ -476,16 +494,19 @@ const StoreAppContent: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  const isTg = Boolean(
-    (window as any).Telegram?.WebApp?.initData ||
-    (window as any).Telegram?.WebApp?.initDataUnsafe?.user
-  );
-  const isDev = Boolean(
-    (import.meta as any).env?.DEV &&
-    new URLSearchParams(window.location.search).get('dev') === 'true'
-  );
+  const isTelegramMiniApp =
+    (typeof window !== 'undefined' &&
+      Boolean(
+        window.Telegram?.WebApp?.initData &&
+          window.Telegram.WebApp.initData.length > 5
+      )) ||
+    Boolean(
+      (import.meta as any).env?.DEV &&
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('dev') === 'true'
+    );
 
-  if (!isTg && !isDev) {
+  if (!isTelegramMiniApp) {
     return <TelegramBrowserBlocked />;
   }
 

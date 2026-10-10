@@ -40,13 +40,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       if (isSoldOut) {
         return (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/20 text-[10px] font-bold">
-            🔒 {language === 'km' ? 'អស់ពីស្តុក' : 'Sold Out'}
+            🔒 {language === 'km' ? 'អស់ស្តុកហើយ' : 'Sold Out'}
           </span>
         );
       }
       return (
         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-          ⚡ {language === 'km' ? 'ដឹកជញ្ជូនភ្លាមៗ' : 'Instant Delivery'}
+          ⚡ {language === 'km' ? 'ផ្ញើជូនភ្លាមៗ (Auto)' : 'Instant Delivery (Auto)'}
         </span>
       );
     }
@@ -69,7 +69,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[10px] font-bold">
-        🔑 {language === 'km' ? 'កូដឌីជីថល' : 'Digital Code'}
+        🔑 {language === 'km' ? 'កូដឌីជីថល (Code)' : 'Digital Code (Code)'}
       </span>
     );
   };
@@ -80,7 +80,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     if (isSoldOut) {
       return (
         <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400">
-          {language === 'km' ? 'អស់ពីស្តុក' : 'Sold Out'}
+          {language === 'km' ? 'អស់ស្តុកហើយ' : 'Sold Out'}
         </span>
       );
     }
@@ -95,7 +95,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
     return (
       <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-        {language === 'km' ? 'មានស្តុក' : 'In Stock'}
+        {language === 'km' ? 'មានក្នុងស្តុក' : 'In Stock'}
       </span>
     );
   };
@@ -165,7 +165,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             }`}
           >
             {isSoldOut
-              ? (language === 'km' ? 'អស់ពីស្តុក' : 'Sold Out')
+              ? (language === 'km' ? 'អស់ស្តុកហើយ' : 'Sold Out')
               : (language === 'km' ? 'ទិញភ្លាមៗ' : 'Buy Now')}
           </button>
         </div>

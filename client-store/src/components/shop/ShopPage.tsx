@@ -120,20 +120,20 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     ).length;
 
     const types: Array<{ key: ProductTypeKey; label: string; icon: any; count: number }> = [
-      { key: 'all', label: 'All', icon: null, count: collectionProducts.length },
+      { key: 'all', label: t('filter_all'), icon: null, count: collectionProducts.length },
     ];
 
     if (accountCount > 0) {
-      types.push({ key: 'account', label: 'Accounts', icon: UserCheck, count: accountCount });
+      types.push({ key: 'account', label: t('filter_accounts'), icon: UserCheck, count: accountCount });
     }
     if (giftCount > 0) {
-      types.push({ key: 'gift', label: 'Gift Items', icon: Gift, count: giftCount });
+      types.push({ key: 'gift', label: t('filter_gifts'), icon: Gift, count: giftCount });
     }
     if (tradeCount > 0) {
-      types.push({ key: 'trade', label: 'Trade Items', icon: Repeat, count: tradeCount });
+      types.push({ key: 'trade', label: t('filter_trades'), icon: Repeat, count: tradeCount });
     }
     if (codeCount > 0) {
-      types.push({ key: 'digital_code', label: 'Digital Codes', icon: KeyRound, count: codeCount });
+      types.push({ key: 'digital_code', label: t('filter_codes'), icon: KeyRound, count: codeCount });
     }
 
     return types;

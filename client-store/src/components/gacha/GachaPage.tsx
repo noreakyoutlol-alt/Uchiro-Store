@@ -139,7 +139,7 @@ export const GachaPage: React.FC<GachaPageProps> = ({
   userPoints,
   onRefreshProfile,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedPoolId] = useState<string>(pools[0]?.id || '');
   const [gachaStatus, setGachaStatus] = useState<GachaStatus | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -617,7 +617,7 @@ export const GachaPage: React.FC<GachaPageProps> = ({
             <div className="p-2.5 rounded-xl bg-[#141825] border border-white/10">
               <div className="flex items-center justify-center gap-1.5 text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
                 <Coins className="w-3.5 h-3.5 text-amber-400" />
-                <span>YOUR POINTS</span>
+                <span>{language === 'km' ? 'ពិន្ទុរបស់អ្នក' : 'YOUR POINTS'}</span>
               </div>
               <span className="text-lg font-black text-white">{currentPoints}</span>
             </div>
@@ -625,7 +625,7 @@ export const GachaPage: React.FC<GachaPageProps> = ({
             <div className="p-2.5 rounded-xl bg-[#141825] border border-white/10">
               <div className="flex items-center justify-center gap-1.5 text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">
                 <Ticket className="w-3.5 h-3.5 text-blue-400" />
-                <span>YOUR TICKETS</span>
+                <span>{language === 'km' ? 'សំបុត្ររបស់អ្នក' : 'YOUR TICKETS'}</span>
               </div>
               <span className="text-lg font-black text-white">{tickets}</span>
             </div>
@@ -635,11 +635,11 @@ export const GachaPage: React.FC<GachaPageProps> = ({
           <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 font-medium">
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-              100 POINTS = 1 TICKET
+              {language === 'km' ? '១០០ ពិន្ទុ = ១ សំបុត្រ' : '100 POINTS = 1 TICKET'}
             </span>
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              1 HOUR COOLDOWN
+              {language === 'km' ? 'រង់ចាំ ១ ម៉ោង' : '1 HOUR COOLDOWN'}
             </span>
           </div>
 
@@ -651,7 +651,7 @@ export const GachaPage: React.FC<GachaPageProps> = ({
                 className="w-full py-3.5 px-6 rounded-xl font-black text-sm uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-white/10 flex items-center justify-center gap-2 cursor-wait"
               >
                 <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                <span>ROLLING...</span>
+                <span>{language === 'km' ? 'កំពុងបង្វិល...' : 'ROLLING...'}</span>
               </button>
             ) : cooldownSeconds > 0 ? (
               <button
@@ -659,7 +659,11 @@ export const GachaPage: React.FC<GachaPageProps> = ({
                 className="w-full py-3.5 px-6 rounded-xl font-black text-sm uppercase tracking-wider bg-[#141824] text-zinc-400 border border-white/10 flex items-center justify-center gap-2 cursor-not-allowed"
               >
                 <Clock className="w-4 h-4 text-amber-400" />
-                <span>COOLDOWN — {formatCountdown(cooldownSeconds)}</span>
+                <span>
+                  {language === 'km'
+                    ? `រង់ចាំ — ${formatCountdown(cooldownSeconds)}`
+                    : `COOLDOWN — ${formatCountdown(cooldownSeconds)}`}
+                </span>
               </button>
             ) : tickets >= 1 ? (
               <button
@@ -668,7 +672,7 @@ export const GachaPage: React.FC<GachaPageProps> = ({
                 className="w-full py-3.5 px-6 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-black shadow-lg shadow-amber-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 hover:brightness-110 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-black fill-black" />
-                <span>ROLL — 1 TICKET</span>
+                <span>{language === 'km' ? 'បង្វិល — ១ សំបុត្រ' : 'ROLL — 1 TICKET'}</span>
               </button>
             ) : currentPoints >= 100 ? (
               <button
@@ -680,12 +684,16 @@ export const GachaPage: React.FC<GachaPageProps> = ({
                 {isConverting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>CONVERTING...</span>
+                    <span>{language === 'km' ? 'កំពុងប្តូរ...' : 'CONVERTING...'}</span>
                   </>
                 ) : (
                   <>
                     <Ticket className="w-4 h-4" />
-                    <span>CONVERT 100 PTS TO 1 TICKET</span>
+                    <span>
+                      {language === 'km'
+                        ? 'ប្តូរ ១០០ ពិន្ទុជា ១ សំបុត្រ'
+                        : 'CONVERT 100 PTS TO 1 TICKET'}
+                    </span>
                   </>
                 )}
               </button>
@@ -695,7 +703,11 @@ export const GachaPage: React.FC<GachaPageProps> = ({
                 className="w-full py-3.5 px-6 rounded-xl font-black text-sm uppercase tracking-wider bg-[#141824] text-zinc-500 border border-white/10 flex items-center justify-center gap-2 cursor-not-allowed"
               >
                 <AlertCircle className="w-4 h-4 text-zinc-500" />
-                <span>INSUFFICIENT POINTS</span>
+                <span>
+                  {language === 'km'
+                    ? 'ពិន្ទុមិនគ្រប់គ្រាន់ (ត្រូវការ ១០០ ពិន្ទុ)'
+                    : 'INSUFFICIENT POINTS'}
+                </span>
               </button>
             )}
           </div>

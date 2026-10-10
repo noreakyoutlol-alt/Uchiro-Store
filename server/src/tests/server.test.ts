@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import app from '../server';
+import { DataStore } from '../database/data-store';
 
 describe('Uchiro Store Backend Test Suite', () => {
   it('GET /api/health returns 200 and system status', async () => {
@@ -111,6 +112,10 @@ describe('Uchiro Store Backend Test Suite', () => {
   it('GET /api/gacha/pools & POST /api/gacha/:id/spin runs server-authoritative roll', async () => {
     const authRes = await request(app).post('/api/auth/telegram').send({});
     const token = authRes.body.data.token;
+    const profile = DataStore.getProfile(authRes.body.data.user.telegram_id);
+    if (profile) {
+      profile.gacha_tickets = 2;
+    }
 
     const poolsRes = await request(app).get('/api/gacha/pools');
     expect(poolsRes.status).toBe(200);

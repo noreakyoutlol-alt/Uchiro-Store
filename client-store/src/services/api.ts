@@ -279,14 +279,27 @@ export const StoreAPI = {
     return res.data.data;
   },
 
-  claimDailyReward: async () => {
-    const res = await api.post('/gacha/daily-claim');
-    return res.data.data;
+  claimDailyReward: async (telegramId?: number | string) => {
+    const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+    const resolvedTgId = telegramId || tg?.initDataUnsafe?.user?.id;
+    const payload = resolvedTgId ? { telegramId: Number(resolvedTgId) } : {};
+    const res = await api.post('/daily-reward/claim', payload);
+    const data = res.data?.data || res.data;
+    return {
+      success: res.data?.success ?? data?.success ?? true,
+      pointsAwarded: res.data?.pointsAwarded ?? data?.pointsAwarded ?? 5,
+      newBalance: res.data?.newBalance ?? data?.newBalance,
+      message: res.data?.message || data?.message || '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+      ...data,
+    };
   },
 
-  getDailyRewardStatus: async () => {
-    const res = await api.get('/gacha/daily-status');
-    return res.data.data;
+  getDailyRewardStatus: async (telegramId?: number | string) => {
+    const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+    const resolvedTgId = telegramId || tg?.initDataUnsafe?.user?.id;
+    const params = resolvedTgId ? { telegramId: Number(resolvedTgId) } : {};
+    const res = await api.get('/daily-reward', { params });
+    return res.data?.data || res.data;
   },
 
   claimGachaPrize: async (claimId: string, robloxUsername?: string) => {

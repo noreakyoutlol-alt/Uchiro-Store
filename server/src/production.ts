@@ -19,6 +19,7 @@ import { adminBot } from './bots/admin-bot';
 import { PaymentWorker } from './workers/payment.worker';
 import { KHPayService } from './services/khpay.service';
 import { checkSupabaseHealth } from './database/supabase';
+import { adminStaticGuard, ADMIN_404_HTML } from './middleware/admin-guard';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -82,18 +83,6 @@ app.get('/api/health', async (_req, res) => {
 // Rate limiter for API
 app.use('/api', apiRateLimiter);
 
-// Mount API Routers
-app.use('/api/webhook', webhookRouter);
-app.use('/api/auth', authRouter);
-app.use('/api/store', storeRouter);
-app.use('/api', storeRouter);
-app.use('/api/orders', orderRouter);
-app.use('/api/payments', paymentRouter);
-app.use('/api/gacha', gachaRouter);
-app.use('/api/support', supportRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/bots', botsRouter);
-
 // Resolve frontend paths safely
 function findDistPath(subDir: string): string {
   const candidates = [
@@ -111,8 +100,19 @@ function findDistPath(subDir: string): string {
 const clientStoreDist = findDistPath('client-store');
 const clientAdminDist = findDistPath('client-admin');
 
-// 1. Admin SPA Routing (Requirement Section 4 & 5)
-// Serves /admin and /admin/* returning Admin index.html
+// ============================================================================
+// ROUTE REGISTRATION ORDER (PREVENT SPA WILDCARD ROUTE COLLISION)
+// 1. Admin API (/api/admin/*)
+// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
+// 3. Store API (/api/*)
+// 4. Store Static & SPA (/* serving client-store/dist)
+// ============================================================================
+
+// 1. Admin API (/api/admin/*)
+app.use('/api/admin', adminRouter);
+
+// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
+app.use('/admin', adminStaticGuard);
 if (fs.existsSync(clientAdminDist)) {
   console.log(`📁 [PRODUCTION] Serving Admin frontend from: ${clientAdminDist}`);
   app.use('/admin', express.static(clientAdminDist, { index: false, redirect: false }));
@@ -121,15 +121,28 @@ if (fs.existsSync(clientAdminDist)) {
   });
 } else {
   console.warn(`⚠️ [PRODUCTION] Admin dist folder not found at: ${clientAdminDist}. Build with: npm run build`);
+  app.get(['/admin', '/admin/*'], (_req, res) => {
+    res.status(404).send(ADMIN_404_HTML);
+  });
 }
 
-// 2. Store SPA Routing (Requirement Section 4 & 5)
-// Serves / and all remaining routes returning Store index.html
+// 3. Store API (/api/*)
+app.use('/api/webhook', webhookRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/store', storeRouter);
+app.use('/api', storeRouter);
+app.use('/api/orders', orderRouter);
+app.use('/api/payments', paymentRouter);
+app.use('/api/gacha', gachaRouter);
+app.use('/api/support', supportRouter);
+app.use('/api/bots', botsRouter);
+
+// 4. Store Static & SPA (/* serving client-store/dist)
 if (fs.existsSync(clientStoreDist)) {
   console.log(`📁 [PRODUCTION] Serving Store frontend from: ${clientStoreDist}`);
   app.use(express.static(clientStoreDist, { index: false }));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/') || req.path === '/health') {
+    if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/api/health') {
       return next();
     }
     res.sendFile(path.join(clientStoreDist, 'index.html'));

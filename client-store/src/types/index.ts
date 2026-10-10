@@ -388,3 +388,21 @@ export interface DailyRewardStatus {
   total_check_ins?: number;
   streak_days?: DailyStreakDay[];
 }
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        initData?: string;
+        initDataUnsafe?: any;
+        ready?: () => void;
+        expand?: () => void;
+        close?: () => void;
+        BackButton?: any;
+        setHeaderColor?: (color: string) => void;
+        setBackgroundColor?: (color: string) => void;
+      };
+    };
+  }
+}
+

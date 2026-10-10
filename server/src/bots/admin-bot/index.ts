@@ -39,9 +39,12 @@ export const getAdminBotUrl = getAdminBotLink;
 
 export function getAdminKeyboard(adminWebAppUrl?: string, lang: string = 'en') {
   const isKm = lang === 'km';
-  const adminUrl =
-    adminWebAppUrl ||
-    `${(process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')}/admin/`;
+  const defaultAdminUrl = `${(process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')}/admin/`;
+  let adminUrl = adminWebAppUrl && adminWebAppUrl !== '/' ? adminWebAppUrl : defaultAdminUrl;
+  // Ensure this URL is NEVER '/' (store front)
+  if (adminUrl === '/' || adminUrl === (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')) {
+    adminUrl = defaultAdminUrl;
+  }
   return Markup.inlineKeyboard([
     [
       createEmojiInlineButton({
@@ -107,12 +110,12 @@ export class AdminBotService {
       this.bot.telegram.setChatMenuButton({
         menuButton: {
           type: 'web_app',
-          text: 'ផ្ទាំងគ្រប់គ្រង Admin',
-          web_app: { url: adminUrl },
-        },
-      }).catch(() => {});
-    } catch {
-      // Safe fallback if offline or mock token
+          text: '🛡️ ផ្ទាំងគ្រប់គ្រង Admin',
+          web_app: { url: adminUrl }
+        }
+      }).catch((err) => console.warn('[ADMIN BOT] Failed to set chat menu button:', err));
+    } catch (err) {
+      console.warn('[ADMIN BOT] Failed to set chat menu button:', err);
     }
 
     // Security middleware: Ensure caller is authorized admin

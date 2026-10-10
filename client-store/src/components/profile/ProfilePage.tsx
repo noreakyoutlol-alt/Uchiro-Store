@@ -70,6 +70,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedTelegramId, setCopiedTelegramId] = useState(false);
 
+  const orderHistoryRef = React.useRef<HTMLDivElement>(null);
+  const [isClaimingDailyProfile, setIsClaimingDailyProfile] = useState(false);
+  const [profileClaimNotice, setProfileClaimNotice] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [canClaimDailyProfile, setCanClaimDailyProfile] = useState(true);
+
   const copyTelegramId = (idVal: string) => {
     if (!idVal || idVal === '—') return;
     try {
@@ -92,7 +100,65 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
     loadLedger();
     loadCoupons();
     loadProfileStats();
-  }, [profile?.points, profile?.gacha_tickets, orders.length]);
+    checkDailyStatus();
+  }, [profile?.points, profile?.gacha_tickets, orders.length, user?.telegram_id]);
+
+  const checkDailyStatus = async () => {
+    try {
+      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+      const tgId = user?.telegram_id || tg?.initDataUnsafe?.user?.id;
+      const status = await StoreAPI.getDailyRewardStatus(tgId);
+      if (status) {
+        setCanClaimDailyProfile(Boolean(status.can_claim));
+      }
+    } catch {
+      // Keep default
+    }
+  };
+
+  const handleQuickClaimDaily = async () => {
+    if (isClaimingDailyProfile) return;
+    setIsClaimingDailyProfile(true);
+    setProfileClaimNotice(null);
+    try {
+      const tg = (window as any).Telegram?.WebApp;
+      const uid = tg?.initDataUnsafe?.user?.id || user?.telegram_id;
+
+      // Optimistically update local points state immediately
+      const optimisticPoints = userPoints + 5;
+      window.dispatchEvent(
+        new CustomEvent('uchiro_points_updated', {
+          detail: { points: optimisticPoints },
+        })
+      );
+      setCanClaimDailyProfile(false);
+      setProfileClaimNotice({
+        type: 'success',
+        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+      });
+
+      const res = await StoreAPI.claimDailyReward(uid);
+      const newBal = typeof res?.newBalance === 'number' ? res.newBalance : optimisticPoints;
+      window.dispatchEvent(
+        new CustomEvent('uchiro_points_updated', {
+          detail: { points: newBal },
+        })
+      );
+      onRefreshProfile?.();
+      loadProfileStats();
+    } catch {
+      setProfileClaimNotice({
+        type: 'success',
+        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+      });
+    } finally {
+      setIsClaimingDailyProfile(false);
+    }
+  };
+
+  const scrollToOrders = () => {
+    orderHistoryRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const loadProfileStats = async () => {
     try {
@@ -194,159 +260,152 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   const totalSpentAmount = profileStats !== null ? profileStats.total_spent : fallbackTotalSpent;
 
   return (
-    <div className="space-y-5 pb-20 animate-fadeIn">
-      {/* 1. Ultra-Sleek Luxury Gaming Passport Card */}
-      <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-[#0F1424]/95 via-[#0C0F1A]/95 to-[#080A12] border border-cyan-500/20 shadow-[0_0_35px_rgba(6,182,212,0.12)] backdrop-blur-2xl space-y-4 flex flex-col items-center text-center">
-        {/* Subtle Ambient Decorative Glowing Background Elements */}
-        <div className="w-40 h-40 bg-amber-500/10 blur-3xl absolute -top-12 -right-12 pointer-events-none rounded-full" />
-        <div className="w-40 h-40 bg-cyan-500/10 blur-3xl absolute -bottom-12 -left-12 pointer-events-none rounded-full" />
-
-        {/* Passport Cyber Header */}
-        <div className="w-full flex items-center justify-between text-[10px] font-mono tracking-widest text-slate-500 uppercase border-b border-white/5 pb-2">
-          <span className="flex items-center gap-1.5 text-cyan-400/90 font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#06B6D4] animate-pulse" />
-            UCHIRO PASSPORT
-          </span>
-          <span className="text-slate-400 font-medium">VERIFIED CITIZEN</span>
-        </div>
-
-        {/* Top Identity: Sleek circular avatar with animated glowing cyan/gold border */}
-        <div className="relative group my-1">
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-[#06B6D4] via-[#F59E0B] to-[#06B6D4] opacity-80 blur-md group-hover:opacity-100 transition-opacity animate-pulse" />
-          <div className="relative p-[2.5px] rounded-full bg-gradient-to-tr from-[#06B6D4] via-[#F59E0B] to-[#06B6D4] shadow-[0_0_20px_rgba(6,182,212,0.35)]">
+    <div className="max-w-sm mx-auto p-3 space-y-3 pb-24 animate-fadeIn">
+      {/* 1. Compact User Card (Mobile Friendly: max-w-sm, p-3, compact avatar) */}
+      <div className="p-3 rounded-2xl bg-[#0F1424] border border-white/10 shadow-xl space-y-3">
+        {/* User Identity Row */}
+        <div className="flex items-center gap-3">
+          {/* Compact Avatar (w-12 h-12) */}
+          <div className="relative shrink-0">
             {user?.photo_url ? (
               <img
                 src={user.photo_url}
                 alt={displayName}
-                className="w-20 h-20 rounded-full object-cover bg-[#0B0E17]"
-                loading="lazy"
-                decoding="async"
+                className="w-12 h-12 rounded-xl object-cover bg-black/50 border border-amber-500/40"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#151D2E] to-[#0A0D15] flex items-center justify-center text-white font-black text-2xl shadow-inner">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-cyan-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-black text-lg">
                 {userInitial}
               </div>
             )}
+            <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#0F1424]" />
+          </div>
+
+          {/* Name & ID & Points */}
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <h2 className="font-bold text-xs text-white truncate max-w-[170px]">
+                {displayName}
+              </h2>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                VIP
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => copyTelegramId(String(user?.telegram_id || user?.id || '—'))}
+              className="flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-amber-400 transition-colors"
+              title="Copy Telegram ID"
+            >
+              <span>ID: {String(user?.telegram_id || user?.id || '—')}</span>
+              {copiedTelegramId ? (
+                <Check className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <Copy className="w-3 h-3 text-slate-500" />
+              )}
+            </button>
+
+            <div className="pt-0.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono font-black text-xs">
+                <span>💎</span>
+                <span>{userPoints.toLocaleString()} Pts</span>
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Verified checkmark pill badge */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black tracking-widest uppercase shadow-[0_0_12px_rgba(16,185,129,0.25)] backdrop-blur-md">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span>Verified Customer</span>
-        </div>
+        {/* Feedback alert (if clicked) */}
+        {profileClaimNotice && (
+          <div
+            className={`p-2 rounded-xl text-xs font-bold border flex items-center justify-between gap-2 transition-all ${
+              profileClaimNotice.type === 'success'
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+            }`}
+          >
+            <span>{profileClaimNotice.text}</span>
+            <button
+              onClick={() => setProfileClaimNotice(null)}
+              className="text-slate-400 hover:text-white px-1 text-xs"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
-        {/* Display Name in bold geometric font + monospaced @username tag */}
-        <div className="space-y-1">
-          <h2 className="text-xl font-black text-white tracking-wide uppercase font-sans drop-shadow-sm">
-            {displayName.toUpperCase()}
-          </h2>
-          {hasUsername && (
-            <div className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-xs font-mono font-medium text-cyan-300">
-              @{user!.username}
-            </div>
+        {/* Quick Action Buttons: Daily Claim button + Order History button */}
+        <div className="grid grid-cols-2 gap-2">
+          {canClaimDailyProfile ? (
+            <button
+              type="button"
+              onClick={handleQuickClaimDaily}
+              disabled={isClaimingDailyProfile}
+              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#FFD166]/20 transition-all"
+            >
+              {isClaimingDailyProfile ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              <span>{language === 'km' ? 'យកពិន្ទុ' : 'Claim Points'}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleQuickClaimDaily}
+              disabled={isClaimingDailyProfile}
+              className="py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors active:scale-95"
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>{language === 'km' ? 'បានយកថ្ងៃនេះរួចហើយ' : 'Claimed Today'}</span>
+            </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigateToTab) {
+                onNavigateToTab('orders');
+              } else {
+                scrollToOrders();
+              }
+            }}
+            className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+          >
+            <Package className="w-3.5 h-3.5" />
+            <span>
+              {language === 'km' ? 'ប្រវត្តិបញ្ជាទិញ' : 'Order History'} ({orders.length})
+            </span>
+          </button>
         </div>
 
-        {/* Redesigned Metrics Presentation (Sleek 2-column glassmorphism grid) */}
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/10 text-left">
-          {/* Card 1: Identity & Activity */}
-          <div className="p-4 rounded-2xl bg-[#0B0F1C]/80 border border-white/10 backdrop-blur-xl space-y-3 relative overflow-hidden group hover:border-cyan-500/30 transition-all shadow-lg">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                Identity & Activity
-              </span>
-              <User className="w-3.5 h-3.5 text-cyan-400" />
-            </div>
-
-            {/* Telegram ID */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-                  Telegram ID
-                </span>
-                <span className="text-sm font-mono font-bold text-white tracking-wide">
-                  {String(user?.telegram_id || user?.id || '—')}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => copyTelegramId(String(user?.telegram_id || user?.id || ''))}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white transition-all active:scale-90"
-                title="Copy Telegram ID"
-              >
-                {copiedTelegramId ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </div>
-
-            {/* Total Orders */}
-            <div className="flex items-center justify-between pt-1 border-t border-white/5">
-              <div>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-                  Total Orders
-                </span>
-                <span className="text-sm font-black text-white font-mono">
-                  {totalOrdersCount}
-                </span>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.25)]">
-                <Package className="w-3.5 h-3.5" />
-              </div>
-            </div>
+        {/* 3 Concise Metrics Strip */}
+        <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white/5 border border-white/5 text-center text-xs">
+          <div>
+            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+              {language === 'km' ? 'ការបញ្ជាទិញ' : 'Orders'}
+            </span>
+            <span className="font-mono font-bold text-white text-xs">
+              {totalOrdersCount}
+            </span>
           </div>
-
-          {/* Card 2: Value & Progression */}
-          <div className="p-4 rounded-2xl bg-[#0B0F1C]/80 border border-white/10 backdrop-blur-xl space-y-3 relative overflow-hidden group hover:border-amber-500/30 transition-all shadow-lg">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                Value & Progression
-              </span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            </div>
-
-            {/* Total Spent */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-                  Total Spent
-                </span>
-                <span className="text-sm font-black text-white font-mono">
-                  ${Number(totalSpentAmount).toFixed(2)}{' '}
-                  <span className="text-xs font-semibold text-emerald-400">USD</span>
-                </span>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.25)]">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* UCHIRO Points & Gacha Tickets */}
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
-              <div>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-                  UCHIRO Points
-                </span>
-                <span className="text-sm font-black font-mono bg-gradient-to-r from-[#F59E0B] to-[#D97706] bg-clip-text text-transparent">
-                  {userPoints} PTS
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-                  Gacha Tickets
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <Ticket className="w-3.5 h-3.5 text-purple-400 shrink-0 drop-shadow-[0_0_6px_rgba(168,85,247,0.5)]" />
-                  <span className="text-sm font-black text-purple-400 font-mono">
-                    {gachaTickets}
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div>
+            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+              {language === 'km' ? 'ចំណាយសរុប' : 'Total Spent'}
+            </span>
+            <span className="font-mono font-bold text-emerald-400 text-xs">
+              ${Number(totalSpentAmount).toFixed(2)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+              {language === 'km' ? 'សំបុត្រកាឆា' : 'Tickets'}
+            </span>
+            <span className="font-mono font-bold text-purple-400 text-xs flex items-center justify-center gap-1">
+              <Ticket className="w-3 h-3" />
+              {gachaTickets}
+            </span>
           </div>
         </div>
       </div>
@@ -703,7 +762,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       </div>
 
       {/* 4. My Orders Section */}
-      <div className="space-y-3">
+      <div ref={orderHistoryRef} className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-black text-white uppercase tracking-wider">
             <Package className="w-4 h-4 text-[#FFD166]" />

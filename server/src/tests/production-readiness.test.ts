@@ -33,16 +33,30 @@ describe('Task 8: Production Readiness & Final Verification Suite', () => {
       expect(res.headers['content-type']).toContain('text/html');
     });
 
-    it('serves client-admin at /admin and /admin/*', async () => {
-      const res = await request(app).get('/admin');
-      expect(res.status).toBe(200);
-      expect(res.headers['content-type']).toContain('text/html');
-      expect(res.text).toContain('UCHIRO ADMIN');
+    it('strictly blocks unauthorized browsers from /admin and serves client-admin when authorized', async () => {
+      // 1. Unauthorized regular browser attempt returns strict 404
+      const unauthRes = await request(app).get('/admin');
+      expect(unauthRes.status).toBe(404);
+      expect(unauthRes.text).toContain('404 Not Found');
 
-      const deepRes = await request(app).get('/admin/orders');
-      expect(deepRes.status).toBe(200);
-      expect(deepRes.headers['content-type']).toContain('text/html');
-      expect(deepRes.text).toContain('UCHIRO ADMIN');
+      const unauthDeepRes = await request(app).get('/admin/orders');
+      expect(unauthDeepRes.status).toBe(404);
+      expect(unauthDeepRes.text).toContain('404 Not Found');
+
+      // 2. Authorized admin access via x-admin-key or x-telegram-init-data succeeds with 200
+      const authRes = await request(app)
+        .get('/admin')
+        .set('x-admin-key', env.ADMIN_BOT_WEBHOOK_SECRET);
+      expect(authRes.status).toBe(200);
+      expect(authRes.headers['content-type']).toContain('text/html');
+      expect(authRes.text).toContain('UCHIRO ADMIN');
+
+      const authDeepRes = await request(app)
+        .get('/admin/orders')
+        .set('x-admin-key', env.ADMIN_BOT_WEBHOOK_SECRET);
+      expect(authDeepRes.status).toBe(200);
+      expect(authDeepRes.headers['content-type']).toContain('text/html');
+      expect(authDeepRes.text).toContain('UCHIRO ADMIN');
     });
 
     it('routes /api/* to backend REST APIs and does not return HTML', async () => {

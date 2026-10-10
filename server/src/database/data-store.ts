@@ -2370,7 +2370,7 @@ export class DataStore {
         last_name: userData.last_name || null,
         photo_url: userData.photo_url || null,
         language_code: userData.language_code || 'km',
-        language_preference: userData.language_preference || 'km',
+        language_preference: userData.language_preference || null,
         is_bot: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

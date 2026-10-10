@@ -149,7 +149,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (isOutOfStock) {
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-rose-950/80 text-rose-300 border border-rose-800/60 text-xs font-black tracking-wider uppercase">
-          🔒 SOLD OUT
+          🔒 {language === 'km' ? 'អស់ស្តុកហើយ' : 'SOLD OUT'}
         </span>
       );
     }
@@ -157,7 +157,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (isAccount) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-bold">
-          <span>⚡ Available • Instant Delivery</span>
+          <span>⚡ {language === 'km' ? 'ផ្ញើជូនភ្លាមៗ (Auto)' : 'Available • Instant Delivery'}</span>
         </span>
       );
     }
@@ -165,7 +165,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (isGift) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 text-xs font-bold">
-          <span>🎁 Roblox Gift</span>
+          <span>🎁 {language === 'km' ? 'កាដូហ្គេម' : 'Roblox Gift'}</span>
         </span>
       );
     }
@@ -173,14 +173,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (isTrade) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-bold">
-          <span>🤝 In-Game Trade</span>
+          <span>🤝 {language === 'km' ? 'ទំនិញដោះដូរ' : 'In-Game Trade'}</span>
         </span>
       );
     }
 
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-bold">
-        <span>🔑 Digital Code</span>
+        <span>🔑 {language === 'km' ? 'កូដឌីជីថល (Code)' : 'Digital Code (Code)'}</span>
       </span>
     );
   };
@@ -273,7 +273,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-xs text-slate-600 dark:text-slate-300">
             <ShieldCheck className="w-4 h-4 text-amber-500 dark:text-[#FFD166] shrink-0" />
             <span className="font-semibold">
-              {product.warranty_days ? `${product.warranty_days}-Day Protection Warranty Included` : '14-Day Warranty Guarantee Included'}
+              {language === 'km'
+                ? 'ធានាជូន ១៤ ថ្ងៃ'
+                : product.warranty_days
+                ? `${product.warranty_days}-Day Protection Warranty Included`
+                : '14-Day Warranty Guarantee Included'}
             </span>
           </div>
 
@@ -328,7 +332,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{language === 'km' ? 'តម្រូវឲ្យផ្ទៀងផ្ទាត់ Roblox Username' : 'Roblox Username Verification Required'}</span>
+                  <span>{language === 'km' ? 'សូមបញ្ចូលឈ្មោះ Roblox របស់អ្នក' : 'Roblox Username Verification Required'}</span>
                 </div>
                 {isVerifyingRoblox ? (
                   <span className="text-[11px] text-amber-500 font-medium animate-pulse">
@@ -435,14 +439,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             }`}
           >
             {isOutOfStock
-              ? 'SOLD OUT'
+              ? (language === 'km' ? 'អស់ស្តុកហើយ' : 'SOLD OUT')
               : product.requires_roblox_username && !robloxProfile
-              ? 'Verify Roblox Username to Proceed'
+              ? (language === 'km' ? 'សូមបញ្ចូលឈ្មោះ Roblox របស់អ្នក' : 'Verify Roblox Username to Proceed')
               : product.requires_roblox_username && !isAccountConfirmed
-              ? 'Confirm Roblox Account Above'
+              ? (language === 'km' ? 'សូមបញ្ជាក់គណនី Roblox ខាងលើ' : 'Confirm Roblox Account Above')
               : currentQuantity > 1
-              ? `Buy Now (${currentQuantity} Items • $${totalPrice.toFixed(2)})`
-              : 'Buy Now'}
+              ? (language === 'km'
+                  ? `ទិញភ្លាមៗ (${currentQuantity} Items • $${totalPrice.toFixed(2)})`
+                  : `Buy Now (${currentQuantity} Items • $${totalPrice.toFixed(2)})`)
+              : (language === 'km' ? 'ទិញភ្លាមៗ' : 'Buy Now')}
           </button>
 
           {/* ========================================================= */}

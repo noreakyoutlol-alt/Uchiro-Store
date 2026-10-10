@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { GachaService } from '../services/gacha.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
+import { handleDailyRewardStatus, handleDailyRewardClaim } from './store.routes';
 
 export const gachaRouter = Router();
+
+// Daily Reward Support in Gacha Router
+gachaRouter.get('/daily-status', handleDailyRewardStatus);
+gachaRouter.post('/daily-claim', handleDailyRewardClaim);
 
 // List Active Gacha Pools & Prizes
 gachaRouter.get('/pools', (_req, res) => {

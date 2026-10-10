@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { AppIcon, SemanticIconKey } from '../common/AppIcon';
+import { useLanguage } from '../../context/LanguageContext';
 
-export type TabType = 'home' | 'shop' | 'gacha' | 'activity' | 'profile';
+export type TabType = 'home' | 'shop' | 'gacha' | 'orders' | 'profile';
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -23,12 +24,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onChangeTab,
   ordersBadgeCount = 0,
 }) => {
+  const { language } = useLanguage();
+  const isKm = language === 'km';
+
   const tabs: TabItem[] = [
-    { id: 'home', label: 'Home', iconKey: 'HOME' },
-    { id: 'shop', label: 'Shop', iconKey: 'SHOP' },
-    { id: 'gacha', label: 'Gacha', iconKey: 'GACHA', highlight: true },
-    { id: 'activity', label: 'Activity', iconKey: 'ACTIVITY' },
-    { id: 'profile', label: 'Profile', iconKey: 'PROFILE', badge: ordersBadgeCount },
+    { id: 'home', label: isKm ? 'ទំព័រដើម' : 'Home', iconKey: 'HOME' },
+    { id: 'shop', label: isKm ? 'ហាងទំនិញ' : 'Shop', iconKey: 'SHOP' },
+    { id: 'gacha', label: isKm ? 'កាឆា' : 'Gacha', iconKey: 'GACHA', highlight: true },
+    { id: 'orders', label: isKm ? 'ប្រវត្តិទិញ' : 'Orders', iconKey: 'ORDERS', badge: ordersBadgeCount },
+    { id: 'profile', label: isKm ? 'គណនី' : 'Profile', iconKey: 'PROFILE' },
   ];
 
   const tabThemes: Record<TabType, { activeColor: string; glow: string; bg: string }> = {
@@ -47,7 +51,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       glow: 'drop-shadow-[0_0_10px_rgba(168,85,247,0.7)]',
       bg: 'bg-purple-500/15 border-purple-500/30 shadow-[0_0_12px_rgba(168,85,247,0.2)]',
     },
-    activity: {
+    orders: {
       activeColor: 'text-emerald-400',
       glow: 'drop-shadow-[0_0_10px_rgba(16,185,129,0.65)]',
       bg: 'bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.2)]',

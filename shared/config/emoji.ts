@@ -19,6 +19,7 @@ export const EMOJI = {
   GACHA: null,
   POINTS: null,
   ACTIVITY: null,
+  ORDERS: null,
   PROFILE: null,
   SETTINGS: null,
   SUPPORT: null,

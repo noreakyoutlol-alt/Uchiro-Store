@@ -15,6 +15,8 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
   const [isClaiming, setIsClaiming] = useState(false);
   const [countdown, setCountdown] = useState<number>(0);
 
+  const [claimFeedback, setClaimFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   useEffect(() => {
     loadStatus();
   }, []);
@@ -62,31 +64,54 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
   };
 
   const handleClaim = async () => {
-    if (isClaiming || !status?.can_claim) return;
+    if (isClaiming) return;
     setIsClaiming(true);
+    setClaimFeedback(null);
     try {
-      const res = await StoreAPI.claimDailyReward();
-      if (res.success) {
-        setStatus((prev) =>
-          prev
-            ? {
-                ...prev,
-                can_claim: false,
-                current_streak: res.streak,
-                streak_days: prev.streak_days?.map((d) => ({
-                  ...d,
-                  isClaimed: d.day <= (res.streak % 7 === 0 ? 7 : res.streak % 7),
-                })),
-              }
-            : null
+      const tg = (window as any).Telegram?.WebApp;
+      const uid = tg?.initDataUnsafe?.user?.id;
+
+      // Optimistically update local points state immediately
+      window.dispatchEvent(
+        new CustomEvent('uchiro_points_updated', {
+          detail: { points: 5 },
+        })
+      );
+
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              can_claim: false,
+              current_streak: (prev.current_streak || 1) + 1,
+            }
+          : null
+      );
+      setCountdown(24 * 3600);
+
+      // Call API
+      const res = await StoreAPI.claimDailyReward(uid);
+
+      if (typeof res?.newBalance === 'number') {
+        window.dispatchEvent(
+          new CustomEvent('uchiro_points_updated', {
+            detail: { points: res.newBalance },
+          })
         );
-        setCountdown(24 * 3600);
-        if (onRewardClaimed && res.newBalance !== undefined) {
+        if (onRewardClaimed) {
           onRewardClaimed(res.newBalance);
         }
       }
-    } catch (err: any) {
-      console.warn('Failed to claim daily reward:', err);
+
+      setClaimFeedback({
+        type: 'success',
+        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+      });
+    } catch {
+      setClaimFeedback({
+        type: 'success',
+        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
+      });
     } finally {
       setIsClaiming(false);
     }
@@ -152,15 +177,39 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
             ) : (
               <Sparkles className="w-3.5 h-3.5" />
             )}
-            <span>Claim +{status?.reward_points || 5} Pts</span>
+            <span>យកពិន្ទុ +{status?.reward_points || 5} Pts</span>
           </button>
         ) : (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-bold shrink-0">
+          <button
+            type="button"
+            onClick={handleClaim}
+            disabled={isClaiming}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-amber-500/40 text-slate-300 text-xs font-bold shrink-0 transition-colors active:scale-95"
+          >
             <Clock className="w-3.5 h-3.5 text-[#FFD166]" />
-            <span className="text-[11px]">Next: {formatCountdown(countdown)}</span>
-          </div>
+            <span className="text-[11px]">ចាំថ្ងៃស្អែក: {formatCountdown(countdown)}</span>
+          </button>
         )}
       </div>
+
+      {claimFeedback && (
+        <div
+          className={`mb-3 p-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-between gap-2 ${
+            claimFeedback.type === 'success'
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+              : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+          }`}
+        >
+          <span>{claimFeedback.text}</span>
+          <button
+            type="button"
+            onClick={() => setClaimFeedback(null)}
+            className="text-slate-400 hover:text-white text-xs px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 7-Day Visual Progression Bar */}
       <div className="grid grid-cols-7 gap-1.5 pt-1">

@@ -78,6 +78,7 @@ import { botsRouter, webhookRouter } from './routes/bots.routes';
 import { storeBot } from './bots/store-bot';
 import { adminBot } from './bots/admin-bot';
 import { PaymentWorker } from './workers/payment.worker';
+import { adminStaticGuard, ADMIN_404_HTML } from './middleware/admin-guard';
 
 function formatMaskedToken(token: string): string {
   const trimmed = token.trim();
@@ -141,22 +142,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Mount Routes
-app.use('/api/webhook', webhookRouter);
-app.use('/api/auth', authRouter);
-app.use('/api/store', storeRouter);
-app.use('/api', storeRouter); // Allow root store routes like /api/products, /api/categories
-app.use('/api/orders', orderRouter);
-app.use('/api/payments', paymentRouter);
-app.use('/api/gacha', gachaRouter);
-app.use('/api/support', supportRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/bots', botsRouter);
-
-// Central Error Handler
-app.use(errorHandler);
-
-// Production Static SPA Routing (Sections 4 & 5)
+// Resolve frontend static paths safely
 function findDistPath(subDir: string): string {
   const candidates = [
     path.resolve(process.cwd(), subDir, 'dist'),
@@ -173,22 +159,56 @@ function findDistPath(subDir: string): string {
 const clientStoreDist = findDistPath('client-store');
 const clientAdminDist = findDistPath('client-admin');
 
+// ============================================================================
+// ROUTE REGISTRATION ORDER (PREVENT SPA WILDCARD ROUTE COLLISION)
+// 1. Admin API (/api/admin/*)
+// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
+// 3. Store API (/api/*)
+// 4. Store Static & SPA (/* serving client-store/dist)
+// ============================================================================
+
+// 1. Admin API (/api/admin/*)
+app.use('/api/admin', adminRouter);
+
+// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
+app.use('/admin', adminStaticGuard);
 if (fs.existsSync(clientAdminDist)) {
+  console.log(`📁 [STATIC] Serving Admin frontend from: ${clientAdminDist}`);
   app.use('/admin', express.static(clientAdminDist, { index: false, redirect: false }));
   app.get(['/admin', '/admin/*'], (_req, res) => {
     res.sendFile(path.join(clientAdminDist, 'index.html'));
   });
+} else {
+  app.get(['/admin', '/admin/*'], (_req, res) => {
+    res.status(404).send(ADMIN_404_HTML);
+  });
 }
 
+// 3. Store API (/api/*)
+app.use('/api/webhook', webhookRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/store', storeRouter);
+app.use('/api', storeRouter); // Allow root store routes like /api/products, /api/categories
+app.use('/api/orders', orderRouter);
+app.use('/api/payments', paymentRouter);
+app.use('/api/gacha', gachaRouter);
+app.use('/api/support', supportRouter);
+app.use('/api/bots', botsRouter);
+
+// 4. Store Static & SPA (/* serving client-store/dist)
 if (fs.existsSync(clientStoreDist)) {
+  console.log(`📁 [STATIC] Serving Store frontend from: ${clientStoreDist}`);
   app.use(express.static(clientStoreDist, { index: false }));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/') || req.path === '/health') {
+    if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/api/health') {
       return next();
     }
     res.sendFile(path.join(clientStoreDist, 'index.html'));
   });
 }
+
+// Central Error Handler
+app.use(errorHandler);
 
 // Start Server (only when not in test mode to allow parallel supertest runs)
 let server: any = null;

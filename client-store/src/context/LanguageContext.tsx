@@ -9,7 +9,7 @@ const translations = {
     tab_shop: 'Shop',
     tab_gacha: 'Gacha',
     tab_orders: 'Orders',
-    tab_profile: 'Profile',
+    tab_profile: 'Game Account (Account)',
 
     // Header
     store_title: 'UCHIRO STORE',
@@ -18,27 +18,27 @@ const translations = {
 
     // Home
     home_hero_title: 'MYTHICAL LEVEL GAMING',
-    home_hero_subtitle: 'Instant Delivery • 14-Day Warranty • 100% Safe',
-    in_stock_now: 'In-Stock Now',
-    in_stock_badge: 'Available',
-    instant_delivery_badge: 'Instant Delivery Available',
-    out_of_stock: 'Out of Stock',
+    home_hero_subtitle: 'Instant Delivery (Auto) • 14-Day Warranty • 100% Safe',
+    in_stock_now: 'In Stock',
+    in_stock_badge: 'In Stock',
+    instant_delivery_badge: 'Instant Delivery (Auto)',
+    out_of_stock: 'Sold Out',
     coming_soon: 'Coming Back Soon',
     filter_all: 'All',
     collections: 'Collections',
     featured_products: 'Featured Products',
     all_products: 'All Products →',
     view_all: 'View All',
-    shop_now: 'Shop Now',
+    shop_now: 'Buy Now',
 
     // Shop
     shop_title: 'Gaming Catalog',
     shop_search_placeholder: 'Search accounts, items, fruits...',
     select_game_category: 'Select Game / Category',
-    filter_accounts: 'Accounts',
+    filter_accounts: 'Game Account (Account)',
     filter_gifts: 'Gift Items',
     filter_trades: 'Trade Items',
-    filter_codes: 'Digital Codes',
+    filter_codes: 'Digital Code (Code)',
     sort_featured: 'Featured',
     sort_price_low: 'Price: Low to High',
     sort_price_high: 'Price: High to Low',
@@ -46,12 +46,12 @@ const translations = {
 
     // Product Detail
     specifications: 'Specifications',
-    warranty_info: '14-Day Protection Warranty',
+    warranty_info: '14-Day Warranty',
     warranty_desc: 'Guaranteed valid for 14 days provided original authenticator and email access remain active.',
     viewers_watching: 'people viewing right now',
     buy_now: 'Buy Now',
-    instant_buy: 'Instant Checkout',
-    roblox_username_required: 'Roblox Username is required for this trade/gift item.',
+    instant_buy: 'Buy Now',
+    roblox_username_required: 'Please enter your Roblox username',
     roblox_username_label: 'Your Roblox Username',
 
     // Checkout & Payment
@@ -72,7 +72,7 @@ const translations = {
     payment_successful: 'Payment Confirmed!',
 
     // Delivered Order & Authenticator
-    order_delivered: 'Order Delivered Successfully',
+    order_delivered: 'Order Delivered Successfully (Auto)',
     credentials_vault: 'Secure Credentials Vault',
     username: 'Username',
     password: 'Password',
@@ -107,13 +107,13 @@ const translations = {
     spinning: 'Summoning...',
     reward_congratulations: 'Congratulations!',
     redeem_coupon_from_points: 'Redeem $1 Coupon (100 Pts)',
-    daily_reward: 'Daily Check-in Reward',
-    claim_daily: 'Claim Daily Reward',
+    daily_reward: 'Claim Daily Points',
+    claim_daily: 'Claim Points',
     streak_days: 'Day Streak',
-    already_claimed_today: 'Claimed Today — Come back tomorrow!',
+    already_claimed_today: 'You already claimed points today (come back tomorrow)',
 
     // Profile & Settings
-    profile_title: 'Player Profile',
+    profile_title: 'Game Account (Account)',
     total_spent: 'Total Spent',
     total_orders: 'Total Orders',
     uchiro_points: 'Uchiro Points',
@@ -131,7 +131,7 @@ const translations = {
     tab_shop: 'ហាងទំនិញ',
     tab_gacha: 'កាឆា',
     tab_orders: 'ការបញ្ជាទិញ',
-    tab_profile: 'គណនី',
+    tab_profile: 'គណនីហ្គេម (Account)',
 
     // Header
     store_title: 'UCHIRO STORE',
@@ -140,27 +140,27 @@ const translations = {
 
     // Home
     home_hero_title: 'ហ្គេម និងគណនីលំដាប់កំពូល',
-    home_hero_subtitle: 'ដឹកជញ្ជូនភ្លាមៗ • ធានា ១៤ ថ្ងៃ • សុវត្ថិភាព ១០០%',
-    in_stock_now: 'ទំនិញមានក្នុងស្តុក',
-    in_stock_badge: 'មានស្តុក',
-    instant_delivery_badge: 'ដឹកជញ្ជូនភ្លាមៗ',
-    out_of_stock: 'អស់ពីស្តុក',
+    home_hero_subtitle: 'ផ្ញើជូនភ្លាមៗ (Auto) • ធានាជូន ១៤ ថ្ងៃ • សុវត្ថិភាព ១០០%',
+    in_stock_now: 'មានក្នុងស្តុក',
+    in_stock_badge: 'មានក្នុងស្តុក',
+    instant_delivery_badge: 'ផ្ញើជូនភ្លាមៗ (Auto)',
+    out_of_stock: 'អស់ស្តុកហើយ',
     coming_soon: 'នឹងមកដល់ឆាប់ៗ',
     filter_all: 'ទាំងអស់',
     collections: 'បណ្តុំហ្គេម',
     featured_products: 'ទំនិញលេចធ្លោ',
     all_products: 'ទំនិញទាំងអស់ →',
     view_all: 'មើលទាំងអស់',
-    shop_now: 'ទិញឥឡូវនេះ',
+    shop_now: 'ទិញភ្លាមៗ',
 
     // Shop
     shop_title: 'បញ្ជីទំនិញហ្គេម',
     shop_search_placeholder: 'ស្វែងរកគណនី, ផ្លែឈើ, កូដ...',
     select_game_category: 'ជ្រើសរើសប្រភេទហ្គេម',
-    filter_accounts: 'គណនីហ្គេម',
+    filter_accounts: 'គណនីហ្គេម (Account)',
     filter_gifts: 'កាដូហ្គេម',
     filter_trades: 'ទំនិញដោះដូរ',
-    filter_codes: 'កូដឌីជីថល',
+    filter_codes: 'កូដឌីជីថល (Code)',
     sort_featured: 'ពិសេស',
     sort_price_low: 'តម្លៃ៖ ទាបទៅខ្ពស់',
     sort_price_high: 'តម្លៃ៖ ខ្ពស់ទៅទាប',
@@ -168,13 +168,13 @@ const translations = {
 
     // Product Detail
     specifications: 'លក្ខណៈពិសេស',
-    warranty_info: 'ការធានារយៈពេល ១៤ ថ្ងៃ',
-    warranty_desc: 'ការធានាមានសុពលភាពដរាបណា Email និង Authenticator ដើមមិនត្រូវបានលុបចេញ។',
+    warranty_info: 'ធានាជូន ១៤ ថ្ងៃ',
+    warranty_desc: 'ធានាជូន ១៤ ថ្ងៃ ដរាបណា Email និង Authenticator ដើមមិនត្រូវបានលុបចេញ។',
     viewers_watching: 'នាក់កំពុងមើលឥឡូវនេះ',
-    buy_now: 'ទិញឥឡូវនេះ',
+    buy_now: 'ទិញភ្លាមៗ',
     instant_buy: 'ទិញភ្លាមៗ',
-    roblox_username_required: 'តម្រូវឱ្យបញ្ចូលឈ្មោះ Roblox សម្រាប់ការផ្ញើទំនិញ។',
-    roblox_username_label: 'ឈ្មោះ Roblox របស់អ្នក',
+    roblox_username_required: 'សូមបញ្ចូលឈ្មោះ Roblox របស់អ្នក',
+    roblox_username_label: 'សូមបញ្ចូលឈ្មោះ Roblox របស់អ្នក',
 
     // Checkout & Payment
     checkout_title: 'បញ្ជាក់ការបញ្ជាទិញ',
@@ -194,7 +194,7 @@ const translations = {
     payment_successful: 'ការទូទាត់ទទួលបានជោគជ័យ!',
 
     // Delivered Order & Authenticator
-    order_delivered: 'ការដឹកជញ្ជូនបានជោគជ័យ',
+    order_delivered: 'ផ្ញើជូនភ្លាមៗ (Auto) ជោគជ័យ',
     credentials_vault: 'ប្រអប់សុវត្ថិភាពគណនី',
     username: 'ឈ្មោះគណនី',
     password: 'ពាក្យសម្ងាត់',
@@ -211,7 +211,7 @@ const translations = {
     reveal: 'បង្ហាញ',
     hide: 'លាក់',
     security_warning: 'សូមរក្សា Authenticator និង Email ឱ្យមានសុវត្ថិភាព។ កុំលុបពួកវាចោល។',
-    warranty_status_active: 'ការធានា ១៤ ថ្ងៃកំពុងដំណើរការ',
+    warranty_status_active: 'ធានាជូន ១៤ ថ្ងៃ',
 
     // Authenticator Modal
     import_modal_title: 'បញ្ចូល Authenticator',
@@ -229,13 +229,13 @@ const translations = {
     spinning: 'កំពុងបើករង្វាន់...',
     reward_congratulations: 'អបអរសាទរ!',
     redeem_coupon_from_points: 'ប្តូរយកប័ណ្ណ $1 (១០០ ពិន្ទុ)',
-    daily_reward: 'រង្វាន់ចូលប្រចាំថ្ងៃ',
-    claim_daily: 'ទទួលយករង្វាន់ប្រចាំថ្ងៃ',
+    daily_reward: 'យកពិន្ទុប្រចាំថ្ងៃ',
+    claim_daily: 'យកពិន្ទុ',
     streak_days: 'ថ្ងៃជាប់ៗគ្នា',
-    already_claimed_today: 'បានទទួលថ្ងៃនេះរួចរាល់ហើយ — សូមមកម្តងទៀតថ្ងៃស្អែក!',
+    already_claimed_today: 'អ្នកបានយកពិន្ទុថ្ងៃនេះរួចហើយ (ចាំថ្ងៃស្អែក)',
 
     // Profile & Settings
-    profile_title: 'ព័ត៌មានគណនី',
+    profile_title: 'គណនីហ្គេម (Account)',
     total_spent: 'ការចំណាយសរុប',
     total_orders: 'ចំនួនកុម្ម៉ង់សរុប',
     uchiro_points: 'ពិន្ទុ Uchiro',

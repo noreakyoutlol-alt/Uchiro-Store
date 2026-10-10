@@ -1,7 +1,7 @@
 /**
- * Client-side (Store Mini App) Telegram Premium Custom Emoji Registry
- * Re-exports EMOJI from shared/config/emoji.ts — single source of truth.
- * Adds React component for <tg-emoji> rendering in Mini Apps.
+ * Client-side Standard Unicode Emojis & Lucide Icons (Zero Broken Telegram Emojis)
+ * Replaces any custom <tg-emoji> tags with universal emojis: ⚡ 🎁 💎 🛡️ 🔑 🔥 📦 🎮
+ * Guarantees 100% visible icons on all mobile devices.
  */
 
 import React from 'react';
@@ -10,14 +10,22 @@ import { AppIcon } from '../components/common/AppIcon';
 
 export { EMOJI, tgEmoji, AppIcon };
 
+export const STANDARD_EMOJIS = {
+  LIGHTNING: '⚡',
+  GIFT: '🎁',
+  DIAMOND: '💎',
+  SHIELD: '🛡️',
+  KEY: '🔑',
+  FIRE: '🔥',
+  PACKAGE: '📦',
+  GAME: '🎮',
+} as const;
+
 /**
- * Renders a <tg-emoji> element (works in Telegram WebView) with a
- * standard emoji text fallback for regular browsers.
- *
- * @example
- *   <TgEmoji emoji={EMOJI.GACHA} fallback="🎰" />
+ * Universal emoji renderer: Guarantees 100% visible glyphs on all mobile devices
+ * without broken or invisible <tg-emoji> custom tags.
  */
-export const TgEmoji: React.FC<{ emoji: string | null; fallback: string }> = ({
+export const TgEmoji: React.FC<{ emoji?: string | null; fallback: string }> = ({
   fallback,
 }) => {
   return <>{fallback}</>;
