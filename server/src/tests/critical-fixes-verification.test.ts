@@ -85,7 +85,7 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
   describe('2. QR Creation & Auto-Authentication Fallback (POST /api/payments/create-qr)', () => {
     it('creates QR successfully with an authenticated customer JWT', async () => {
       const inStockProducts = DataStore.getInStockProducts();
-      const testProduct = inStockProducts[0];
+      const testProduct = inStockProducts.find((p) => !p.requires_roblox_username) || inStockProducts[0];
 
       const token = jwt.sign(
         {
@@ -102,6 +102,7 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
         .set('Authorization', `Bearer ${token}`)
         .send({
           productId: testProduct.id,
+          robloxUsername: 'test_player',
         });
 
       expect(res.status).toBe(201);
@@ -114,7 +115,7 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
 
     it('creates QR successfully with Telegram initData header (seamless auto-authentication)', async () => {
       const inStockProducts = DataStore.getInStockProducts();
-      const testProduct = inStockProducts[0];
+      const testProduct = inStockProducts.find((p) => !p.requires_roblox_username) || inStockProducts[0];
 
       // In test mode, telegram-validator recognizes test initData
       const res = await request(app)
@@ -122,6 +123,7 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
         .set('x-telegram-init-data', 'user=%7B%22id%22%3A99988877%2C%22first_name%22%3A%22TgUser%22%7D')
         .send({
           productId: testProduct.id,
+          robloxUsername: 'test_player',
         });
 
       expect(res.status).toBe(201);
@@ -132,13 +134,14 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
 
     it('falls back to guest session in dev/test mode without crashing with 401', async () => {
       const inStockProducts = DataStore.getInStockProducts();
-      const testProduct = inStockProducts[0];
+      const testProduct = inStockProducts.find((p) => !p.requires_roblox_username) || inStockProducts[0];
 
       // No Authorization header sent
       const res = await request(app)
         .post('/api/payments/create-qr')
         .send({
           productId: testProduct.id,
+          robloxUsername: 'test_player',
         });
 
       expect(res.status).toBe(201);
@@ -150,7 +153,7 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
 
     it('returns QR details for existing orderId if orderId is provided', async () => {
       const inStockProducts = DataStore.getInStockProducts();
-      const testProduct = inStockProducts[0];
+      const testProduct = inStockProducts.find((p) => !p.requires_roblox_username) || inStockProducts[0];
 
       const token = jwt.sign(
         {
@@ -166,7 +169,7 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
       const orderRes = await request(app)
         .post('/api/orders')
         .set('Authorization', `Bearer ${token}`)
-        .send({ productId: testProduct.id });
+        .send({ productId: testProduct.id, robloxUsername: 'test_player' });
 
       expect(orderRes.status).toBe(201);
       const orderId = orderRes.body.data.order.id;

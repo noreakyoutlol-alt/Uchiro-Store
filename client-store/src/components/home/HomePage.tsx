@@ -34,7 +34,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   }, [inStockProducts]);
 
   return (
-    <div className="space-y-4 pb-20 animate-fadeIn">
+    <div className="space-y-2.5 pb-20 animate-fadeIn">
       {/* ========================================================= */}
       {/* 1. HERO (Using original owner asset: banner.jpg) */}
       {/* ========================================================= */}
@@ -131,7 +131,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
 
         {featuredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {featuredProducts.map((product) => (
               <ProductCard
                 key={product.id}

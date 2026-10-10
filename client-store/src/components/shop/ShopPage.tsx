@@ -263,7 +263,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   const CollectionIcon = activeCollectionMeta?.icon || Sword;
 
   return (
-    <div className="space-y-4 pb-20 animate-fadeIn">
+    <div className="space-y-2.5 pb-20 animate-fadeIn">
       {/* Top Bar with Back Button */}
       <div className="flex items-center justify-between gap-2">
         <button
@@ -340,9 +340,9 @@ export const ShopPage: React.FC<ShopPageProps> = ({
         </div>
       )}
 
-      {/* Products Grid */}
+      {/* Products Grid (Compact 2-Column Layout) */}
       {displayedProducts.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           {displayedProducts.map((product) => (
             <ProductCard
               key={product.id}

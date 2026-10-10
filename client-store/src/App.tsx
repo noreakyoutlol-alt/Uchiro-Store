@@ -337,8 +337,8 @@ const StoreAppContent: React.FC = () => {
         onOpenProfile={() => setActiveTab('profile')}
       />
 
-      {/* Main Container Viewport */}
-      <main className="flex-1 max-w-md w-full mx-auto p-4 relative z-10">
+      {/* Main Container Viewport (Mobile Pocket Layout 360px-410px) */}
+      <main className="flex-1 max-w-md w-full mx-auto px-2.5 sm:px-3 py-2 relative z-10 overflow-x-hidden">
         {activeTab === 'home' && (
           <HomePage
             inStockProducts={homeInStockProducts}

@@ -128,23 +128,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-3 animate-fadeIn">
       <div>
-        <h2 className="text-xl font-black text-white">SYSTEM DASHBOARD</h2>
+        <h2 className="text-base font-black text-white">SYSTEM DASHBOARD</h2>
         <p className="text-xs text-slate-400">
           Real-time metrics, live sales volume, and system alerts.
         </p>
       </div>
 
       {/* Primary KPI Cards Grid (Direct live backend metrics with honest zero states) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {/* Total Gross Revenue */}
-        <div className="p-4 rounded-2xl bg-[#111622] border border-white/10 space-y-1">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
           <div className="flex items-center justify-between text-slate-400 text-xs">
             <span>Total Gross Revenue</span>
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-black text-white">
+          <div className="text-base sm:text-lg font-black text-white">
             ${totalRevenue.toFixed(2)}
           </div>
           <span className="text-[10px] text-emerald-400 font-semibold">
@@ -153,36 +153,36 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
 
         {/* Total Orders */}
-        <div className="p-4 rounded-2xl bg-[#111622] border border-white/10 space-y-1">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
           <div className="flex items-center justify-between text-slate-400 text-xs">
             <span>Total Orders</span>
             <ShoppingBag className="w-4 h-4 text-indigo-400" />
           </div>
-          <div className="text-2xl font-black text-white">{totalOrders}</div>
+          <div className="text-base sm:text-lg font-black text-white">{totalOrders}</div>
           <span className="text-[10px] text-indigo-400 font-semibold">
             {paidOrders} Paid & Delivered
           </span>
         </div>
 
         {/* Pending Manual Gifts & Trades */}
-        <div className="p-4 rounded-2xl bg-[#111622] border border-white/10 space-y-1">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
           <div className="flex items-center justify-between text-slate-400 text-xs">
             <span>Pending Fulfillment</span>
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-black text-white">{pendingFulfillment}</div>
+          <div className="text-base sm:text-lg font-black text-white">{pendingFulfillment}</div>
           <span className="text-[10px] text-amber-400 font-semibold">
             Awaiting Staff Delivery
           </span>
         </div>
 
         {/* In-Stock Inventory Items */}
-        <div className="p-4 rounded-2xl bg-[#111622] border border-white/10 space-y-1">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
           <div className="flex items-center justify-between text-slate-400 text-xs">
             <span>In-Stock Inventory</span>
             <Boxes className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="text-2xl font-black text-white">{availableInventory}</div>
+          <div className="text-base sm:text-lg font-black text-white">{availableInventory}</div>
           <span className="text-[10px] text-cyan-400 font-semibold">
             {accountsInStock > 0 || keysInStock > 0
               ? `${accountsInStock} Accounts • ${keysInStock} Keys`
@@ -192,7 +192,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       </div>
 
       {/* Secondary Metrics Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <div className="p-3.5 rounded-xl bg-[#111622]/60 border border-white/5 flex items-center justify-between">
           <div>
             <span className="text-[10px] text-slate-400 uppercase font-semibold">Active Catalog</span>
@@ -316,7 +316,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <div className="overflow-x-auto w-full -mx-2.5 px-2.5">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-white/10 text-slate-400 font-semibold">

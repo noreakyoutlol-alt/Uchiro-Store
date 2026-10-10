@@ -144,8 +144,8 @@ export const AccountInventoryDepositModal: React.FC<AccountInventoryDepositModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-md bg-[#121622] border border-white/10 rounded-2xl p-5 space-y-4 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fadeIn">
+      <div className="max-w-md w-[95vw] mx-auto p-3 sm:p-5 rounded-2xl max-h-[90vh] overflow-y-auto bg-[#121622] border border-white/10 space-y-3 shadow-2xl relative">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">

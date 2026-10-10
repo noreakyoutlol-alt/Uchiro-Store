@@ -1628,6 +1628,7 @@ export class DataStore {
   }
 
   public static persistToDisk(): void {
+    if (process.env.NODE_ENV === 'test') return;
     try {
       const dir = path.dirname(this.PERSIST_FILE);
       if (!fs.existsSync(dir)) {
@@ -1657,6 +1658,7 @@ export class DataStore {
   }
 
   public static loadFromDisk(): void {
+    if (process.env.NODE_ENV === 'test') return;
     try {
       if (!fs.existsSync(this.PERSIST_FILE)) return;
       const raw = fs.readFileSync(this.PERSIST_FILE, 'utf-8');

@@ -113,6 +113,7 @@ const clientAdminDist = findDistPath('client-admin');
 app.use('/api/admin', adminRouter);
 
 // 2. Admin Static & SPA (Serve client-admin/dist on /admin and /admin/* BEFORE store wildcard route)
+app.use('/admin', adminStaticGuard);
 if (fs.existsSync(clientAdminDist)) {
   console.log(`📁 [PRODUCTION] Serving Admin frontend from: ${clientAdminDist}`);
   app.use('/admin', express.static(clientAdminDist, { index: false, redirect: false }));

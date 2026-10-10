@@ -55,12 +55,12 @@ export const UsersPage: React.FC<UsersPageProps> = ({ users }) => {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-3 animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-indigo-400" />
+          <h2 className="text-base font-black text-white flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-400" />
             <span>REGISTERED CUSTOMERS & PROFILES</span>
           </h2>
           <p className="text-xs text-slate-400">
@@ -70,7 +70,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({ users }) => {
       </div>
 
       {/* Search Bar */}
-      <div className="p-4 rounded-2xl bg-[#111622] border border-white/5 flex gap-3 shadow-lg">
+      <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/5 flex gap-2 shadow-md">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -84,19 +84,19 @@ export const UsersPage: React.FC<UsersPageProps> = ({ users }) => {
       </div>
 
       {/* Users Table */}
-      <div className="bg-[#111622] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
+      <div className="bg-[#111622] border border-white/10 rounded-xl overflow-hidden shadow-md">
+        <div className="overflow-x-auto w-full -mx-2.5 px-2.5">
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-black/40 uppercase text-[10px] text-slate-400 font-bold border-b border-white/10">
               <tr>
-                <th className="p-3.5">Customer</th>
-                <th className="p-3.5">Telegram ID</th>
-                <th className="p-3.5">Roblox Account</th>
-                <th className="p-3.5">Points</th>
-                <th className="p-3.5">Gacha Tickets</th>
-                <th className="p-3.5">Total Orders</th>
-                <th className="p-3.5">Total Spent</th>
-                <th className="p-3.5 text-right">Action</th>
+                <th className="py-2 px-2.5">Customer</th>
+                <th className="py-2 px-2.5">Telegram ID</th>
+                <th className="py-2 px-2.5">Roblox Account</th>
+                <th className="py-2 px-2.5">Points</th>
+                <th className="py-2 px-2.5">Gacha Tickets</th>
+                <th className="py-2 px-2.5">Total Orders</th>
+                <th className="py-2 px-2.5">Total Spent</th>
+                <th className="py-2 px-2.5 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-medium">
@@ -114,7 +114,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({ users }) => {
 
                   return (
                     <tr key={u.id || idx} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="p-3.5">
+                      <td className="py-1.5 px-2 text-xs">
                         <div className="font-bold text-white">
                           {u.first_name} {u.last_name || ''}
                         </div>
@@ -125,11 +125,11 @@ export const UsersPage: React.FC<UsersPageProps> = ({ users }) => {
                         )}
                       </td>
 
-                      <td className="p-3.5 font-mono text-slate-400">
+                      <td className="py-1.5 px-2 text-xs font-mono text-slate-400">
                         {u.telegram_id}
                       </td>
 
-                      <td className="p-3.5">
+                      <td className="py-1.5 px-2 text-xs">
                         {p.roblox_username ? (
                           <span className="font-bold text-[#FFD166] font-mono text-[11px]">
                             {p.roblox_username}
@@ -139,29 +139,29 @@ export const UsersPage: React.FC<UsersPageProps> = ({ users }) => {
                         )}
                       </td>
 
-                      <td className="p-3.5">
+                      <td className="py-1.5 px-2 text-xs">
                         <span className="font-bold text-amber-400 inline-flex items-center gap-1">
                           <Coins className="w-3.5 h-3.5" />
                           {p.points_balance || 0}
                         </span>
                       </td>
 
-                      <td className="p-3.5">
+                      <td className="py-1.5 px-2 text-xs">
                         <span className="font-bold text-purple-400 inline-flex items-center gap-1">
                           <Ticket className="w-3.5 h-3.5" />
                           {p.gacha_tickets || 0}
                         </span>
                       </td>
 
-                      <td className="p-3.5 font-bold text-white">
+                      <td className="py-1.5 px-2 text-xs font-bold text-white">
                         {p.total_orders || 0}
                       </td>
 
-                      <td className="p-3.5 font-bold text-emerald-400">
+                      <td className="py-1.5 px-2 text-xs font-bold text-emerald-400">
                         ${(p.total_spent || 0).toFixed(2)}
                       </td>
 
-                      <td className="p-3.5 text-right">
+                      <td className="py-1.5 px-2 text-xs text-right">
                         <button
                           onClick={() => handleOpenDetail(entry)}
                           className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-[11px] font-bold transition-all inline-flex items-center gap-1"
@@ -181,8 +181,8 @@ export const UsersPage: React.FC<UsersPageProps> = ({ users }) => {
 
       {/* User Detail Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg rounded-2xl bg-[#141826] border border-white/10 p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="max-w-md w-[95vw] mx-auto p-3 sm:p-5 rounded-2xl max-h-[90vh] overflow-y-auto bg-[#141826] border border-white/10 space-y-3 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div>
                 <h3 className="text-sm font-black text-white">

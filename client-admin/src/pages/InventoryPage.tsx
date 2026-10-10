@@ -331,12 +331,12 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
+    <div className="space-y-3 animate-fadeIn pb-12">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-            <Layers className="w-5 h-5 text-indigo-400" />
+          <h2 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+            <Layers className="w-4 h-4 text-indigo-400" />
             <span>VAULT INVENTORY & AUTOMATION</span>
           </h2>
           <p className="text-xs text-slate-400">
@@ -349,50 +349,50 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
             setErrorMessage(null);
             setIsAddModalOpen(true);
           }}
-          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-600/30 transition-all self-start sm:self-auto"
+          className="h-8 sm:h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-600/30 transition-all self-start sm:self-auto"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
           <span>Deposit Stock Item</span>
         </button>
       </div>
 
       {/* Summary Metrics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-[#111622] border border-white/5 space-y-1 shadow-lg">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/5 space-y-0.5 shadow-md">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Vault Items</span>
-            <Package className="w-4 h-4 text-indigo-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Total Vault</span>
+            <Package className="w-3.5 h-3.5 text-indigo-400" />
           </div>
-          <p className="text-2xl font-black text-white">{summary.total}</p>
+          <p className="text-lg font-black text-white">{summary.total}</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#111622] border border-emerald-500/10 space-y-1 shadow-lg">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-emerald-500/10 space-y-0.5 shadow-md">
           <div className="flex items-center justify-between text-emerald-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Available to Sell</span>
-            <CheckSquare className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Available</span>
+            <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <p className="text-2xl font-black text-emerald-400">{summary.available}</p>
+          <p className="text-lg font-black text-emerald-400">{summary.available}</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#111622] border border-amber-500/10 space-y-1 shadow-lg">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-amber-500/10 space-y-0.5 shadow-md">
           <div className="flex items-center justify-between text-amber-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Reserved in Orders</span>
-            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Reserved</span>
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <p className="text-2xl font-black text-amber-400">{summary.reserved}</p>
+          <p className="text-lg font-black text-amber-400">{summary.reserved}</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#111622] border border-purple-500/10 space-y-1 shadow-lg">
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-purple-500/10 space-y-0.5 shadow-md">
           <div className="flex items-center justify-between text-purple-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Consumed / Fulfilled</span>
-            <CheckCircle2 className="w-4 h-4 text-purple-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Consumed</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
           </div>
-          <p className="text-2xl font-black text-purple-400">{summary.consumed}</p>
+          <p className="text-lg font-black text-purple-400">{summary.consumed}</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-[#111622] border border-white/5 space-y-3">
+      <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/5 space-y-2">
         <div className="flex flex-col sm:flex-row gap-2.5">
           {/* Search */}
           <div className="relative flex-1">
@@ -434,19 +434,19 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
         </div>
       </div>
 
-      {/* Inventory Table */}
-      <div className="rounded-2xl border border-white/10 bg-[#111622] overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
+      {/* Inventory Table (Wrapped with overflow-x-auto w-full -mx-2.5 px-2.5) */}
+      <div className="rounded-xl border border-white/10 bg-[#111622] overflow-hidden shadow-lg">
+        <div className="overflow-x-auto w-full -mx-2.5 px-2.5">
           <table className="w-full text-left text-xs">
             <thead className="bg-black/40 text-slate-400 font-bold uppercase tracking-wider border-b border-white/10 text-[10px]">
               <tr>
-                <th className="py-3 px-4">Credential Details</th>
-                <th className="py-3 px-4">Associated Product</th>
-                <th className="py-3 px-4">Game / Category</th>
-                <th className="py-3 px-4">Delivery Mode</th>
-                <th className="py-3 px-4">Stock Status</th>
-                <th className="py-3 px-4">Linked Order</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-2 px-2.5">Credential Details</th>
+                <th className="py-2 px-2.5">Associated Product</th>
+                <th className="py-2 px-2.5">Game / Category</th>
+                <th className="py-2 px-2.5">Delivery Mode</th>
+                <th className="py-2 px-2.5">Stock Status</th>
+                <th className="py-2 px-2.5">Linked Order</th>
+                <th className="py-2 px-2.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-medium text-slate-300">
@@ -467,7 +467,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                   return (
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
                       {/* Credential Details */}
-                      <td className="py-3 px-4">
+                      <td className="py-1.5 px-2 text-xs">
                         {item.account_username || item.payload?.username ? (
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-1.5 font-mono text-white font-bold">
@@ -503,7 +503,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       </td>
 
                       {/* Associated Product */}
-                      <td className="py-3 px-4 max-w-[180px]">
+                      <td className="py-1.5 px-2 text-xs max-w-[180px]">
                         <p className="font-bold text-white line-clamp-1">{prod?.title || 'Unknown Product'}</p>
                         <span className="text-[10px] text-slate-400 font-mono">
                           ID: {item.product_id ? item.product_id.slice(0, 8) : 'N/A'}...
@@ -511,14 +511,14 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       </td>
 
                       {/* Category */}
-                      <td className="py-3 px-4">
+                      <td className="py-1.5 px-2 text-xs">
                         <span className="px-2 py-0.5 rounded-md bg-white/5 text-slate-300 border border-white/10 text-[10px] font-bold">
                           {prod?.category?.name || 'General Game'}
                         </span>
                       </td>
 
                       {/* Delivery Mode */}
-                      <td className="py-3 px-4">
+                      <td className="py-1.5 px-2 text-xs">
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                           prod?.delivery_mode === 'auto_account'
                             ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/20'
@@ -529,7 +529,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       </td>
 
                       {/* Stock Status */}
-                      <td className="py-3 px-4">
+                      <td className="py-1.5 px-2 text-xs">
                         {item.status === 'available' ? (
                           <span className="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-bold text-[10px] inline-flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -554,7 +554,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       </td>
 
                       {/* Linked Order */}
-                      <td className="py-3 px-4">
+                      <td className="py-1.5 px-2 text-xs">
                         {item.order_id ? (
                           <span className="font-mono text-[11px] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
                             #{item.order_id.slice(0, 8)}
@@ -565,7 +565,7 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-1.5 px-2 text-xs text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => openEditModal(item)}
@@ -600,8 +600,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* EDIT STOCK MODAL */}
       {isEditModalOpen && editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md rounded-2xl bg-[#141826] border border-white/10 p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="max-w-md w-[95vw] mx-auto p-3 sm:p-5 rounded-2xl max-h-[90vh] overflow-y-auto bg-[#141826] border border-white/10 space-y-3 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
@@ -743,8 +743,8 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
       {/* ADD STOCK MODAL (Requirement 2) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md rounded-2xl bg-[#141826] border border-white/10 p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="max-w-md w-[95vw] mx-auto p-3 sm:p-5 rounded-2xl max-h-[90vh] overflow-y-auto bg-[#141826] border border-white/10 space-y-3 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">

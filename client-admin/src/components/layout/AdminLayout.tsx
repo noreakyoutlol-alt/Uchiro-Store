@@ -101,9 +101,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         </nav>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="max-w-6xl mx-auto">{children}</div>
+      {/* Main Content Area: Compact Mobile-First Pocket UI */}
+      <main className="flex-1 p-2.5 sm:p-4 overflow-y-auto overflow-x-hidden w-full max-w-full">
+        <div className="max-w-6xl mx-auto space-y-3 w-full">{children}</div>
       </main>
     </div>
   );
