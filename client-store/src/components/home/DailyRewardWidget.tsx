@@ -84,14 +84,16 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
             : null
         );
 
+        const newPoints = res.points ?? res.newBalance;
+        window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: newPoints } }));
         window.dispatchEvent(
           new CustomEvent('uchiro_points_updated', {
-            detail: { points: res.newBalance },
+            detail: { points: newPoints },
           })
         );
 
-        if (onRewardClaimed) {
-          onRewardClaimed(res.newBalance);
+        if (onRewardClaimed && typeof newPoints === 'number') {
+          onRewardClaimed(newPoints);
         }
       }
 

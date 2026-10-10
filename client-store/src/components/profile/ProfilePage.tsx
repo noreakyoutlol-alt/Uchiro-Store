@@ -40,7 +40,7 @@ interface ProfilePageProps {
 
 export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   user,
-  profile,
+  profile: initialProfile,
   orders,
   onSelectOrder,
   onNavigateToTab,
@@ -48,6 +48,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { themeMode, setThemeMode } = useTheme();
+
+  const [profile, setProfile] = useState<Profile | null>(initialProfile);
+
+  useEffect(() => {
+    setProfile(initialProfile);
+  }, [initialProfile]);
+
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      if (typeof e.detail?.points === 'number') {
+        setProfile((prev: any) => prev ? {
+          ...prev,
+          points: e.detail.points,
+          loyalty_points: e.detail.points,
+          reward_points: e.detail.points
+        } : prev);
+      }
+    };
+    window.addEventListener('uchiro_points_sync', handleSync);
+    return () => window.removeEventListener('uchiro_points_sync', handleSync);
+  }, []);
 
   const [supportSubject, setSupportSubject] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
@@ -254,7 +275,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
     0
   );
 
-  const userPoints = profileStats !== null ? profileStats.points : (profile?.points ?? 0);
+  const userPoints = profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0;
   const gachaTickets = profileStats !== null ? profileStats.gacha_tickets : (profile?.gacha_tickets ?? 0);
   const totalOrdersCount = profileStats !== null ? profileStats.total_orders : fallbackTotalOrders;
   const totalSpentAmount = profileStats !== null ? profileStats.total_spent : fallbackTotalSpent;
@@ -309,7 +330,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             <div className="pt-0.5">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono font-black text-xs">
                 <span>💎</span>
-                <span>{userPoints.toLocaleString()} Pts</span>
+                <span>{(profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0).toLocaleString()} Pts</span>
               </span>
             </div>
           </div>
@@ -428,7 +449,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             <span>UCHIRO REWARD POINTS</span>
           </div>
           <div className="text-5xl font-black text-[#FFD166] tracking-tight leading-none mt-1">
-            {userPoints}
+            {profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0}
           </div>
           <span className="text-xs text-slate-400 mt-1">Reward Points Total</span>
         </div>
@@ -440,7 +461,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
         {/* 3 Loyalty Coupon Redemption Options */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           {COUPON_TIERS.map((tier) => {
-            const hasEnough = (profile?.points || 0) >= tier.points;
+            const hasEnough = (profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0) >= tier.points;
             return (
               <div
                 key={tier.points}

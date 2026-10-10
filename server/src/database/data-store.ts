@@ -2769,6 +2769,7 @@ export class DataStore {
 
   static claimDailyReward(telegramId: number): {
     success: boolean;
+    points: number;
     pointsAwarded: number;
     newBalance: number;
     streak: number;
@@ -2776,10 +2777,12 @@ export class DataStore {
   } {
     const status = this.getDailyRewardStatus(telegramId);
     if (!status.can_claim) {
+      const currentPoints = this.users.get(telegramId)?.points ?? this.profiles.get(telegramId)?.points ?? 0;
       return {
         success: false,
+        points: currentPoints,
         pointsAwarded: 0,
-        newBalance: this.profiles.get(telegramId)?.points || 0,
+        newBalance: currentPoints,
         streak: status.current_streak,
         error: 'ALREADY_CLAIMED_TODAY',
       };
@@ -2826,6 +2829,8 @@ export class DataStore {
     user.last_daily_claim_at = new Date().toISOString();
     if (profile) {
       profile.points = user.points;
+      profile.loyalty_points = user.points;
+      profile.reward_points = user.points;
       profile.last_daily_claim_at = user.last_daily_claim_at;
     }
 
@@ -2842,7 +2847,13 @@ export class DataStore {
     this.pointLedger.unshift(ledgerEntry);
 
     this.saveToDisk();
-    return { success: true, pointsAwarded, newBalance: user.points, streak: newStreak };
+    return {
+      success: true,
+      points: user.points,
+      pointsAwarded,
+      newBalance: user.points,
+      streak: newStreak,
+    };
   }
 
   // ================= COUPON REDEMPTION FROM POINTS (3 TIERS) =================

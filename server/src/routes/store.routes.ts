@@ -254,14 +254,18 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
 
   return res.json({
     success: true,
+    points: newBalance,
     pointsAwarded: result.pointsAwarded || 5,
     newBalance,
+    streak: result.streak,
     message: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
     data: {
       ...result,
       success: true,
+      points: newBalance,
       pointsAwarded: result.pointsAwarded || 5,
       newBalance,
+      streak: result.streak,
       message: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
     },
   });

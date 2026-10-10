@@ -83,51 +83,10 @@ app.get('/api/health', async (_req, res) => {
 // Rate limiter for API
 app.use('/api', apiRateLimiter);
 
-// Resolve frontend paths safely
-function findDistPath(subDir: string): string {
-  const candidates = [
-    path.resolve(process.cwd(), subDir, 'dist'),
-    path.resolve(__dirname, '..', '..', subDir, 'dist'),
-    path.resolve(__dirname, '..', subDir, 'dist'),
-    path.resolve(process.cwd(), '..', subDir, 'dist'),
-    path.resolve(process.cwd(), 'dist', subDir),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  return candidates[0];
-}
-
-const clientStoreDist = findDistPath('client-store');
-const clientAdminDist = findDistPath('client-admin');
-
-// ============================================================================
-// ROUTE REGISTRATION ORDER (PREVENT SPA WILDCARD ROUTE COLLISION)
-// 1. Admin API (/api/admin/*)
-// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
-// 3. Store API (/api/*)
-// 4. Store Static & SPA (/* serving client-store/dist)
-// ============================================================================
-
 // 1. Admin API (/api/admin/*)
 app.use('/api/admin', adminRouter);
 
-// 2. Admin Static & SPA (Serve client-admin/dist on /admin and /admin/* BEFORE store wildcard route)
-app.use('/admin', adminStaticGuard);
-if (fs.existsSync(clientAdminDist)) {
-  console.log(`📁 [PRODUCTION] Serving Admin frontend from: ${clientAdminDist}`);
-  app.use('/admin', express.static(clientAdminDist, { index: false, redirect: false }));
-  app.get(['/admin', '/admin/*'], (_req, res) => {
-    res.sendFile(path.join(clientAdminDist, 'index.html'));
-  });
-} else {
-  console.warn(`⚠️ [PRODUCTION] Admin dist folder not found at: ${clientAdminDist}. Build with: npm run build`);
-  app.get(['/admin', '/admin/*'], (_req, res) => {
-    res.status(404).send(ADMIN_404_HTML);
-  });
-}
-
-// 3. Store API (/api/*)
+// 2. Store API (/api/*)
 app.use('/api/webhook', webhookRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/store', storeRouter);
@@ -138,19 +97,51 @@ app.use('/api/gacha', gachaRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/bots', botsRouter);
 
-// 4. Store Static & SPA (/* serving client-store/dist)
-if (fs.existsSync(clientStoreDist)) {
-  console.log(`📁 [PRODUCTION] Serving Store frontend from: ${clientStoreDist}`);
-  app.use(express.static(clientStoreDist, { index: false }));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/api/health') {
-      return next();
-    }
-    res.sendFile(path.join(clientStoreDist, 'index.html'));
-  });
-} else {
-  console.warn(`⚠️ [PRODUCTION] Store dist folder not found at: ${clientStoreDist}. Build with: npm run build`);
-}
+// Resolve frontend paths dynamically to prevent Railway container breaks
+const adminDist = [
+  path.resolve(process.cwd(), 'client-admin/dist'),
+  path.resolve(__dirname, '../../client-admin/dist'),
+  path.resolve(__dirname, '../../../client-admin/dist'),
+].find(p => fs.existsSync(p)) || path.resolve(process.cwd(), 'client-admin/dist');
+
+const storeDist = [
+  path.resolve(process.cwd(), 'client-store/dist'),
+  path.resolve(__dirname, '../../client-store/dist'),
+  path.resolve(__dirname, '../../../client-store/dist'),
+].find(p => fs.existsSync(p)) || path.resolve(process.cwd(), 'client-store/dist');
+
+console.log('[Static Check] Admin Dist Path:', adminDist, 'Exists:', fs.existsSync(adminDist));
+console.log('[Static Check] Store Dist Path:', storeDist, 'Exists:', fs.existsSync(storeDist));
+
+// A. Mount Admin Static Assets FIRST
+app.use('/admin', express.static(adminDist, { index: false, redirect: false }));
+
+// B. Admin SPA Fallback (handles /admin, /admin/, and /admin/*)
+app.get(['/admin', '/admin/*'], (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) return next();
+  const adminIndex = path.join(adminDist, 'index.html');
+  if (fs.existsSync(adminIndex)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.sendFile(adminIndex);
+  }
+  return res.status(404).send('Admin SPA build not found at: ' + adminIndex);
+});
+
+// C. Mount Store Static Assets SECOND
+app.use(express.static(storeDist));
+
+// D. Store SPA Fallback
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/webhook') || req.path.startsWith('/admin')) {
+    return next();
+  }
+  const storeIndex = path.join(storeDist, 'index.html');
+  if (fs.existsSync(storeIndex)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.sendFile(storeIndex);
+  }
+  return res.status(404).send('Store SPA build not found at: ' + storeIndex);
+});
 
 // Central Error Handler
 app.use(errorHandler);

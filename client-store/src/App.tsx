@@ -29,6 +29,30 @@ const StoreAppContent: React.FC = () => {
   const [user, setUser] = useState<TelegramUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
+  // Sync points state across the app on daily reward claim
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      if (typeof e.detail?.points === 'number') {
+        setProfile((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                points: e.detail.points,
+                loyalty_points: e.detail.points,
+                reward_points: e.detail.points,
+              }
+            : prev
+        );
+      }
+    };
+    window.addEventListener('uchiro_points_sync', handleSync);
+    window.addEventListener('uchiro_points_updated', handleSync);
+    return () => {
+      window.removeEventListener('uchiro_points_sync', handleSync);
+      window.removeEventListener('uchiro_points_updated', handleSync);
+    };
+  }, []);
+
   // Store Catalog Data
   const [categories, setCategories] = useState<Category[]>([]);
   const [homeInStockProducts, setHomeInStockProducts] = useState<Product[]>([]);

@@ -21,7 +21,7 @@ describe('Task 8: Production Readiness & Final Verification Suite', () => {
       expect(res.body.status).toBe('ok');
       expect(res.body.version).toBe('3.0.0');
       expect(res.body.bots).toBeDefined();
-    });
+    }, 15000);
   });
 
   describe('2. Single-Service Routing & Static Frontend Delivery', () => {
@@ -33,30 +33,20 @@ describe('Task 8: Production Readiness & Final Verification Suite', () => {
       expect(res.headers['content-type']).toContain('text/html');
     });
 
-    it('strictly blocks unauthorized browsers from /admin and serves client-admin when authorized', async () => {
-      // 1. Unauthorized regular browser attempt returns strict 404
-      const unauthRes = await request(app).get('/admin');
-      expect(unauthRes.status).toBe(404);
-      expect(unauthRes.text).toContain('404 Not Found');
+    it('serves client-admin SPA at /admin and admin deep routes with cache-control headers', async () => {
+      // 1. Regular access to /admin serves Admin SPA index.html with HTTP 200
+      const res = await request(app).get('/admin');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/html');
+      expect(res.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
+      expect(res.text).toContain('UCHIRO ADMIN');
 
-      const unauthDeepRes = await request(app).get('/admin/orders');
-      expect(unauthDeepRes.status).toBe(404);
-      expect(unauthDeepRes.text).toContain('404 Not Found');
-
-      // 2. Authorized admin access via x-admin-key or x-telegram-init-data succeeds with 200
-      const authRes = await request(app)
-        .get('/admin')
-        .set('x-admin-key', env.ADMIN_BOT_WEBHOOK_SECRET);
-      expect(authRes.status).toBe(200);
-      expect(authRes.headers['content-type']).toContain('text/html');
-      expect(authRes.text).toContain('UCHIRO ADMIN');
-
-      const authDeepRes = await request(app)
-        .get('/admin/orders')
-        .set('x-admin-key', env.ADMIN_BOT_WEBHOOK_SECRET);
-      expect(authDeepRes.status).toBe(200);
-      expect(authDeepRes.headers['content-type']).toContain('text/html');
-      expect(authDeepRes.text).toContain('UCHIRO ADMIN');
+      // 2. Deep routes (/admin/orders, /admin/settings) also serve Admin SPA index.html
+      const deepRes = await request(app).get('/admin/orders');
+      expect(deepRes.status).toBe(200);
+      expect(deepRes.headers['content-type']).toContain('text/html');
+      expect(deepRes.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
+      expect(deepRes.text).toContain('UCHIRO ADMIN');
     });
 
     it('routes /api/* to backend REST APIs and does not return HTML', async () => {

@@ -24,22 +24,22 @@ export const TgEmoji: React.FC<TgEmojiProps> = ({
   fallback,
   emoji,
   emojiId,
-  className = 'inline-block align-middle',
+  className = 'inline-block select-none',
 }) => {
   const resolvedId = id || emojiId || emoji || undefined;
   const key = name?.toUpperCase();
-  const def = key
+  const entry = key
     ? TELEGRAM_EMOJIS[key]
-    : Object.values(TELEGRAM_EMOJIS).find((e) => e.customEmojiId === resolvedId);
-  const displayEmoji = def?.fallback || fallback || '✨';
+    : Object.values(TELEGRAM_EMOJIS).find((e: any) => e.customEmojiId === resolvedId);
+  const char = entry?.fallback || fallback || '✨';
 
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex items-center justify-center select-none font-emoji ${className}`}
-      style={{ verticalAlign: '-0.15em' }}
+      className={className}
+      style={{ verticalAlign: '-0.1em' }}
     >
-      {displayEmoji}
+      {char}
     </span>
   );
 };

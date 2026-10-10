@@ -33,6 +33,7 @@ export const TELEGRAM_EMOJIS: Record<string, TelegramEmojiDef> = {
   CROWN:         { fallback: '👑', customEmojiId: '5433758796289685818' },
   MONEY:         { fallback: '💵', customEmojiId: '6301016442582081020' },
   GEM:           { fallback: '💎', customEmojiId: '6107301563422740787' },
+  DIAMOND:       { fallback: '💎', customEmojiId: '6107301563422740787' },
   TICKET:        { fallback: '🎟️', customEmojiId: '5291994784980813319' },
   ROBOT:         { fallback: '🤖', customEmojiId: '5287684458881756303' },
   BELL:          { fallback: '🔔', customEmojiId: '5458603043203327669' },
