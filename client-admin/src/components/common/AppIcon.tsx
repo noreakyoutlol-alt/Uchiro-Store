@@ -74,17 +74,6 @@ export const AppIcon: React.FC<AppIconProps> = ({
   fallbackText,
   ...restProps
 }) => {
-  const customEmojiId = EMOJI[name];
-
-  if (customEmojiId) {
-    const CustomTag = 'tg-emoji' as any;
-    return (
-      <CustomTag emoji-id={customEmojiId} className={className}>
-        {fallbackText || '•'}
-      </CustomTag>
-    );
-  }
-
   const IconComponent = ICON_MAP[name] || Shield;
   return (
     <IconComponent

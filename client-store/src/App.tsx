@@ -476,11 +476,16 @@ const StoreAppContent: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  const tg = (window as any).Telegram?.WebApp;
-  const isTelegramWebApp = Boolean(tg?.initData && tg.initData.trim().length > 0);
-  const isDev = Boolean((import.meta as any).env?.DEV && new URLSearchParams(window.location.search).get('dev') === 'true');
+  const isTg = Boolean(
+    (window as any).Telegram?.WebApp?.initData ||
+    (window as any).Telegram?.WebApp?.initDataUnsafe?.user
+  );
+  const isDev = Boolean(
+    (import.meta as any).env?.DEV &&
+    new URLSearchParams(window.location.search).get('dev') === 'true'
+  );
 
-  if (!isTelegramWebApp && !isDev) {
+  if (!isTg && !isDev) {
     return <TelegramBrowserBlocked />;
   }
 

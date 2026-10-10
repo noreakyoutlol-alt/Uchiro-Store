@@ -86,7 +86,7 @@ storeRouter.get('/settings', (_req, res) => {
 });
 
 // Roblox Username Verification Proxy & Instant Validator (Specification 1)
-storeRouter.post('/roblox/verify-user', async (req, res) => {
+storeRouter.post(['/roblox/verify-user', '/roblox/verify'], async (req, res) => {
   const raw = req.body?.username || req.body?.robloxUsername || '';
   const clean = String(raw).trim();
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {

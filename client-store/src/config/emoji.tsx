@@ -18,19 +18,15 @@ export { EMOJI, tgEmoji, AppIcon };
  *   <TgEmoji emoji={EMOJI.GACHA} fallback="🎰" />
  */
 export const TgEmoji: React.FC<{ emoji: string | null; fallback: string }> = ({
-  emoji,
   fallback,
 }) => {
-  if (!emoji) return <>{fallback}</>;
-  // tg-emoji is a non-standard element recognised only by Telegram WebView.
-  // TypeScript doesn't know it; the cast keeps the build clean.
-  const CustomTag = 'tg-emoji' as any;
-  return <CustomTag emoji-id={emoji}>{fallback}</CustomTag>;
+  return <>{fallback}</>;
 };
 
 /**
  * Inline string helper for JSX text content.
- * @example
- *   <span>{inlineEmoji(EMOJI.PAYMENT, '💳')} Payment</span>
+ * In Mini App webviews, always use clean Unicode emoji strings.
  */
-export const inlineEmoji = tgEmoji;
+export const inlineEmoji = (_emojiId: string | null | undefined, fallback: string): string => {
+  return fallback;
+};

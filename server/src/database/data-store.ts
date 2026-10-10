@@ -2369,8 +2369,8 @@ export class DataStore {
         first_name: userData.first_name,
         last_name: userData.last_name || null,
         photo_url: userData.photo_url || null,
-        language_code: userData.language_code || 'en',
-        language_preference: userData.language_preference || null,
+        language_code: userData.language_code || 'km',
+        language_preference: userData.language_preference || 'km',
         is_bot: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -2381,8 +2381,10 @@ export class DataStore {
       profile = {
         id: userId,
         telegram_id: userData.telegram_id,
-        points: 100, // Welcome 100 reward points
-        gacha_tickets: 2, // Welcome 2 Gacha Tickets
+        points: 0,
+        loyalty_points: 0,
+        reward_points: 0,
+        gacha_tickets: 0,
         total_spent: 0,
         total_orders: 0,
         gacha_spins_count: 0,
@@ -2394,18 +2396,6 @@ export class DataStore {
         updated_at: new Date().toISOString(),
       };
       this.profiles.set(userData.telegram_id, profile);
-
-      // Seed initial ledger transactions
-      this.pointLedger.unshift({
-        id: uuidv4(),
-        telegram_id: userData.telegram_id,
-        amount: 100,
-        type: 'daily_reward',
-        description: 'Welcome Bonus: 100 Uchiro Reward Points',
-        reference_id: null,
-        balance_after: 100,
-        created_at: new Date().toISOString(),
-      });
     } else {
       // Update details if changed
       user.first_name = userData.first_name;
@@ -2437,6 +2427,18 @@ export class DataStore {
 
   static getProfile(telegramId: number): Profile | null {
     return this.profiles.get(telegramId) || null;
+  }
+
+  /**
+   * One-time migration/reset to set points = 0 for all existing users in the local store (Zero Baseline).
+   */
+  static resetAllUserPointsToZero(): void {
+    for (const profile of this.profiles.values()) {
+      profile.points = 0;
+      profile.loyalty_points = 0;
+      profile.reward_points = 0;
+      profile.gacha_tickets = 0;
+    }
   }
 
   static getAllUsersAdmin(): { user: TelegramUser; profile: Profile }[] {

@@ -79,19 +79,7 @@ export const AppIcon: React.FC<AppIconProps> = ({
   fallbackText,
   ...restProps
 }) => {
-  const customEmojiId = EMOJI[name];
-
-  // If Telegram Premium custom emoji ID is configured and present, render <tg-emoji>
-  if (customEmojiId) {
-    const CustomTag = 'tg-emoji' as any;
-    return (
-      <CustomTag emoji-id={customEmojiId} className={className}>
-        {fallbackText || '•'}
-      </CustomTag>
-    );
-  }
-
-  // Safe vector icon rendering: never render blank squares or broken glyphs
+  // Safe vector icon rendering: never render broken <tg-emoji> tags or blank squares
   const IconComponent = ICON_MAP[name] || Shield;
   return (
     <IconComponent

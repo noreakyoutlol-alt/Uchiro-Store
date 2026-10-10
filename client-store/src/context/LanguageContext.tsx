@@ -262,14 +262,12 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Specification 2: Default language MUST be strictly set to 'km'
-  const [language, setLangState] = useState<Language>(() => {
-    const saved = localStorage.getItem('uchiro_lang') || localStorage.getItem('uchiro_store_lang');
-    return saved === 'en' ? 'en' : 'km';
-  });
+  const [language, setLanguage] = useState<'km' | 'en'>(
+    () => (localStorage.getItem('uchiro_lang') as 'km' | 'en') || 'km'
+  );
 
-  const setLanguage = (lang: Language) => {
-    setLangState(lang);
+  const handleSetLanguage = (lang: 'km' | 'en') => {
+    setLanguage(lang);
     localStorage.setItem('uchiro_lang', lang);
     localStorage.setItem('uchiro_store_lang', lang);
   };
@@ -279,7 +277,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

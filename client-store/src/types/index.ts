@@ -86,6 +86,8 @@ export interface Profile {
   id: string;
   telegram_id: number;
   points: number;
+  loyalty_points?: number;
+  reward_points?: number;
   gacha_tickets: number;
   total_spent: number;
   total_orders: number;

@@ -15,15 +15,14 @@ export { EMOJI, tgEmoji, AppIcon };
  * standard emoji text fallback for regular browsers.
  */
 export const TgEmoji: React.FC<{ emoji: string | null; fallback: string }> = ({
-  emoji,
   fallback,
 }) => {
-  if (!emoji) return <>{fallback}</>;
-  const CustomTag = 'tg-emoji' as any;
-  return <CustomTag emoji-id={emoji}>{fallback}</CustomTag>;
+  return <>{fallback}</>;
 };
 
 /**
  * Inline string helper for JSX text content.
  */
-export const inlineEmoji = tgEmoji;
+export const inlineEmoji = (_emojiId: string | null | undefined, fallback: string): string => {
+  return fallback;
+};
