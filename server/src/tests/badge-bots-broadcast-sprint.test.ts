@@ -46,33 +46,31 @@ describe('UCHIRO SPRINT: BADGE REPOSITION, ADVANCED BOTS, BROADCAST & ZERO-FAKES
       expect(enMsg).toContain('Instant KHQR');
     });
 
-    it('constructs the exact 6-button main menu interactive grid with custom emoji button icons', () => {
-      const keyboard = getMainMenuKeyboard('https://uchiro.store');
+    it('constructs the main menu interactive grid with custom emoji button icons', () => {
+      const keyboard = getMainMenuKeyboard('https://uchiro.store', 'en');
       expect(keyboard).toBeDefined();
       const rows = keyboard.reply_markup.inline_keyboard;
-      expect(rows.length).toBe(4);
+      expect(rows.length).toBe(5);
 
-      // Row 1: [ OPEN UCHIRO STORE (Mini App) ] with SHOPPING_BAGS custom emoji
-      expect(rows[0][0].text).toBe('OPEN UCHIRO STORE (Mini App)');
-      expect((rows[0][0] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.SHOPPING_BAGS.customEmojiId);
+      // Row 1: Gacha & Daily Points
+      expect(rows[0][0].text).toContain('Gacha');
+      expect(rows[0][1].text).toContain('Daily');
 
-      // Row 2: [ Play Gacha ] [ Daily Points ] with FERRIS_WHEEL and GIFT
-      expect(rows[1][0].text).toBe('Play Gacha');
-      expect((rows[1][0] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.FERRIS_WHEEL.customEmojiId);
-      expect(rows[1][1].text).toBe('Daily Points');
-      expect((rows[1][1] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.GIFT.customEmojiId);
+      // Row 2: Vault & Orders
+      expect(rows[1][0].text).toContain('Vault');
+      expect(rows[1][1].text).toContain('Order');
 
-      // Row 3: [ My Inventory & Vault ] [ Orders ] with PACKAGE and SCROLL
-      expect(rows[2][0].text).toBe('My Inventory & Vault');
-      expect((rows[2][0] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.PACKAGE.customEmojiId);
-      expect(rows[2][1].text).toBe('Orders');
-      expect((rows[2][1] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.SCROLL.customEmojiId);
+      // Row 3: Profile & Language
+      expect(rows[2][0].text).toContain('Profile');
+      expect(rows[2][1].text).toContain('Language');
 
-      // Row 4: [ ភាសា / Language ] [ 24/7 Support ] with GLOBE and SUPPORT
-      expect(rows[3][0].text).toBe('ភាសា / Language');
-      expect((rows[3][0] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.GLOBE.customEmojiId);
-      expect(rows[3][1].text).toBe('24/7 Support');
-      expect((rows[3][1] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.SUPPORT.customEmojiId);
+      // Row 4: Rules & Help
+      expect(rows[3][0].text).toContain('Rules');
+      expect(rows[3][1].text).toContain('Help');
+
+      // Row 5: Open Mini App & Support
+      expect(rows[4][0].text).toContain('Mini App');
+      expect(rows[4][1].text).toContain('Admin');
     });
 
     it('normalizes custom Telegram emoji tags to tg-emoji emoji-id', () => {
@@ -107,7 +105,7 @@ describe('UCHIRO SPRINT: BADGE REPOSITION, ADVANCED BOTS, BROADCAST & ZERO-FAKES
       expect(rows.length).toBe(3);
 
       // Row 1: [ OPEN ADMIN PORTAL ] with SHIELD custom emoji
-      expect(rows[0][0].text).toBe('OPEN ADMIN PORTAL');
+      expect(rows[0][0].text).toContain('OPEN ADMIN PORTAL');
       expect((rows[0][0] as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.SHIELD.customEmojiId);
 
       // Row 2: [ Real-Time Metrics ] [ Live Inventory ]

@@ -1746,6 +1746,10 @@ export class DataStore {
     return this.orders.filter((o) => o.telegram_id === telegramId);
   }
 
+  static getOrdersByTelegramId(telegramId: number): Order[] {
+    return this.getOrdersByCustomer(telegramId);
+  }
+
   static getAllOrdersAdmin(): Order[] {
     return this.orders;
   }
@@ -2465,6 +2469,21 @@ export class DataStore {
     return returnObj as any;
   }
 
+  static upsertTelegramUser(userData: {
+    telegram_id: number;
+    username?: string | null;
+    first_name?: string;
+    last_name?: string | null;
+    photo_url?: string | null;
+    language_code?: string;
+    language_preference?: string | null;
+  }): { user: TelegramUser; profile: Profile } {
+    return this.findOrCreateTelegramUser({
+      ...userData,
+      first_name: userData.first_name || userData.username || 'User',
+    });
+  }
+
   static getTelegramUser(telegramId: number): TelegramUser | null {
     return this.users.get(telegramId) || null;
   }
@@ -2498,6 +2517,36 @@ export class DataStore {
 
   static getProfile(telegramId: number): Profile | null {
     return this.profiles.get(telegramId) || null;
+  }
+
+  static adjustUserPoints(telegramId: number, delta: number, reason: string = 'admin_adjust'): number {
+    const profile = this.profiles.get(telegramId);
+    const user = this.users.get(telegramId);
+    let current = profile?.points ?? user?.points ?? 0;
+    const newBal = Math.max(0, current + delta);
+    if (profile) {
+      profile.points = newBal;
+      profile.loyalty_points = newBal;
+      profile.reward_points = newBal;
+      profile.updated_at = new Date().toISOString();
+    }
+    if (user) {
+      user.points = newBal;
+      user.reward_points = newBal;
+      user.updated_at = new Date().toISOString();
+    }
+    this.pointLedger.unshift({
+      id: uuidv4(),
+      telegram_id: telegramId,
+      amount: delta,
+      balance_after: newBal,
+      type: delta >= 0 ? 'earn' : 'spend',
+      description: reason,
+      reference_id: null,
+      created_at: new Date().toISOString(),
+    });
+    this.saveToDisk();
+    return newBal;
   }
 
   /**

@@ -1,7 +1,7 @@
-﻿import { Telegraf, Markup } from 'telegraf';
+import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
 import { DataStore } from '../../database/data-store';
-import { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis } from '../../config/telegram-emojis';
+import { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { FulfillmentService } from '../../services/fulfillment.service';
 import {
   handleVaultMenu,
@@ -9,8 +9,49 @@ import {
   handleGen2fa,
   isMessageNotModifiedError,
 } from './handlers/orders';
+import {
+  handleProfileMenu,
+  handlePointsLedger,
+  handleRedeemPoints,
+} from './handlers/profile';
+import {
+  handleMainRules,
+  handleGachaRules,
+  handleDailyRules,
+  handleWarrantyPolicy,
+} from './handlers/rules';
+import {
+  handleMainHelp,
+  handleGuide2fa,
+  handleGuidePayment,
+} from './handlers/help';
+import {
+  handleGachaMenu,
+  handleBuyGachaTicket,
+  handleGachaPrizes,
+  handleGachaOdds,
+} from './handlers/gacha';
+import {
+  handleDailyMenu,
+  handleClaimDailyInstant,
+  handleDailyShop,
+  fetchDailyLiveInfo,
+} from './handlers/daily';
+import {
+  getMainMenuKeyboard,
+  getLanguageSelectionKeyboard,
+  createWebAppOrUrlButton,
+} from './keyboards';
+import { getLocale } from './locales';
 
-export { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis };
+export {
+  TELEGRAM_EMOJIS,
+  renderTgEmoji,
+  enrichWithTgEmojis,
+  getMainMenuKeyboard,
+  getLanguageSelectionKeyboard,
+  createWebAppOrUrlButton,
+};
 
 export const STORE_BOT_DEFAULT_USERNAME = 'UchiroStore_BOT';
 export const STORE_BOT_DISPLAY_NAME = 'UchiroStore_BOT';
@@ -18,7 +59,6 @@ export const STORE_BOT_USERNAME = STORE_BOT_DEFAULT_USERNAME;
 
 /**
  * Returns the resolved Store Bot username (without leading '@').
- * Dynamic lookup: env.STORE_BOT_USERNAME || process.env.STORE_BOT_USERNAME || 'UchiroStore_BOT'.
  */
 export function getStoreBotUsername(): string {
   const raw = process.env.STORE_BOT_USERNAME || env.STORE_BOT_USERNAME || STORE_BOT_DEFAULT_USERNAME;
@@ -27,7 +67,6 @@ export function getStoreBotUsername(): string {
 
 /**
  * Generates dynamic deep links to the Store Telegram Bot.
- * e.g. https://t.me/UchiroStore_BOT or https://t.me/UchiroStore_BOT?start=referral_code
  */
 export function getStoreBotLink(startParam?: string): string {
   const username = getStoreBotUsername();
@@ -37,10 +76,6 @@ export function getStoreBotLink(startParam?: string): string {
   return `https://t.me/${username}`;
 }
 
-/**
- * Generates dynamic Telegram Mini App direct links.
- * e.g. https://t.me/UchiroStore_BOT?startapp=tab_orders
- */
 export function getStoreBotMiniAppLink(startAppParam?: string): string {
   const username = getStoreBotUsername();
   if (startAppParam) {
@@ -63,79 +98,36 @@ export function formatTelegramHtml(text: string): string {
 }
 
 /**
- * Telegram strictly requires https:// for inline keyboard web_app buttons.
- * If target URL does not start with https://:
- * - Replace any fallback with: (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '')
- * - Ensure all buttons using Markup.button.webApp(...) or Markup.button.url(...) strictly use appUrl or a valid HTTPS URL (no http:// and no localhost).
- */
-export function createWebAppOrUrlButton(text: string, targetUrl: string) {
-  const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
-
-  // If the target URL already starts with https://
-  if (targetUrl && targetUrl.startsWith('https://')) {
-    // If it is a Telegram deep link (e.g. https://t.me/...), it must use url button, not webApp
-    if (targetUrl.startsWith('https://t.me/')) {
-      return Markup.button.url(text, targetUrl);
-    }
-    return Markup.button.webApp(text, targetUrl);
-  }
-
-  // If targetUrl does not start with https:// (e.g. http://localhost:3000 or relative path), resolve path & query onto appUrl
-  let resolvedUrl = appUrl;
-  if (targetUrl) {
-    if (targetUrl.startsWith('/')) {
-      resolvedUrl = `${appUrl}${targetUrl}`;
-    } else {
-      try {
-        const parsed = new URL(targetUrl);
-        const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
-        if (pathAndQuery) {
-          resolvedUrl = `${appUrl}${pathAndQuery}`;
-        }
-      } catch {
-        resolvedUrl = appUrl;
-      }
-    }
-  }
-
-  // Guarantee strictly HTTPS URL (never http:// or localhost)
-  if (!resolvedUrl.startsWith('https://')) {
-    resolvedUrl = 'https://web-production-2d8bd.up.railway.app';
-  }
-
-  return Markup.button.webApp(text, resolvedUrl);
-}
-
-/**
- * Creates an inline keyboard button enriched with native icon_custom_emoji_id.
- * If icon_custom_emoji_id is empty or missing, gracefully prepends the fallback Unicode emoji to text.
+ * Creates an inline button with emoji fallback and custom emoji support.
+ * Strict de-duplication: Enforces strictly ONE emoji per button.
  */
 export function createEmojiInlineButton(opts: {
   text: string;
-  emojiKey: string;
+  emojiKey?: TelegramEmojiKey;
   targetUrl?: string;
   url?: string;
   callbackData?: string;
-}): any {
-  const emoji = TELEGRAM_EMOJIS[opts.emojiKey];
-  const customEmojiId = emoji?.customEmojiId?.trim();
-  const fallback = emoji?.fallback?.trim() || '';
+  customEmojiId?: string;
+}) {
+  const emojiDef = opts.emojiKey ? TELEGRAM_EMOJIS[opts.emojiKey] : undefined;
+  const customEmojiId = opts.customEmojiId || emojiDef?.customEmojiId;
+  const fallback = emojiDef?.fallback;
 
-  // Safe Fallback: If icon_custom_emoji_id is empty or missing, gracefully prepend the fallback Unicode emoji
-  const hasFallback = fallback && opts.text.includes(fallback);
-  const finalText = customEmojiId
-    ? opts.text
-    : (hasFallback ? opts.text : (fallback ? `${fallback} ${opts.text}` : opts.text));
+  // Enforce strictly ONE emoji per button:
+  // If customEmojiId is present or text already has an emoji, do NOT prepend fallback.
+  // Otherwise, prepend fallback if available.
+  const hasEmoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(opts.text);
+  const finalText = (customEmojiId || hasEmoji) ? opts.text : (fallback ? `${fallback} ${opts.text}` : opts.text);
 
   let btn: any;
   if (opts.targetUrl) {
-    btn = createWebAppOrUrlButton(finalText, opts.targetUrl);
+    btn = Markup.button.webApp(finalText, opts.targetUrl);
   } else if (opts.url) {
-    btn = createWebAppOrUrlButton(finalText, opts.url);
+    btn = Markup.button.url(finalText, opts.url);
   } else if (opts.callbackData) {
     btn = Markup.button.callback(finalText, opts.callbackData);
   } else {
-    btn = { text: finalText };
+    btn = Markup.button.callback(finalText, 'noop');
   }
 
   if (customEmojiId) {
@@ -143,92 +135,6 @@ export function createEmojiInlineButton(opts: {
   }
 
   return btn;
-}
-
-/**
- * Language selection inline keyboard:
- * 🇰🇭 ភាសាខ្មែរ | 🇬🇧 English
- */
-export function getLanguageSelectionKeyboard() {
-  return Markup.inlineKeyboard([
-    [
-      Markup.button.callback('🇰🇭 ភាសាខ្មែរ', 'set_lang:km'),
-      Markup.button.callback('🇬🇧 English', 'set_lang:en'),
-    ],
-  ]);
-}
-
-/**
- * Main menu 6-button interactive grid with Telegram custom emojis:
- * [ OPEN UCHIRO STORE (Mini App) ] (icon: SHOPPING_BAGS)
- * [ Play Gacha ] (icon: FERRIS_WHEEL) [ Daily Points ] (icon: GIFT)
- * [ My Inventory & Vault ] (icon: PACKAGE) [ Orders ] (icon: SCROLL)
- * [ ភាសា / Language ] (icon: GLOBE) [ 24/7 Support ] (icon: SUPPORT)
- */
-/**
- * Main menu 6-button interactive grid with Telegram custom emojis (Specification 2: 100% Khmer):
- * [ បើក UCHIRO STORE (កម្មវិធី) ] (icon: SHOPPING_BAGS)
- * [ បង្វិល Gacha ] (icon: FERRIS_WHEEL) [ ពិន្ទុប្រចាំថ្ងៃ ] (icon: GIFT)
- * [ ទូផ្ទុកទំនិញ ] (icon: PACKAGE) [ ប្រវត្តិបញ្ជាទិញ ] (icon: SCROLL)
- * [ 🇰🇭 ភាសាខ្មែរ / EN ] (icon: GLOBE) [ ជំនួយ ២៤/៧ ] (icon: SUPPORT)
- */
-export function getMainMenuKeyboard(storeWebAppUrl?: string, lang: string = 'en') {
-  const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
-  const rawSupport = process.env.SUPPORT_TELEGRAM_USERNAME || env.TELEGRAM_SUPPORT_USERNAME || 'UchiroSupport';
-  const supportUsername = rawSupport.replace('@', '');
-  const isKm = lang === 'km';
-
-  const resolvedStoreUrl = process.env.STORE_MINIAPP_URL || (
-    (storeWebAppUrl && storeWebAppUrl.startsWith('https://'))
-      ? storeWebAppUrl.replace(/\/$/, '')
-      : appUrl
-  );
-
-  return Markup.inlineKeyboard([
-    [
-      createEmojiInlineButton({
-        text: isKm ? 'ចូលហាងទំនិញ (Open Store)' : 'Open Store (Mini App)',
-        emojiKey: 'SHOPPING_BAGS',
-        targetUrl: resolvedStoreUrl,
-      }),
-    ],
-    [
-      createEmojiInlineButton({
-        text: isKm ? 'បង្វិល Gacha' : 'Play Gacha',
-        emojiKey: 'SLOT_MACHINE',
-        callbackData: 'menu_gacha',
-      }),
-      createEmojiInlineButton({
-        text: isKm ? 'ពិន្ទុប្រចាំថ្ងៃ' : 'Daily Points',
-        emojiKey: 'GIFT',
-        callbackData: 'menu_rewards',
-      }),
-    ],
-    [
-      createEmojiInlineButton({
-        text: isKm ? 'កាតាបឥវ៉ាន់ (Vault)' : 'My Vault',
-        emojiKey: 'BACKPACK',
-        callbackData: 'cb_vault_menu',
-      }),
-      createEmojiInlineButton({
-        text: isKm ? 'ប្រវត្តិបញ្ជាទិញ' : 'Orders',
-        emojiKey: 'SCROLL',
-        callbackData: 'cb_orders_menu',
-      }),
-    ],
-    [
-      createEmojiInlineButton({
-        text: isKm ? 'ភាសាខ្មែរ / EN' : 'Language / ភាសា',
-        emojiKey: 'GLOBE',
-        callbackData: 'select_language',
-      }),
-      createEmojiInlineButton({
-        text: isKm ? 'ជំនួយ ២៤/៧' : '24/7 Support',
-        emojiKey: 'SUPPORT',
-        url: `https://t.me/${supportUsername}`,
-      }),
-    ],
-  ]);
 }
 
 export const storeKeyboard = getMainMenuKeyboard;
@@ -248,7 +154,7 @@ export function getWelcomeMessage(lang: string = 'km'): string {
       `• កងបង្វិលរង្វាន់ Mythical Gacha ឱកាសឈ្នះខ្ពស់\n` +
       `• ទូទាត់រហ័សតាម KHQR / Bakong\n` +
       `• សុវត្ថិភាព ១០០% ជាមួយការធានារយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
-      `ចុចប៊ូតុងខាងក្រោមដើម្បីបើកកម្មវិធី Store:`
+      `ចុចប៊ូតុងខាងក្រោមដើម្បីជ្រើសរើសមុខងារ:`
     );
   }
 
@@ -261,7 +167,7 @@ export function getWelcomeMessage(lang: string = 'km'): string {
     `• Mythical Gacha Chest with High Win-Rates\n` +
     `• Instant KHQR / Bakong Payments\n` +
     `• 100% Guaranteed Safe & 14-Day Warranty\n\n` +
-    `Tap below to open the official Mini App:`
+    `Select an option below to get started:`
   );
 }
 
@@ -298,7 +204,7 @@ export class StoreBotService {
           ? env.CLIENT_STORE_URL
           : appUrl;
 
-    // /start command: Defaults strictly to Khmer (Specification 2: 100% Khmer)
+    // /start command: Defaults strictly to Khmer
     this.bot.start(async (ctx) => {
       const from = ctx.from;
       if (!from) return;
@@ -306,23 +212,52 @@ export class StoreBotService {
       const existingUser = DataStore.getTelegramUser(from.id);
       const userLang = existingUser?.language_preference || 'km';
 
-      // Register or update customer
-      DataStore.findOrCreateTelegramUser({
+      // Parse referral code if present
+      let refCode: string | undefined = undefined;
+      const startPayload = ctx.message && 'text' in ctx.message ? ctx.message.text.split(' ')[1] : undefined;
+      if (startPayload && startPayload.startsWith('ref_')) {
+        refCode = startPayload.replace('ref_', '').trim();
+      }
+
+      // Upsert telegram user in DataStore
+      DataStore.upsertTelegramUser({
         telegram_id: from.id,
-        username: from.username || null,
+        username: from.username,
         first_name: from.first_name,
-        last_name: from.last_name || null,
+        last_name: from.last_name,
         language_code: from.language_code || 'km',
       });
 
-      // Send localized welcome & main menu in Khmer by default
+      // Send localized welcome & main menu
       await ctx.reply(
         formatTelegramHtml(getWelcomeMessage(userLang)),
         {
           parse_mode: 'HTML',
-          ...getMainMenuKeyboard(storeWebAppUrl, userLang),
+          ...getMainMenuKeyboard(storeWebAppUrl, userLang, supportUsername),
         }
       );
+    });
+
+    // Universal Back Home Navigation (cb_main_menu)
+    this.bot.action('cb_main_menu', async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+      } catch {}
+
+      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
+      const welcomeText = getWelcomeMessage(userLang);
+      const keyboard = getMainMenuKeyboard(storeWebAppUrl, userLang, supportUsername);
+
+      try {
+        await ctx.editMessageText(formatTelegramHtml(welcomeText), {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      } catch (err) {
+        if (!isMessageNotModifiedError(err)) {
+          console.warn('[cb_main_menu] Edit warning:', err);
+        }
+      }
     });
 
     // Language selection callback query: set_lang:km or set_lang:en
@@ -342,32 +277,47 @@ export class StoreBotService {
           ? '✅ បានជ្រើសរើស <b>ភាសាខ្មែរ</b> រួចរាល់!'
           : '✅ Language preference set to <b>English</b>!';
 
-      await ctx.reply(formatTelegramHtml(confirmText), { parse_mode: 'HTML' });
-      await ctx.reply(
-        formatTelegramHtml(getWelcomeMessage(lang)),
-        {
-          parse_mode: 'HTML',
-          ...getMainMenuKeyboard(storeWebAppUrl, lang),
-        }
-      );
+      try {
+        await ctx.editMessageText(
+          formatTelegramHtml(confirmText + '\n\n' + getWelcomeMessage(lang)),
+          {
+            parse_mode: 'HTML',
+            ...getMainMenuKeyboard(storeWebAppUrl, lang, supportUsername),
+          }
+        );
+      } catch {
+        await ctx.reply(formatTelegramHtml(confirmText), { parse_mode: 'HTML' });
+        await ctx.reply(
+          formatTelegramHtml(getWelcomeMessage(lang)),
+          {
+            parse_mode: 'HTML',
+            ...getMainMenuKeyboard(storeWebAppUrl, lang, supportUsername),
+          }
+        );
+      }
     });
 
     // Language change prompt callback & command
-    this.bot.action('select_language', async (ctx) => {
+    this.bot.action(['cb_lang_menu', 'select_language'], async (ctx) => {
       try {
         await ctx.answerCbQuery();
       } catch {}
 
-      await ctx.reply(
-        formatTelegramHtml(
-          `🌐 <b>ជ្រើសរើសភាសា / CHANGE LANGUAGE</b>\n\n` +
-          `សូមជ្រើសរើសភាសាដែលអ្នកចង់ប្រើ / Select your preferred language:`
-        ),
-        {
+      const promptText =
+        `🌐 <b>ជ្រើសរើសភាសា / CHANGE LANGUAGE</b>\n\n` +
+        `សូមជ្រើសរើសភាសាដែលអ្នកចង់ប្រើ / Select your preferred language:`;
+
+      try {
+        await ctx.editMessageText(formatTelegramHtml(promptText), {
           parse_mode: 'HTML',
           ...getLanguageSelectionKeyboard(),
-        }
-      );
+        });
+      } catch {
+        await ctx.reply(formatTelegramHtml(promptText), {
+          parse_mode: 'HTML',
+          ...getLanguageSelectionKeyboard(),
+        });
+      }
     });
 
     this.bot.command(['language', 'lang'], async (ctx) => {
@@ -383,292 +333,152 @@ export class StoreBotService {
       );
     });
 
-    // Utility menu actions (Clean formatted replies, NO webview popup)
-    this.bot.action('menu_gacha', async (ctx) => {
-      try {
-        await ctx.answerCbQuery();
-      } catch {}
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const isKm = userLang === 'km';
-      const text = isKm
-        ? `🎡 <b>កងបង្វិល MYTHICAL GACHA</b>\n\n` +
-          `ឱកាសឈ្នះ Account កម្រ (Mythical & Legendary) ក្នុងតម្លៃសមរម្យ!\n\n` +
-          `• ធានាទទួលបាន Account និង Item ពិតប្រាកដ ១០០%\n` +
-          `• ផ្ញើជូន Account និង Secret Code ភ្លាមៗដោយស្វ័យប្រវត្តិ\n` +
-          `• ធានារយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
-          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីចូលលេង Gacha ក្នុងកម្មវិធី Store:`
-        : `🎡 <b>MYTHICAL GACHA CHEST</b>\n\n` +
-          `Spin the wheel to win rare Mythical & Legendary gaming accounts!\n\n` +
-          `• High win rates with 100% verified genuine items\n` +
-          `• Instant automated delivery directly to your chat\n` +
-          `• 14-day warranty guarantee\n\n` +
-          `👉 Tap below to open the Mini App and play:`;
-
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            createEmojiInlineButton({
-              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
-              emojiKey: 'SHOPPING_BAGS',
-              targetUrl: storeWebAppUrl,
-            }),
-          ],
-        ]),
-      });
+    // MODULE 2: PROFILE DASHBOARD
+    this.bot.action(['cb_profile_menu', 'menu_profile'], async (ctx) => {
+      await handleProfileMenu(ctx, storeWebAppUrl);
+    });
+    this.bot.command('profile', async (ctx) => {
+      await handleProfileMenu(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_points_ledger', async (ctx) => {
+      await handlePointsLedger(ctx);
+    });
+    this.bot.action('cb_redeem_pts', async (ctx) => {
+      await handleRedeemPoints(ctx);
     });
 
-    this.bot.action('menu_rewards', async (ctx) => {
-      try {
-        await ctx.answerCbQuery();
-      } catch {}
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const isKm = userLang === 'km';
-      const text = isKm
-        ? `🎁 <b>ពិន្ទុប្រចាំថ្ងៃ (DAILY REWARD POINTS)</b>\n\n` +
-          `ទទួលបានពិន្ទុរង្វាន់ដោយឥតគិតថ្លៃរៀងរាល់ ២៤ ម៉ោង!\n\n` +
-          `• Cooldown រយៈពេល ២៤ ម៉ោងចន្លោះការ Claim នីមួយៗ\n` +
-          `• យកពិន្ទុទៅប្តូរយករង្វាន់ និងសំបុត្របង្វិល Gacha ដោយឥតគិតថ្លៃ\n\n` +
-          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីចូល Claim ក្នុងកម្មវិធី Store:`
-        : `🎁 <b>DAILY REWARD POINTS</b>\n\n` +
-          `Claim free reward points every 24 hours!\n\n` +
-          `• 24-hour cooldown lock between claims\n` +
-          `• Redeem points for free rewards & Gacha tickets\n\n` +
-          `👉 Tap below to claim your points in the Mini App:`;
-
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            createEmojiInlineButton({
-              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
-              emojiKey: 'SHOPPING_BAGS',
-              targetUrl: storeWebAppUrl,
-            }),
-          ],
-        ]),
-      });
+    // MODULE 2: STORE RULES & WARRANTIES
+    this.bot.action(['cb_main_rules', 'menu_rules'], async (ctx) => {
+      await handleMainRules(ctx);
+    });
+    this.bot.command('rules', async (ctx) => {
+      await handleMainRules(ctx);
+    });
+    this.bot.action('cb_gacha_rules', async (ctx) => {
+      await handleGachaRules(ctx);
+    });
+    this.bot.action('cb_daily_rules', async (ctx) => {
+      await handleDailyRules(ctx);
+    });
+    this.bot.action('cb_warranty_policy', async (ctx) => {
+      await handleWarrantyPolicy(ctx);
     });
 
-    // Interactive In-Chat Vault & Inventory Handler
-    const triggerVault = async (ctx: any) => {
+    // MODULE 2: HELP & FAQ CENTER
+    this.bot.action(['cb_main_help', 'menu_help'], async (ctx) => {
+      await handleMainHelp(ctx, supportUsername);
+    });
+    this.bot.command('help', async (ctx) => {
+      await handleMainHelp(ctx, supportUsername);
+    });
+    this.bot.action('cb_guide_2fa', async (ctx) => {
+      await handleGuide2fa(ctx, supportUsername);
+    });
+    this.bot.action('cb_guide_payment', async (ctx) => {
+      await handleGuidePayment(ctx, supportUsername);
+    });
+
+    // MODULE 3: REAL-TIME GACHA
+    this.bot.action(['cb_gacha_menu', 'menu_gacha'], async (ctx) => {
+      await handleGachaMenu(ctx, storeWebAppUrl);
+    });
+    this.bot.command('gacha', async (ctx) => {
+      await handleGachaMenu(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_gacha_buy_ticket', async (ctx) => {
+      await handleBuyGachaTicket(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_gacha_prizes', async (ctx) => {
+      await handleGachaPrizes(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_gacha_odds', async (ctx) => {
+      await handleGachaOdds(ctx, storeWebAppUrl);
+    });
+
+    // MODULE 3: REAL-TIME DAILY POINTS & IN-CHAT CLAIM
+    this.bot.action(['cb_daily_menu', 'menu_rewards'], async (ctx) => {
+      await handleDailyMenu(ctx);
+    });
+    this.bot.command('daily', async (ctx) => {
+      await handleDailyMenu(ctx);
+    });
+    this.bot.action('cb_claim_daily_instant', async (ctx) => {
+      await handleClaimDailyInstant(ctx);
+    });
+    this.bot.action('cb_daily_shop', async (ctx) => {
+      await handleDailyShop(ctx);
+    });
+    this.bot.action('cb_noop', async (ctx) => {
+      try {
+        const fromId = ctx.from?.id;
+        if (fromId) {
+          const daily = await fetchDailyLiveInfo(fromId);
+          await ctx.answerCbQuery(
+            `⏳ នៅសល់ពេល ${daily.cooldown_str} ទៀតទើបអាច Claim បានម្តងទៀត`,
+            { show_alert: true }
+          );
+        } else {
+          await ctx.answerCbQuery('⏳ Cooldown active...');
+        }
+      } catch {}
+    });
+
+    // MODULE 4: IN-CHAT ACCOUNT VAULT & LIVE 2FA GENERATOR
+    this.bot.action(['cb_vault_menu', 'menu_vault'], async (ctx) => {
       await handleVaultMenu(ctx, storeWebAppUrl);
-    };
-
-    this.bot.action(['cb_vault_menu', 'menu_vault'], triggerVault);
-    this.bot.action(['cb_orders_menu', 'menu_orders'], triggerVault);
-    this.bot.command(['vault', 'inventory', 'orders'], triggerVault);
-
-    // View specific delivered account credentials
+    });
+    this.bot.action(['cb_orders_menu', 'menu_orders'], async (ctx) => {
+      await handleVaultMenu(ctx, storeWebAppUrl);
+    });
+    this.bot.command(['vault', 'orders'], async (ctx) => {
+      await handleVaultMenu(ctx, storeWebAppUrl);
+    });
     this.bot.action(/^cb_view_acc_(.+)$/, async (ctx) => {
       const accountId = ctx.match[1];
       await handleViewAccount(ctx, accountId, storeWebAppUrl);
     });
-
-    // Generate live 2FA code
     this.bot.action(/^cb_gen_2fa_(.+)$/, async (ctx) => {
       const accountId = ctx.match[1];
-      await handleGen2fa(ctx, accountId, storeWebAppUrl);
+      await handleGen2fa(ctx, accountId);
     });
 
-    // Return to main menu
-    this.bot.action('cb_main_menu', async (ctx) => {
+    // Fulfilled Order Interactive Callbacks
+    this.bot.action(/^view_order:(.+)$/, async (ctx) => {
+      const orderId = ctx.match[1];
       try {
         await ctx.answerCbQuery();
       } catch {}
-      const from = ctx.from;
-      const userLang = from ? DataStore.getUserLanguagePreference(from.id) || 'km' : 'km';
-      const welcomeText = getWelcomeMessage(userLang);
-      const keyboard = getMainMenuKeyboard(storeWebAppUrl, userLang);
-
-      try {
-        await ctx.editMessageText(formatTelegramHtml(welcomeText), {
-          parse_mode: 'HTML',
-          ...keyboard,
-        });
-      } catch (err) {
-        if (!isMessageNotModifiedError(err)) {
-          await ctx.reply(formatTelegramHtml(welcomeText), {
-            parse_mode: 'HTML',
-            ...keyboard,
-          });
-        }
-      }
-    });
-
-    // /help command (Clean formatted text & direct utility links)
-    this.bot.help(async (ctx) => {
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const isKm = userLang === 'km';
-      const helpText = isKm
-        ? `ℹ️ <b>ជំនួយ UCHIRO STORE / HELP GUIDE</b>\n\n` +
-          `• ចុចប៊ូតុង <b>🛍️ ចូលហាងទំនិញ (Open Store)</b> ដើម្បីបើកកម្មវិធី Store Mini App\n` +
-          `• ជ្រើសរើសទំនិញ និងទូទាត់ដោយស្កេន KHQR យ៉ាងរហ័ស\n` +
-          `• ទទួលបាន Account, Password និង 2FA ភ្លាមៗក្នុង Bot នេះ\n` +
-          `• ធានាសុវត្ថិភាព ១០០% រយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
-          `📞 <b>ទំនាក់ទំនង & ព័ត៌មាន:</b>\n` +
-          `• ផ្នែកជំនួយ ២៤/៧៖ @${supportUsername}\n` +
-          `• ឆានែលផ្លូវការ៖ @${channelUsername}`
-        : `ℹ️ <b>UCHIRO STORE HELP GUIDE</b>\n\n` +
-          `• Tap <b>🛍️ OPEN UCHIRO STORE</b> to browse items or check your orders.\n` +
-          `• Pay instantly with KHQR / Bakong.\n` +
-          `• Account credentials and 2FA secrets delivered automatically.\n` +
-          `• 100% Safe with 14-day warranty guarantee.\n\n` +
-          `📞 <b>Contact & Info:</b>\n` +
-          `• 24/7 Support: @${supportUsername}\n` +
-          `• Official Channel: @${channelUsername}`;
-
+      const webAppUrl = `${storeWebAppUrl}?tab=orders&orderId=${orderId}`;
       await ctx.reply(
-        formatTelegramHtml(helpText),
+        formatTelegramHtml(
+          `📦 <b>ព័ត៌មានលម្អិតការកុម្ម៉ង់ #${orderId}</b>\n\n` +
+          `ចុចប៊ូតុងខាងក្រោមដើម្បីបើកមើលក្នុង Mini App:`
+        ),
         {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([
-            [
-              createEmojiInlineButton({
-                text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
-                emojiKey: 'SHOPPING_BAGS',
-                targetUrl: storeWebAppUrl,
-              }),
-            ],
-            [
-              Markup.button.url(isKm ? '📞 ជំនួយ ២៤/៧' : '📞 24/7 Support', `https://t.me/${supportUsername}`),
-              Markup.button.url(isKm ? '📢 ឆានែលផ្លូវការ' : '📢 Channel', `https://t.me/${channelUsername}`),
-            ],
+            [createWebAppOrUrlButton('📱 បើកក្នុង Mini App', webAppUrl)],
           ]),
         }
       );
     });
 
-    // /channel command (Opens official updates channel link directly)
-    this.bot.command(['channel', 'chan'], async (ctx) => {
-      const channelText =
-        `📢 <b>UCHIRO STORE OFFICIAL CHANNEL</b>\n\n` +
-        `ចូលរួមឆានែលផ្លូវការដើម្បីទទួលបានព័ត៌មានថ្មីៗ ការបញ្ចុះតម្លៃ និង Stock ទំនិញថ្មីៗ:\n` +
-        `👉 https://t.me/${channelUsername}`;
-
-      await ctx.reply(formatTelegramHtml(channelText), {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.url('📢 ចូលឆានែល / Join Channel', `https://t.me/${channelUsername}`),
-          ],
-        ]),
-      });
-    });
-
-    // /support command (Opens official support chat directly)
-    this.bot.command(['support', 'contact'], async (ctx) => {
-      const supportText =
-        `📞 <b>UCHIRO STORE 24/7 SUPPORT</b>\n\n` +
-        `ត្រូវការជំនួយ ឬមានចម្ងល់ទាក់ទងនឹងការបញ្ជាទិញ?\n` +
-        `ផ្នែកបម្រើអតិថិជនរបស់យើងរង់ចាំជួយអ្នក ២៤ ម៉ោងលើ ២៤ ម៉ោង៖\n` +
-        `👉 @${supportUsername}`;
-
-      await ctx.reply(formatTelegramHtml(supportText), {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.url('📞 ទាក់ទងផ្នែកជំនួយ / Contact Support', `https://t.me/${supportUsername}`),
-          ],
-        ]),
-      });
-    });
-
-    // /info or /guide command (Clean formatted text guide)
-    this.bot.command(['info', 'guide', 'about'], async (ctx) => {
-      const infoText =
-        `ℹ️ <b>ព័ត៌មាន UCHIRO STORE</b>\n\n` +
-        `• <b>សេវាកម្ម:</b> លក់ Account ហ្គេម Blox Fruits, MM2, Blade Ball និង Evade\n` +
-        `• <b>ការផ្ញើជូន:</b> ស្វ័យប្រវត្តភ្លាមៗ (Instant Auto Delivery)\n` +
-        `• <b>ការទូទាត់:</b> KHQR / Bakong គ្រប់ធនាគារក្នុងស្រុក\n` +
-        `• <b>ការធានា:</b> សុវត្ថិភាព ១០០% រយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
-        `សម្រាប់ព័ត៌មានបន្ថែម សូមចុចតំណភ្ជាប់ខាងក្រោម:`;
-
-      await ctx.reply(formatTelegramHtml(infoText), {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            createEmojiInlineButton({
-              text: '🛍️ ចូលហាងទំនិញ (Open Store)',
-              emojiKey: 'SHOPPING_BAGS',
-              targetUrl: storeWebAppUrl,
-            }),
-          ],
-          [
-            Markup.button.url('📞 ជំនួយ / Support', `https://t.me/${supportUsername}`),
-            Markup.button.url('📢 ឆានែល / Channel', `https://t.me/${channelUsername}`),
-          ],
-        ]),
-      });
-    });
-
-    // /orders command
-    this.bot.command('orders', async (ctx) => {
-      const pkg = renderTgEmoji('PACKAGE');
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const isKm = userLang === 'km';
-      const ordersText = isKm
-        ? `${pkg} <b>ប្រវត្តិបញ្ជាទិញ (MY ORDERS)</b>\n\nមើល Account, Password, និងវិក្កយបត្រទាំងអស់របស់អ្នកក្នុងកម្មវិធី Mini App:`
-        : `${pkg} <b>MY ORDERS & CREDENTIALS</b>\n\nView all your active deliveries and account credentials in the Mini App:`;
-
-      await ctx.reply(
-        formatTelegramHtml(ordersText),
-        {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [
-              createEmojiInlineButton({
-                text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
-                emojiKey: 'SHOPPING_BAGS',
-                targetUrl: storeWebAppUrl,
-              }),
-            ],
-          ]),
-        }
-      );
-    });
-
-    // =========================================================================
-    // INTERACTIVE IN-PLACE ACCOUNT DELIVERY SUB-SCREENS (ZERO-SPAM ARCHITECTURE)
-    // =========================================================================
-
-    // 1. Live 2FA Sub-Screen
-    this.bot.action(/^sub_2fa:(.+)$/, async (ctx) => {
-      const orderId = ctx.match[1];
-      try {
-        const { text, keyboard } = await FulfillmentService.get2FaSubScreen(orderId);
-        await ctx.editMessageText(formatTelegramHtml(text), {
-          parse_mode: 'HTML',
-          reply_markup: keyboard,
-        });
-        await ctx.answerCbQuery('Code refreshed!');
-      } catch (err: any) {
-        try {
-          await ctx.answerCbQuery('Error refreshing 2FA code.');
-        } catch {}
-      }
-    });
-
-    // 2. On-Demand 2FA QR Code Dispatch
     this.bot.action(/^send_qr:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
       try {
         const qrBuffer = await FulfillmentService.generate2FaQrBuffer(orderId);
         await ctx.replyWithPhoto(
           { source: qrBuffer },
-          {
-            caption: '📷 Scan with Google Authenticator or 2FAS',
-          }
+          { caption: '📷 Scan with Google Authenticator or 2FAS' }
         );
         await ctx.answerCbQuery('QR Code sent!');
-      } catch (err: any) {
+      } catch {
         try {
           await ctx.answerCbQuery('Error generating 2FA QR code.');
         } catch {}
       }
     });
 
-    // 3. Warranty Sub-Screen
     this.bot.action(/^sub_warranty:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
       try {
@@ -678,14 +488,13 @@ export class StoreBotService {
           reply_markup: keyboard,
         });
         await ctx.answerCbQuery();
-      } catch (err: any) {
+      } catch {
         try {
           await ctx.answerCbQuery('Error checking warranty.');
         } catch {}
       }
     });
 
-    // 4. Return to Main Delivery Card in-place
     this.bot.action(/^sub_main:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
       try {
@@ -696,7 +505,7 @@ export class StoreBotService {
           reply_markup: keyboard,
         });
         await ctx.answerCbQuery();
-      } catch (err: any) {
+      } catch {
         try {
           await ctx.answerCbQuery('Error loading delivery card.');
         } catch {}
@@ -768,43 +577,16 @@ export class StoreBotService {
       });
       return true;
     } catch (err: any) {
-      console.warn(`[STORE BOT] Failed to send message to ${chatId}:`, err.message);
+      console.error(`[STORE BOT] Failed to send message to ${chatId}:`, err.message);
       return false;
     }
   }
 
-  public async getWebhookInfo(): Promise<any> {
-    if (!this.bot) {
-      return { configured: false, error: 'No bot token configured' };
-    }
-    try {
-      return await this.bot.telegram.getWebhookInfo();
-    } catch (err: any) {
-      return { configured: true, error: err.message };
-    }
-  }
-
-  public async setWebhook(url: string, secret?: string): Promise<{ success: boolean; message?: string }> {
-    if (!this.bot) {
-      return { success: false, message: 'No bot token configured' };
-    }
-    try {
-      await this.bot.telegram.setWebhook(url, secret ? { secret_token: secret } : undefined);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
-    }
-  }
-
-  public async deleteWebhook(): Promise<{ success: boolean; message?: string }> {
-    if (!this.bot) {
-      return { success: false, message: 'No bot token configured' };
-    }
-    try {
-      await this.bot.telegram.deleteWebhook();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, message: err.message };
+  public stop(): void {
+    if (this.bot) {
+      try {
+        this.bot.stop();
+      } catch {}
     }
   }
 }

@@ -16,38 +16,60 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
   });
 
   describe('1. Telegram Store Bot Button Optimization', () => {
-    it('ensures ONLY the main "Open Store" button launches the Telegram WebApp', () => {
+    it('ensures ONLY the main "Open Store" button launches the Telegram WebApp across the 5 structured rows', () => {
       process.env.STORE_MINIAPP_URL = 'https://store.uchiro.com';
       const keyboard = getMainMenuKeyboard('https://store.uchiro.com', 'km');
       const rows = keyboard.reply_markup.inline_keyboard;
 
-      // Row 0: Primary WebApp button
-      const openStoreBtn = rows[0][0] as any;
-      expect(openStoreBtn.text).toBe('🛍️ ចូលហាងទំនិញ (Open Store)');
+      expect(rows.length).toBe(5);
+
+      // Row 0: Gacha & Daily Points - MUST NOT have web_app
+      const gachaBtn = rows[0][0] as any;
+      const rewardsBtn = rows[0][1] as any;
+      expect(gachaBtn.text).toBe('🎰 លេង Gacha');
+      expect(gachaBtn.web_app).toBeUndefined();
+      expect(gachaBtn.callback_data).toBe('cb_gacha_menu');
+      expect(rewardsBtn.text).toBe('🎁 ពិន្ទុប្រចាំថ្ងៃ');
+      expect(rewardsBtn.web_app).toBeUndefined();
+      expect(rewardsBtn.callback_data).toBe('cb_daily_menu');
+
+      // Row 1: Inventory & Orders - MUST NOT have web_app
+      const vaultBtn = rows[1][0] as any;
+      const ordersBtn = rows[1][1] as any;
+      expect(vaultBtn.text).toBe('🎒 កាតាបឥវ៉ាន់ & Vault');
+      expect(vaultBtn.web_app).toBeUndefined();
+      expect(vaultBtn.callback_data).toBe('cb_vault_menu');
+      expect(ordersBtn.text).toBe('📜 ប្រវត្តិបញ្ជាទិញ');
+      expect(ordersBtn.web_app).toBeUndefined();
+      expect(ordersBtn.callback_data).toBe('cb_orders_menu');
+
+      // Row 2: Profile & Language - MUST NOT have web_app
+      const profileBtn = rows[2][0] as any;
+      const langBtn = rows[2][1] as any;
+      expect(profileBtn.text).toBe('👤 ព័ត៌មានគណនី (Profile)');
+      expect(profileBtn.web_app).toBeUndefined();
+      expect(profileBtn.callback_data).toBe('cb_profile_menu');
+      expect(langBtn.text).toBe('🌐 ភាសា / Language');
+      expect(langBtn.web_app).toBeUndefined();
+      expect(langBtn.callback_data).toBe('cb_lang_menu');
+
+      // Row 3: Rules & Help - MUST NOT have web_app
+      const rulesBtn = rows[3][0] as any;
+      const helpBtn = rows[3][1] as any;
+      expect(rulesBtn.text).toBe('📜 ច្បាប់ទូទៅ (Rules)');
+      expect(rulesBtn.web_app).toBeUndefined();
+      expect(rulesBtn.callback_data).toBe('cb_main_rules');
+      expect(helpBtn.text).toBe('❓ ជំនួយ & FAQ (Help)');
+      expect(helpBtn.web_app).toBeUndefined();
+      expect(helpBtn.callback_data).toBe('cb_main_help');
+
+      // Row 4: Primary WebApp button & Support Link
+      const openStoreBtn = rows[4][0] as any;
+      const supportBtn = rows[4][1] as any;
+      expect(openStoreBtn.text).toBe('🛍️ បើកហាង Mini App (ស្រេចចិត្ត)');
       expect(openStoreBtn.web_app).toBeDefined();
       expect(openStoreBtn.web_app.url).toBe('https://store.uchiro.com');
-
-      // Row 1: Gacha & Daily Points - MUST NOT have web_app
-      const gachaBtn = rows[1][0] as any;
-      const rewardsBtn = rows[1][1] as any;
-      expect(gachaBtn.web_app).toBeUndefined();
-      expect(gachaBtn.callback_data).toBe('menu_gacha');
-      expect(rewardsBtn.web_app).toBeUndefined();
-      expect(rewardsBtn.callback_data).toBe('menu_rewards');
-
-      // Row 2: Inventory & Orders - MUST NOT have web_app
-      const vaultBtn = rows[2][0] as any;
-      const ordersBtn = rows[2][1] as any;
-      expect(vaultBtn.web_app).toBeUndefined();
-      expect(vaultBtn.callback_data).toBe('menu_vault');
-      expect(ordersBtn.web_app).toBeUndefined();
-      expect(ordersBtn.callback_data).toBe('menu_orders');
-
-      // Row 3: Language & Support - Support MUST be direct t.me URL, NOT web_app
-      const langBtn = rows[3][0] as any;
-      const supportBtn = rows[3][1] as any;
-      expect(langBtn.web_app).toBeUndefined();
-      expect(langBtn.callback_data).toBe('select_language');
+      expect(supportBtn.text).toBe('💬 ឆាតទៅ Admin 24/7');
       expect(supportBtn.web_app).toBeUndefined();
       expect(supportBtn.url).toMatch(/^https:\/\/t\.me\//);
     });
@@ -56,12 +78,14 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
       const keyboard = getMainMenuKeyboard('https://store.uchiro.com', 'en');
       const rows = keyboard.reply_markup.inline_keyboard;
 
-      const mainBtn = rows[0][0] as any;
-      expect(mainBtn.text).toBe('OPEN UCHIRO STORE (Mini App)');
+      expect(rows.length).toBe(5);
+
+      const mainBtn = rows[4][0] as any;
+      expect(mainBtn.text).toBe('🛍️ Open Mini App (Optional)');
       expect(mainBtn.web_app).toBeDefined();
 
-      // Check that no other button has web_app
-      for (let r = 1; r < rows.length; r++) {
+      // Check that no button in rows 0..3 has web_app
+      for (let r = 0; r < 4; r++) {
         for (const btn of rows[r]) {
           expect((btn as any).web_app).toBeUndefined();
         }
