@@ -184,3 +184,41 @@ export function tgEmoji(key: keyof typeof EMOJI, fallback: string): string {
   }
   return fallback;
 }
+
+// ─── Local Static & Animated Asset Classification ───────────────────────────
+export const WEBM_EMOJI_IDS = new Set<string>([
+  '5193070340850327783', // KEY
+  '5213452215527677338', // HOURGLASS
+  '5260623291583831521', // CAMERA
+  '5292291996717690768', // PIN
+  '5294018354527353443', // FLAG_CAMBODIA
+  '5337156404752966663', // BLACK_STAR
+  '5854908544712707500', // PACKAGE
+  '6138465764518138820', // YELLOW_CIRCLE
+  '6300742299114541958', // MEGAPHONE
+]);
+
+export const WEBM_EMOJI_NAMES = new Set<string>([
+  'KEY', 'HOURGLASS', 'CAMERA', 'PIN', 'FLAG_CAMBODIA', 'BLACK_STAR', 'PACKAGE', 'YELLOW_CIRCLE', 'MEGAPHONE',
+  'key', 'hourglass', 'camera', 'pin', 'flag_cambodia', 'black_star', 'package', 'yellow_circle', 'megaphone',
+]);
+
+export const WEBP_EMOJI_IDS = new Set<string>([
+  '5208541530310065351', // EGG
+  '5210965493887819972', // RUNNER
+  '5258304503165249923', // KNIFE
+  '5264908182886557148', // WRENCH
+  '5291994784980813319', // TICKET
+  '5368460200875418560', // SEARCH / SEARCH_RIGHT
+  '5399898931985399303', // STOP_SIGN
+  '5785086330828494553', // STOP_BUTTON
+  '5969696910112463071', // ID_BADGE
+  '6084765169940961891', // SWORD
+  '6086818297452434600', // CREDIT_CARD
+]);
+
+export const WEBP_EMOJI_NAMES = new Set<string>([
+  'EGG', 'RUNNER', 'KNIFE', 'WRENCH', 'TICKET', 'SEARCH', 'SEARCH_RIGHT', 'STOP_SIGN', 'STOP_BUTTON', 'ID_BADGE', 'SWORD', 'CREDIT_CARD',
+  'egg', 'runner', 'knife', 'wrench', 'ticket', 'search', 'search_right', 'stop_sign', 'stop_button', 'id_badge', 'sword', 'credit_card',
+]);
+

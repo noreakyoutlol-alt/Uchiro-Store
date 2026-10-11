@@ -115,9 +115,11 @@ export function createEmojiInlineButton(opts: {
   const customEmojiId = emoji?.customEmojiId?.trim();
   const fallback = emoji?.fallback?.trim() || '';
 
-  // Safe Fallback: Ensure text always includes the Unicode fallback emoji so non-premium Telegram clients see crisp emojis
+  // Safe Fallback: If icon_custom_emoji_id is empty or missing, gracefully prepend the fallback Unicode emoji
   const hasFallback = fallback && opts.text.includes(fallback);
-  const finalText = hasFallback ? opts.text : (fallback ? `${fallback} ${opts.text}` : opts.text);
+  const finalText = customEmojiId
+    ? opts.text
+    : (hasFallback ? opts.text : (fallback ? `${fallback} ${opts.text}` : opts.text));
 
   let btn: any;
   if (opts.targetUrl) {

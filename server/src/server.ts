@@ -170,12 +170,30 @@ const clientAdminDist = findDistPath('client-admin');
 // 1. Admin API (/api/admin/*)
 app.use('/api/admin', adminRouter);
 
+// Explicit Static Route for Telegram Premium Emojis
+const emojiCandidateDirs = [
+  path.join(clientStoreDist, 'emojis'),
+  path.join(clientAdminDist, 'emojis'),
+  path.resolve(process.cwd(), 'client-store', 'public', 'emojis'),
+  path.resolve(process.cwd(), 'client-admin', 'public', 'emojis'),
+  path.resolve(__dirname, '..', '..', 'client-store', 'public', 'emojis'),
+];
+for (const dir of emojiCandidateDirs) {
+  if (fs.existsSync(dir)) {
+    console.log(`📁 [STATIC] Serving Emojis from: ${dir}`);
+    app.use('/emojis', express.static(dir, { maxAge: '7d', immutable: true }));
+    app.use('/admin/emojis', express.static(dir, { maxAge: '7d', immutable: true }));
+    break;
+  }
+}
+
 // 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
 app.use('/admin', adminStaticGuard);
 if (fs.existsSync(clientAdminDist)) {
   console.log(`📁 [STATIC] Serving Admin frontend from: ${clientAdminDist}`);
   app.use('/admin', express.static(clientAdminDist, { index: false, redirect: false }));
-  app.get(['/admin', '/admin/*'], (_req, res) => {
+  app.get(['/admin', '/admin/*'], (req, res, next) => {
+    if (req.path.startsWith('/admin/emojis/')) return next();
     res.sendFile(path.join(clientAdminDist, 'index.html'));
   });
 } else {
@@ -200,7 +218,7 @@ if (fs.existsSync(clientStoreDist)) {
   console.log(`📁 [STATIC] Serving Store frontend from: ${clientStoreDist}`);
   app.use(express.static(clientStoreDist, { index: false }));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/') || req.path === '/health' || req.path === '/api/health') {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/emojis/') || req.path === '/health' || req.path === '/api/health') {
       return next();
     }
     res.sendFile(path.join(clientStoreDist, 'index.html'));
