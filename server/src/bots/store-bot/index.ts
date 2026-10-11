@@ -172,14 +172,16 @@ export function getMainMenuKeyboard(storeWebAppUrl?: string, lang: string = 'en'
   const supportUsername = rawSupport.replace('@', '');
   const isKm = lang === 'km';
 
-  const resolvedStoreUrl = (storeWebAppUrl && storeWebAppUrl.startsWith('https://'))
-    ? storeWebAppUrl.replace(/\/$/, '')
-    : appUrl;
+  const resolvedStoreUrl = process.env.STORE_MINIAPP_URL || (
+    (storeWebAppUrl && storeWebAppUrl.startsWith('https://'))
+      ? storeWebAppUrl.replace(/\/$/, '')
+      : appUrl
+  );
 
   return Markup.inlineKeyboard([
     [
       createEmojiInlineButton({
-        text: isKm ? 'បើក UCHIRO STORE (កម្មវិធី)' : 'OPEN UCHIRO STORE (Mini App)',
+        text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
         emojiKey: 'SHOPPING_BAGS',
         targetUrl: resolvedStoreUrl,
       }),
@@ -188,24 +190,24 @@ export function getMainMenuKeyboard(storeWebAppUrl?: string, lang: string = 'en'
       createEmojiInlineButton({
         text: isKm ? 'បង្វិល Gacha' : 'Play Gacha',
         emojiKey: 'FERRIS_WHEEL',
-        targetUrl: `${resolvedStoreUrl}?tab=gacha`,
+        callbackData: 'menu_gacha',
       }),
       createEmojiInlineButton({
         text: isKm ? 'ពិន្ទុប្រចាំថ្ងៃ' : 'Daily Points',
         emojiKey: 'GIFT',
-        targetUrl: `${resolvedStoreUrl}?tab=rewards`,
+        callbackData: 'menu_rewards',
       }),
     ],
     [
       createEmojiInlineButton({
         text: isKm ? 'ទូផ្ទុកទំនិញ' : 'My Inventory & Vault',
         emojiKey: 'PACKAGE',
-        targetUrl: `${resolvedStoreUrl}?tab=vault`,
+        callbackData: 'menu_vault',
       }),
       createEmojiInlineButton({
         text: isKm ? 'ប្រវត្តិបញ្ជាទិញ' : 'Orders',
         emojiKey: 'SCROLL',
-        targetUrl: `${resolvedStoreUrl}?tab=orders`,
+        callbackData: 'menu_orders',
       }),
     ],
     [
@@ -281,11 +283,14 @@ export class StoreBotService {
 
     const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
     const supportUsername = (process.env.SUPPORT_TELEGRAM_USERNAME || env.TELEGRAM_SUPPORT_USERNAME || 'UchiroSupport').replace(/^@/, '');
-    const storeWebAppUrl = (env.STORE_WEBAPP_URL && env.STORE_WEBAPP_URL.startsWith('https://'))
-      ? env.STORE_WEBAPP_URL
-      : (env.CLIENT_STORE_URL && env.CLIENT_STORE_URL.startsWith('https://'))
-        ? env.CLIENT_STORE_URL
-        : appUrl;
+    const channelUsername = (process.env.TELEGRAM_CHANNEL_USERNAME || env.TELEGRAM_CHANNEL_USERNAME || 'UchiroStore').replace(/^@/, '');
+    const storeWebAppUrl = (process.env.STORE_MINIAPP_URL && process.env.STORE_MINIAPP_URL.startsWith('https://'))
+      ? process.env.STORE_MINIAPP_URL
+      : (env.STORE_WEBAPP_URL && env.STORE_WEBAPP_URL.startsWith('https://'))
+        ? env.STORE_WEBAPP_URL
+        : (env.CLIENT_STORE_URL && env.CLIENT_STORE_URL.startsWith('https://'))
+          ? env.CLIENT_STORE_URL
+          : appUrl;
 
     // /start command: Defaults strictly to Khmer (Specification 2: 100% Khmer)
     this.bot.start(async (ctx) => {
@@ -372,42 +377,260 @@ export class StoreBotService {
       );
     });
 
-    // /help command (Specification 2: 100% Khmer by default)
+    // Utility menu actions (Clean formatted replies, NO webview popup)
+    this.bot.action('menu_gacha', async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+      } catch {}
+      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
+      const isKm = userLang === 'km';
+      const text = isKm
+        ? `🎡 <b>កងបង្វិល MYTHICAL GACHA</b>\n\n` +
+          `ឱកាសឈ្នះ Account កម្រ (Mythical & Legendary) ក្នុងតម្លៃសមរម្យ!\n\n` +
+          `• ធានាទទួលបាន Account និង Item ពិតប្រាកដ ១០០%\n` +
+          `• ផ្ញើជូន Account និង Secret Code ភ្លាមៗដោយស្វ័យប្រវត្តិ\n` +
+          `• ធានារយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
+          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីចូលលេង Gacha ក្នុងកម្មវិធី Store:`
+        : `🎡 <b>MYTHICAL GACHA CHEST</b>\n\n` +
+          `Spin the wheel to win rare Mythical & Legendary gaming accounts!\n\n` +
+          `• High win rates with 100% verified genuine items\n` +
+          `• Instant automated delivery directly to your chat\n` +
+          `• 14-day warranty guarantee\n\n` +
+          `👉 Tap below to open the Mini App and play:`;
+
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            createEmojiInlineButton({
+              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
+              emojiKey: 'SHOPPING_BAGS',
+              targetUrl: storeWebAppUrl,
+            }),
+          ],
+        ]),
+      });
+    });
+
+    this.bot.action('menu_rewards', async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+      } catch {}
+      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
+      const isKm = userLang === 'km';
+      const text = isKm
+        ? `🎁 <b>ពិន្ទុប្រចាំថ្ងៃ (DAILY REWARD POINTS)</b>\n\n` +
+          `ទទួលបានពិន្ទុរង្វាន់ដោយឥតគិតថ្លៃរៀងរាល់ ២៤ ម៉ោង!\n\n` +
+          `• Cooldown រយៈពេល ២៤ ម៉ោងចន្លោះការ Claim នីមួយៗ\n` +
+          `• យកពិន្ទុទៅប្តូរយករង្វាន់ និងសំបុត្របង្វិល Gacha ដោយឥតគិតថ្លៃ\n\n` +
+          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីចូល Claim ក្នុងកម្មវិធី Store:`
+        : `🎁 <b>DAILY REWARD POINTS</b>\n\n` +
+          `Claim free reward points every 24 hours!\n\n` +
+          `• 24-hour cooldown lock between claims\n` +
+          `• Redeem points for free rewards & Gacha tickets\n\n` +
+          `👉 Tap below to claim your points in the Mini App:`;
+
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            createEmojiInlineButton({
+              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
+              emojiKey: 'SHOPPING_BAGS',
+              targetUrl: storeWebAppUrl,
+            }),
+          ],
+        ]),
+      });
+    });
+
+    this.bot.action('menu_vault', async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+      } catch {}
+      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
+      const isKm = userLang === 'km';
+      const text = isKm
+        ? `📦 <b>ទូផ្ទុកទំនិញ (INVENTORY & VAULT)</b>\n\n` +
+          `មើល Account, Password, និងកូដសម្ងាត់ 2FA ទាំងអស់ដែលអ្នកបានទិញ។\n\n` +
+          `• សុវត្ថិភាពខ្ពស់ រក្សាទុកដោយ Encrypted Vault\n` +
+          `• ស្នើសុំកូដ 2FA OTP និង QR Code បានគ្រប់ពេលវេលា\n` +
+          `• ធានារយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
+          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីចូលមើលទូទំនិញរបស់អ្នក:`
+        : `📦 <b>MY INVENTORY & VAULT</b>\n\n` +
+          `Access all your purchased accounts, credentials, and 2FA secrets securely.\n\n` +
+          `• 100% Encrypted & Safe Storage\n` +
+          `• On-demand live 2FA code generation & QR scan\n` +
+          `• Full 14-day warranty guarantee\n\n` +
+          `👉 Tap below to view your inventory:`;
+
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            createEmojiInlineButton({
+              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
+              emojiKey: 'SHOPPING_BAGS',
+              targetUrl: storeWebAppUrl,
+            }),
+          ],
+        ]),
+      });
+    });
+
+    this.bot.action('menu_orders', async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+      } catch {}
+      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
+      const isKm = userLang === 'km';
+      const text = isKm
+        ? `📜 <b>ប្រវត្តិបញ្ជាទិញ (ORDERS & RECEIPTS)</b>\n\n` +
+          `តាមដានស្ថានភាពនៃការទិញទំនិញ វិក្កយបត្រ KHQR និងការផ្ញើជូន Account របស់អ្នក។\n\n` +
+          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីមើលបញ្ជី Orders របស់អ្នក:`
+        : `📜 <b>ORDER HISTORY & RECEIPTS</b>\n\n` +
+          `Track active deliveries, KHQR payment receipts, and warranty status in real time.\n\n` +
+          `👉 Tap below to view your orders:`;
+
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            createEmojiInlineButton({
+              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
+              emojiKey: 'SHOPPING_BAGS',
+              targetUrl: storeWebAppUrl,
+            }),
+          ],
+        ]),
+      });
+    });
+
+    // /help command (Clean formatted text & direct utility links)
     this.bot.help(async (ctx) => {
       const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const helpText =
-        userLang === 'en'
-          ? `<b>UCHIRO STORE HELP</b>\n\n` +
-            `• Tap <b>🛍️ OPEN UCHIRO STORE</b> to browse items or check your orders.\n` +
-            `• Payments and account delivery are tracked securely inside the Mini App.\n` +
-            `• Need assistance? Contact our 24/7 Support: @${supportUsername}`
-          : `<b>ជំនួយ UCHIRO STORE</b>\n\n` +
-            `• ចុចប៊ូតុង <b>🛍️ បើក UCHIRO STORE</b> ដើម្បីមើលទំនិញ ឬការកុម្ម៉ង់របស់អ្នក។\n` +
-            `• ការទូទាត់ និងការផ្ញើជូនទាំងអស់ត្រូវបានតាមដាននៅក្នុង Mini App។\n` +
-            `• សម្រាប់ការគាំទ្រ សូមទាក់ទងមកកាន់ផ្នែកជំនួយ ២៤/៧៖ @${supportUsername}`;
+      const isKm = userLang === 'km';
+      const helpText = isKm
+        ? `ℹ️ <b>ជំនួយ UCHIRO STORE / HELP GUIDE</b>\n\n` +
+          `• ចុចប៊ូតុង <b>🛍️ ចូលហាងទំនិញ (Open Store)</b> ដើម្បីបើកកម្មវិធី Store Mini App\n` +
+          `• ជ្រើសរើសទំនិញ និងទូទាត់ដោយស្កេន KHQR យ៉ាងរហ័ស\n` +
+          `• ទទួលបាន Account, Password និង 2FA ភ្លាមៗក្នុង Bot នេះ\n` +
+          `• ធានាសុវត្ថិភាព ១០០% រយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
+          `📞 <b>ទំនាក់ទំនង & ព័ត៌មាន:</b>\n` +
+          `• ផ្នែកជំនួយ ២៤/៧៖ @${supportUsername}\n` +
+          `• ឆានែលផ្លូវការ៖ @${channelUsername}`
+        : `ℹ️ <b>UCHIRO STORE HELP GUIDE</b>\n\n` +
+          `• Tap <b>🛍️ OPEN UCHIRO STORE</b> to browse items or check your orders.\n` +
+          `• Pay instantly with KHQR / Bakong.\n` +
+          `• Account credentials and 2FA secrets delivered automatically.\n` +
+          `• 100% Safe with 14-day warranty guarantee.\n\n` +
+          `📞 <b>Contact & Info:</b>\n` +
+          `• 24/7 Support: @${supportUsername}\n` +
+          `• Official Channel: @${channelUsername}`;
 
       await ctx.reply(
         formatTelegramHtml(helpText),
         {
           parse_mode: 'HTML',
-          ...getMainMenuKeyboard(storeWebAppUrl),
+          ...Markup.inlineKeyboard([
+            [
+              createEmojiInlineButton({
+                text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
+                emojiKey: 'SHOPPING_BAGS',
+                targetUrl: storeWebAppUrl,
+              }),
+            ],
+            [
+              Markup.button.url(isKm ? '📞 ជំនួយ ២៤/៧' : '📞 24/7 Support', `https://t.me/${supportUsername}`),
+              Markup.button.url(isKm ? '📢 ឆានែលផ្លូវការ' : '📢 Channel', `https://t.me/${channelUsername}`),
+            ],
+          ]),
         }
       );
+    });
+
+    // /channel command (Opens official updates channel link directly)
+    this.bot.command(['channel', 'chan'], async (ctx) => {
+      const channelText =
+        `📢 <b>UCHIRO STORE OFFICIAL CHANNEL</b>\n\n` +
+        `ចូលរួមឆានែលផ្លូវការដើម្បីទទួលបានព័ត៌មានថ្មីៗ ការបញ្ចុះតម្លៃ និង Stock ទំនិញថ្មីៗ:\n` +
+        `👉 https://t.me/${channelUsername}`;
+
+      await ctx.reply(formatTelegramHtml(channelText), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.url('📢 ចូលឆានែល / Join Channel', `https://t.me/${channelUsername}`),
+          ],
+        ]),
+      });
+    });
+
+    // /support command (Opens official support chat directly)
+    this.bot.command(['support', 'contact'], async (ctx) => {
+      const supportText =
+        `📞 <b>UCHIRO STORE 24/7 SUPPORT</b>\n\n` +
+        `ត្រូវការជំនួយ ឬមានចម្ងល់ទាក់ទងនឹងការបញ្ជាទិញ?\n` +
+        `ផ្នែកបម្រើអតិថិជនរបស់យើងរង់ចាំជួយអ្នក ២៤ ម៉ោងលើ ២៤ ម៉ោង៖\n` +
+        `👉 @${supportUsername}`;
+
+      await ctx.reply(formatTelegramHtml(supportText), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.url('📞 ទាក់ទងផ្នែកជំនួយ / Contact Support', `https://t.me/${supportUsername}`),
+          ],
+        ]),
+      });
+    });
+
+    // /info or /guide command (Clean formatted text guide)
+    this.bot.command(['info', 'guide', 'about'], async (ctx) => {
+      const infoText =
+        `ℹ️ <b>ព័ត៌មាន UCHIRO STORE</b>\n\n` +
+        `• <b>សេវាកម្ម:</b> លក់ Account ហ្គេម Blox Fruits, MM2, Blade Ball និង Evade\n` +
+        `• <b>ការផ្ញើជូន:</b> ស្វ័យប្រវត្តភ្លាមៗ (Instant Auto Delivery)\n` +
+        `• <b>ការទូទាត់:</b> KHQR / Bakong គ្រប់ធនាគារក្នុងស្រុក\n` +
+        `• <b>ការធានា:</b> សុវត្ថិភាព ១០០% រយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
+        `សម្រាប់ព័ត៌មានបន្ថែម សូមចុចតំណភ្ជាប់ខាងក្រោម:`;
+
+      await ctx.reply(formatTelegramHtml(infoText), {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            createEmojiInlineButton({
+              text: '🛍️ ចូលហាងទំនិញ (Open Store)',
+              emojiKey: 'SHOPPING_BAGS',
+              targetUrl: storeWebAppUrl,
+            }),
+          ],
+          [
+            Markup.button.url('📞 ជំនួយ / Support', `https://t.me/${supportUsername}`),
+            Markup.button.url('📢 ឆានែល / Channel', `https://t.me/${channelUsername}`),
+          ],
+        ]),
+      });
     });
 
     // /orders command
     this.bot.command('orders', async (ctx) => {
       const pkg = renderTgEmoji('PACKAGE');
+      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
+      const isKm = userLang === 'km';
+      const ordersText = isKm
+        ? `${pkg} <b>ប្រវត្តិបញ្ជាទិញ (MY ORDERS)</b>\n\nមើល Account, Password, និងវិក្កយបត្រទាំងអស់របស់អ្នកក្នុងកម្មវិធី Mini App:`
+        : `${pkg} <b>MY ORDERS & CREDENTIALS</b>\n\nView all your active deliveries and account credentials in the Mini App:`;
+
       await ctx.reply(
-        formatTelegramHtml(`${pkg} <b>MY ORDERS</b>\n\nView all your active deliveries and account credentials in the Mini App:`),
+        formatTelegramHtml(ordersText),
         {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([
             [
               createEmojiInlineButton({
-                text: 'VIEW ORDERS',
-                emojiKey: 'PACKAGE',
-                targetUrl: `${storeWebAppUrl}?tab=orders`,
+                text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
+                emojiKey: 'SHOPPING_BAGS',
+                targetUrl: storeWebAppUrl,
               }),
             ],
           ]),

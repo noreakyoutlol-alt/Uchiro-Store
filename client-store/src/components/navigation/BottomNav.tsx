@@ -65,7 +65,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-[#0B0E14]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-white/10 px-2 h-13 max-h-13 flex items-center pb-safe transition-colors">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-[#0B0E14]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-white/10 px-2 h-14 py-1.5 flex items-center pb-safe transition-colors">
       <div className="max-w-md w-full mx-auto flex items-center justify-around relative">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -90,8 +90,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               >
                 <AppIcon
                   name={tab.iconKey}
-                  size={16}
-                  className={`w-4 h-4 transition-transform ${isActive ? 'scale-110' : ''}`}
+                  size={20}
+                  className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''}`}
                   strokeWidth={isActive ? 2.5 : 1.8}
                 />
               </div>
@@ -104,7 +104,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               )}
 
               <motion.span
-                className={`text-[9px] font-medium leading-none mt-0.5 transition-colors ${
+                className={`text-[10px] font-medium leading-none mt-0.5 transition-colors ${
                   isActive
                     ? theme.activeColor
                     : 'text-slate-400 dark:text-slate-500'

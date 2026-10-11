@@ -227,49 +227,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
         )}
 
-        {/* Primary Action Buttons: Daily Claim & Order History */}
-        <div className="grid grid-cols-2 gap-2">
-          {canClaimDaily ? (
-            <button
-              type="button"
-              onClick={handleClaimPoints}
-              disabled={isClaimingDaily}
-              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#FFD166]/20 transition-all"
-            >
-              {isClaimingDaily ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5" />
-              )}
-              <span>{language === 'km' ? 'យកពិន្ទុ' : 'Claim Points'}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() =>
-                setDailyClaimFeedback({
-                  type: 'error',
-                  text: 'អ្នកបានយកពិន្ទុថ្ងៃនេះរួចហើយ (ចាំថ្ងៃស្អែក)',
-                })
-              }
-              className="py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span>{language === 'km' ? 'បានយកថ្ងៃនេះរួចហើយ' : 'Claimed Today'}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setShowOrdersList(!showOrdersList)}
-            className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
-          >
-            <Package className="w-3.5 h-3.5" />
-            <span>
-              {language === 'km' ? 'ប្រវត្តិបញ្ជាទិញ' : 'Order History'} ({orders.length})
-            </span>
-          </button>
-        </div>
+        {/* Primary Action Button: Order History (Full Width) */}
+        <button
+          type="button"
+          onClick={() => setShowOrdersList(!showOrdersList)}
+          className="w-full py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+        >
+          <Package className="w-3.5 h-3.5" />
+          <span>
+            {language === 'km' ? 'ប្រវត្តិបញ្ជាទិញ' : 'Order History'} ({orders.length})
+          </span>
+        </button>
 
         {/* Collapsible Order History */}
         {showOrdersList && (

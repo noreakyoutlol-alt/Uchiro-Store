@@ -218,7 +218,7 @@ export const WEBP_EMOJI_IDS = new Set<string>([
 ]);
 
 export const WEBP_EMOJI_NAMES = new Set<string>([
-  'EGG', 'RUNNER', 'KNIFE', 'WRENCH', 'TICKET', 'SEARCH', 'SEARCH_RIGHT', 'STOP_SIGN', 'STOP_BUTTON', 'ID_BADGE', 'SWORD', 'CREDIT_CARD',
-  'egg', 'runner', 'knife', 'wrench', 'ticket', 'search', 'search_right', 'stop_sign', 'stop_button', 'id_badge', 'sword', 'credit_card',
+  'EGG', 'RUNNER', 'KNIFE', 'WRENCH', 'TICKET', 'SEARCH', 'SEARCH_RIGHT', 'STOP_SIGN', 'STOP_BUTTON', 'ID_BADGE', 'SWORD', 'CREDIT_CARD', 'TARGET', 'LIGHTNING', 'GAMEPAD',
+  'egg', 'runner', 'knife', 'wrench', 'ticket', 'search', 'search_right', 'stop_sign', 'stop_button', 'id_badge', 'sword', 'credit_card', 'target', 'lightning', 'gamepad',
 ]);
 

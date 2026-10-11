@@ -171,20 +171,20 @@ if (fs.existsSync(storeEmojiDir)) {
   app.use('/admin/emojis', express.static(storeEmojiDir, { maxAge: '7d', immutable: true }));
 }
 
-// Cloaked Admin Portal Middleware
+// 1. STEALTH ADMIN HANDLER
 app.use('/admin', (req, res, next) => {
   if (req.path.startsWith('/emojis')) return next();
-  // 1. If public browser: Return hard 404
+  // If opened via normal browser: return 404 Not Found
   if (!isTelegramMiniApp(req)) {
     res.status(404);
     const storeIndex = path.join(storeDist, 'index.html');
     if (fs.existsSync(storeIndex)) return res.sendFile(storeIndex);
-    return res.send('Cannot GET ' + req.originalUrl);
+    return res.send('404 Not Found');
   }
   next();
 });
 
-// Serve Admin static assets (JS/CSS) under /admin when allowed
+// Serve admin assets
 app.use(
   '/admin',
   express.static(adminDist, {
@@ -200,7 +200,7 @@ app.use(
   })
 );
 
-// Cloaked Admin SPA route
+// Admin Single Page App handler inside Telegram
 app.all(['/admin', '/admin/*'], (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/webhook') || req.path.startsWith('/admin/emojis')) {
     return next();
@@ -209,23 +209,19 @@ app.all(['/admin', '/admin/*'], (req, res, next) => {
   // 1. PUBLIC WEB ACCESS: Cloak with 404
   if (!isTelegramMiniApp(req)) {
     res.status(404);
-    const storeIndex = path.join(storeDist, 'index.html');
-    if (fs.existsSync(storeIndex)) {
-      return res.sendFile(storeIndex);
-    }
-    return res.send('Cannot GET ' + req.path);
+    return res.send('404 Not Found');
   }
 
-  // 2. TELEGRAM MINI APP ACCESS: Serve Admin Portal
+  // 2. TELEGRAM MINI APP ACCESS: Serve Admin Portal (NEVER falls back to Store SPA)
   const adminIndex = path.join(adminDist, 'index.html');
   if (fs.existsSync(adminIndex)) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.sendFile(adminIndex);
   }
-  return res.status(404).send('Admin build not found');
+  return res.status(404).send('Admin SPA not found');
 });
 
-// Mount Store static assets
+// 2. STORE SINGLE PAGE APP HANDLER
 app.use(
   express.static(storeDist, {
     index: false,
@@ -249,7 +245,7 @@ app.get('*', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.sendFile(storeIndex);
   }
-  return res.status(404).send('Store SPA build not found');
+  return res.status(404).send('Store SPA not found');
 });
 
 // Central Error Handler

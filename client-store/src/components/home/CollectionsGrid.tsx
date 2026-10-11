@@ -105,7 +105,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Other',
     slug: 'other',
     emoji: '🎮',
-    asset: '/emojis/package.webm',
+    asset: '/emojis/gamepad.webp',
     auraColor: '#818CF8',
     glowClass: 'shadow-[0_0_20px_rgba(129,140,248,0.35)]',
     containerClass: 'bg-indigo-950/40 border border-indigo-500/50 text-indigo-400',
@@ -115,7 +115,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
   },
 ];
 
-interface CollectionsGridProps {
+export interface CollectionsGridProps {
   onSelectCollection: (slug: string) => void;
   products?: Product[];
   className?: string;
@@ -140,9 +140,9 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
               className={`group flex items-center justify-between p-3 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-[#0F1422] hover:border-amber-400/60 transition-colors text-left active:scale-[0.98] shadow-sm ${c.borderHoverClass}`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                {/* Modern Rounded Container */}
+                {/* Modern Rounded Container with Matching Aura */}
                 <div
-                  className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${c.containerClass}`}
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${c.containerClass} ${c.glowClass}`}
                 >
                   <CategoryIcon
                     slug={c.slug}
@@ -181,20 +181,20 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
             onClick={() => onSelectCollection(c.slug)}
             className={`group flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0F1422] hover:border-amber-400/60 transition-colors active:scale-95 text-center shadow-sm ${c.borderHoverClass}`}
           >
-            {/* Modern Rounded Container */}
+            {/* Modern Rounded Container with Matching Aura */}
             <div
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center mb-1 transition-transform duration-200 group-hover:scale-105 ${c.containerClass}`}
+              className={`w-12 h-12 rounded-xl border flex items-center justify-center mb-1 transition-transform duration-200 group-hover:scale-105 ${c.containerClass} ${c.glowClass}`}
             >
               <CategoryIcon
                 slug={c.slug}
                 name={c.name}
                 fallbackEmoji={c.emoji}
-                className="w-6 h-6"
-                imgClassName="w-6 h-6 object-contain"
+                className="w-7 h-7"
+                imgClassName="w-7 h-7 object-contain"
               />
             </div>
 
-            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 text-center truncate max-w-full group-hover:text-amber-400 transition-colors">
+            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 text-center truncate max-w-full group-hover:text-amber-400 transition-colors">
               {c.name}
             </span>
           </button>

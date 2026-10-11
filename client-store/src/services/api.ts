@@ -264,14 +264,26 @@ export const StoreAPI = {
 
   playGacha: async (data: { poolId: string; rollType?: 'single' | 'multi' } | string) => {
     const payload = typeof data === 'string' ? { poolId: data, rollType: 'single' } : data;
-    const res = await api.post('/gacha/play', payload);
-    return res.data.data;
+    const poolId = typeof data === 'string' ? data : data.poolId;
+    try {
+      const res = await api.post(`/gacha/${poolId}/spin`, payload);
+      return res.data.data;
+    } catch {
+      const res = await api.post('/gacha/play', payload);
+      return res.data.data;
+    }
   },
 
   spinGacha: async (data: { poolId: string; rollType?: 'single' | 'multi' } | string) => {
     const payload = typeof data === 'string' ? { poolId: data, rollType: 'single' } : data;
-    const res = await api.post('/gacha/play', payload);
-    return res.data.data;
+    const poolId = typeof data === 'string' ? data : data.poolId;
+    try {
+      const res = await api.post(`/gacha/${poolId}/spin`, payload);
+      return res.data.data;
+    } catch {
+      const res = await api.post('/gacha/play', payload);
+      return res.data.data;
+    }
   },
 
   buyGachaTickets: async (quantity: number = 1) => {

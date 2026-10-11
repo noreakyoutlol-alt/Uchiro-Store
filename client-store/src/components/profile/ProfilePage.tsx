@@ -89,15 +89,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([]);
   const [pointsLedger, setPointsLedger] = useState<any[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [copiedTelegramId, setCopiedTelegramId] = useState(false);
 
   const orderHistoryRef = React.useRef<HTMLDivElement>(null);
-  const [isClaimingDailyProfile, setIsClaimingDailyProfile] = useState(false);
-  const [profileClaimNotice, setProfileClaimNotice] = useState<{
-    type: 'success' | 'error';
-    text: string;
-  } | null>(null);
-  const [canClaimDailyProfile, setCanClaimDailyProfile] = useState(true);
+  const [copiedTelegramId, setCopiedTelegramId] = useState(false);
 
   const copyTelegramId = (idVal: string) => {
     if (!idVal || idVal === '—') return;
@@ -121,61 +115,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
     loadLedger();
     loadCoupons();
     loadProfileStats();
-    checkDailyStatus();
   }, [profile?.points, profile?.gacha_tickets, orders.length, user?.telegram_id]);
-
-  const checkDailyStatus = async () => {
-    try {
-      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
-      const tgId = user?.telegram_id || tg?.initDataUnsafe?.user?.id;
-      const status = await StoreAPI.getDailyRewardStatus(tgId);
-      if (status) {
-        setCanClaimDailyProfile(Boolean(status.can_claim));
-      }
-    } catch {
-      // Keep default
-    }
-  };
-
-  const handleQuickClaimDaily = async () => {
-    if (isClaimingDailyProfile) return;
-    setIsClaimingDailyProfile(true);
-    setProfileClaimNotice(null);
-    try {
-      const tg = (window as any).Telegram?.WebApp;
-      const uid = tg?.initDataUnsafe?.user?.id || user?.telegram_id;
-
-      // Optimistically update local points state immediately
-      const optimisticPoints = userPoints + 5;
-      window.dispatchEvent(
-        new CustomEvent('uchiro_points_updated', {
-          detail: { points: optimisticPoints },
-        })
-      );
-      setCanClaimDailyProfile(false);
-      setProfileClaimNotice({
-        type: 'success',
-        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
-      });
-
-      const res = await StoreAPI.claimDailyReward(uid);
-      const newBal = typeof res?.newBalance === 'number' ? res.newBalance : optimisticPoints;
-      window.dispatchEvent(
-        new CustomEvent('uchiro_points_updated', {
-          detail: { points: newBal },
-        })
-      );
-      onRefreshProfile?.();
-      loadProfileStats();
-    } catch {
-      setProfileClaimNotice({
-        type: 'success',
-        text: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
-      });
-    } finally {
-      setIsClaimingDailyProfile(false);
-    }
-  };
 
   const scrollToOrders = () => {
     orderHistoryRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -281,25 +221,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   const totalSpentAmount = profileStats !== null && profileStats.total_spent > 0 ? profileStats.total_spent : fallbackTotalSpent;
 
   return (
-    <div className="max-w-sm mx-auto p-3 space-y-3 pb-24 animate-fadeIn">
-      {/* 1. Compact User Card (Mobile Friendly: max-w-sm, p-3, compact avatar) */}
-      <div className="p-3 rounded-2xl bg-[#0F1424] border border-white/10 shadow-xl space-y-3">
+    <div className="max-w-md w-full mx-auto p-2.5 sm:p-3 space-y-2.5 pb-20 animate-fadeIn">
+      {/* 1. Compact User Card (Mobile Friendly) */}
+      <div className="p-3 rounded-2xl bg-[#0F1424] border border-white/10 shadow-xl space-y-2.5">
         {/* User Identity Row */}
-        <div className="flex items-center gap-3">
-          {/* Compact Avatar (w-12 h-12) */}
+        <div className="flex items-center gap-2.5">
+          {/* Compact Avatar (w-10 h-10) */}
           <div className="relative shrink-0">
             {user?.photo_url ? (
               <img
                 src={user.photo_url}
                 alt={displayName}
-                className="w-12 h-12 rounded-xl object-cover bg-black/50 border border-amber-500/40"
+                className="w-10 h-10 rounded-xl object-cover bg-black/50 border border-amber-500/40"
               />
             ) : (
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-cyan-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-black text-lg">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-cyan-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-black text-base">
                 {userInitial}
               </div>
             )}
-            <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#0F1424]" />
+            <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#0F1424]" />
           </div>
 
           {/* Name & ID & Points */}
@@ -336,70 +276,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
           </div>
         </div>
 
-        {/* Feedback alert (if clicked) */}
-        {profileClaimNotice && (
-          <div
-            className={`p-2 rounded-xl text-xs font-bold border flex items-center justify-between gap-2 transition-all ${
-              profileClaimNotice.type === 'success'
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-            }`}
-          >
-            <span>{profileClaimNotice.text}</span>
-            <button
-              onClick={() => setProfileClaimNotice(null)}
-              className="text-slate-400 hover:text-white px-1 text-xs"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* Quick Action Buttons: Daily Claim button + Order History button */}
-        <div className="grid grid-cols-2 gap-2">
-          {canClaimDailyProfile ? (
-            <button
-              type="button"
-              onClick={handleQuickClaimDaily}
-              disabled={isClaimingDailyProfile}
-              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#FFD166]/20 transition-all"
-            >
-              {isClaimingDailyProfile ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5" />
-              )}
-              <span>{language === 'km' ? 'យកពិន្ទុ' : 'Claim Points'}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleQuickClaimDaily}
-              disabled={isClaimingDailyProfile}
-              className="py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/30 text-slate-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors active:scale-95"
-            >
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span>{language === 'km' ? 'បានយកថ្ងៃនេះរួចហើយ' : 'Claimed Today'}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              if (onNavigateToTab) {
-                onNavigateToTab('orders');
-              } else {
-                scrollToOrders();
-              }
-            }}
-            className="py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
-          >
-            <Package className="w-3.5 h-3.5" />
-            <span>
-              {language === 'km' ? 'ប្រវត្តិបញ្ជាទិញ' : 'Order History'} ({orders.length})
-            </span>
-          </button>
-        </div>
+        {/* Quick Action Button: Order History (Full Width) */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onNavigateToTab) {
+              onNavigateToTab('orders');
+            } else {
+              scrollToOrders();
+            }
+          }}
+          className="w-full py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+        >
+          <Package className="w-3.5 h-3.5" />
+          <span>
+            {language === 'km' ? 'ប្រវត្តិបញ្ជាទិញ' : 'Order History'} ({orders.length})
+          </span>
+        </button>
 
         {/* 3 Concise Metrics Strip */}
         <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white/5 border border-white/5 text-center text-xs">
@@ -442,14 +335,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       />
 
       {/* 3. Uchiro Points & Loyalty Redemption (Requirement 66, Item 25) */}
-      <div className="p-4 rounded-3xl bg-[#121624] border border-[#FFD166]/20 space-y-4">
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-[#FFD166]/20 space-y-3">
         {/* Points Hero — large, unmissable reward points display */}
-        <div className="flex flex-col items-center justify-center py-3 gap-1 border-b border-[#FFD166]/10 pb-4">
-          <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="flex flex-col items-center justify-center py-2.5 gap-1 border-b border-[#FFD166]/10 pb-3">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
             <Coins className="w-3.5 h-3.5 text-[#FFD166]" />
             <span>UCHIRO REWARD POINTS</span>
           </div>
-          <div className="text-5xl font-black text-[#FFD166] tracking-tight leading-none mt-1">
+          <div className="text-4xl sm:text-5xl font-black text-[#FFD166] tracking-tight leading-none mt-1">
             {profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0}
           </div>
           <span className="text-xs text-slate-400 mt-1">Reward Points Total</span>
@@ -713,7 +606,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       )}
 
       {/* 3. Settings: Language & Theme Appearance (Section 16 & 48) */}
-      <div className="p-4 rounded-3xl bg-[#121624] border border-white/10 space-y-3">
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-white/10 space-y-2.5">
         <h3 className="text-xs font-black text-white uppercase tracking-wider">
           APP PREFERENCES
         </h3>
@@ -793,7 +686,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
         </div>
 
         {orders.length === 0 ? (
-          <div className="p-6 rounded-2xl bg-[#121624] border border-white/10 text-center text-xs text-slate-400">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#121624] border border-white/10 text-center text-xs text-slate-400">
             You haven't placed any orders yet.
           </div>
         ) : (
@@ -802,7 +695,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
               <div
                 key={order.id}
                 onClick={() => onSelectOrder(order)}
-                className="p-3.5 rounded-2xl bg-[#121624] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between cursor-pointer active:scale-99"
+                className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between cursor-pointer active:scale-99"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -839,7 +732,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       </div>
 
       {/* 5. Support & Ticket Helpdesk */}
-      <div className="p-4 rounded-3xl bg-[#121624] border border-white/10 space-y-3">
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-white/10 space-y-2.5">
         <div className="flex items-center gap-2 text-xs font-black text-white uppercase tracking-wider">
           <Headphones className="w-4 h-4 text-[#FFD166]" />
           <span>CUSTOMER SUPPORT & 14-DAY WARRANTY</span>

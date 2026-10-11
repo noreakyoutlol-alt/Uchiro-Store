@@ -141,7 +141,7 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-white/85 dark:bg-[#0B0E14]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-white/10 px-3.5 py-2.5 transition-colors">
+    <header className="sticky top-0 z-30 bg-white/85 dark:bg-[#0B0E14]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-white/10 px-3 py-2 transition-colors">
       <div className="max-w-md mx-auto flex items-center justify-between gap-2">
         {/* User Profile Card */}
         <button
@@ -153,10 +153,10 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
               <img
                 src={user.photo_url}
                 alt={displayName}
-                className="w-8 h-8 rounded-full object-cover border-2 border-slate-200 dark:border-white/20 group-hover:border-amber-400 transition-colors"
+                className="w-9 h-9 rounded-full object-cover border-2 border-slate-200 dark:border-white/20 group-hover:border-amber-400 transition-colors"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full border-2 border-slate-200 dark:border-white/20 bg-slate-100 dark:bg-[#1E2538] flex items-center justify-center text-xs font-black text-slate-800 dark:text-white group-hover:border-amber-400 transition-colors">
+              <div className="w-9 h-9 rounded-full border-2 border-slate-200 dark:border-white/20 bg-slate-100 dark:bg-[#1E2538] flex items-center justify-center text-xs font-black text-slate-800 dark:text-white group-hover:border-amber-400 transition-colors">
                 {userInitial}
               </div>
             )}
@@ -206,14 +206,14 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
           <button
             onClick={onOpenProfile}
             type="button"
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-950/90 border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.25)] hover:border-amber-400 transition-all active:scale-95 group shrink-0"
+            className="flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-slate-950/90 border border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.25)] hover:border-amber-400 transition-all active:scale-95 group shrink-0"
             title="Uchiro Reward Points"
           >
-            <GoldCoin3DIcon size={16} />
-            <span className="text-amber-400 font-black text-xs sm:text-sm tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+            <GoldCoin3DIcon size={15} />
+            <span className="text-amber-400 font-bold text-xs tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
               {userPoints.toLocaleString()}
             </span>
-            <span className="text-amber-500 font-extrabold text-[10px] sm:text-[11px] tracking-wider uppercase">
+            <span className="text-amber-500 font-bold text-[10px] tracking-wider uppercase">
               PTS
             </span>
           </button>

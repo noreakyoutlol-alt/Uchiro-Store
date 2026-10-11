@@ -63,6 +63,26 @@ gachaRouter.post('/buy-tickets', requireTelegramAuth, (req: RequestWithAuth, res
   }
 });
 
+gachaRouter.post('/play', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
+  try {
+    const poolId = req.body?.poolId || GachaService.getPools()[0]?.id;
+    const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body?.idempotencyKey;
+    const result = await GachaService.spin({
+      poolId,
+      customerId: req.user!.user_id,
+      telegramId: req.user!.telegram_id,
+      idempotencyKey,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 gachaRouter.post('/:poolId/spin', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
   try {
     const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotencyKey;

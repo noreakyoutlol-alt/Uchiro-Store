@@ -82,4 +82,13 @@ describe('Local Telegram Premium Emojis Integration & Rendering Optimization', (
     expect(TELEGRAM_EMOJIS.TICKET.customEmojiId).toBe('5291994784980813319');
     expect(WEBP_EMOJI_IDS.has(TELEGRAM_EMOJIS.TICKET.customEmojiId!)).toBe(true);
   });
+
+  it('serves dedicated gaming category assets (sword, knife, target, lightning, runner, egg, ticket, gamepad)', async () => {
+    const assets = ['sword.webp', 'knife.webp', 'target.webp', 'lightning.webp', 'runner.webp', 'egg.webp', 'ticket.webp', 'gamepad.webp'];
+    for (const asset of assets) {
+      const res = await request(app).get(`/emojis/${asset}`);
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/image\/webp/);
+    }
+  });
 });
