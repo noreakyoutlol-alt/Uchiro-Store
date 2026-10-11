@@ -269,7 +269,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   const verifiedOrders = orders.filter(
     (o) => o.status === 'paid' || o.status === 'delivered' || o.status === 'completed'
   );
-  const fallbackTotalOrders = verifiedOrders.length;
+  const fallbackTotalOrders = orders.length;
   const fallbackTotalSpent = verifiedOrders.reduce(
     (sum, o) => sum + Number(o.total_amount || 0),
     0
@@ -277,8 +277,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
 
   const userPoints = profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0;
   const gachaTickets = profileStats !== null ? profileStats.gacha_tickets : (profile?.gacha_tickets ?? 0);
-  const totalOrdersCount = profileStats !== null ? profileStats.total_orders : fallbackTotalOrders;
-  const totalSpentAmount = profileStats !== null ? profileStats.total_spent : fallbackTotalSpent;
+  const totalOrdersCount = orders.length > 0 ? orders.length : (profileStats?.total_orders ?? 0);
+  const totalSpentAmount = profileStats !== null && profileStats.total_spent > 0 ? profileStats.total_spent : fallbackTotalSpent;
 
   return (
     <div className="max-w-sm mx-auto p-3 space-y-3 pb-24 animate-fadeIn">

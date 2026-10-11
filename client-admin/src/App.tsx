@@ -95,17 +95,28 @@ export const App: React.FC = () => {
         }
 
         const initData = tg?.initData || '';
-        const authRes = await AdminAPI.authenticateAdmin(initData);
-        if (authRes) {
-          setAdminName(authRes.admin?.role || 'Admin');
+        const user = tg?.initDataUnsafe?.user;
+
+        // Verify Telegram Mini App context is present
+        if (!initData && !user) {
+          console.warn('[ADMIN SECURITY] No Telegram Mini App context detected.');
+          setIsAuthorized(false);
+          setIsLoading(false);
+          return;
         }
 
+        // Authenticate with server to validate Telegram User ID against Admin Whitelist
+        const authRes = await AdminAPI.authenticateAdmin(initData);
+        if (!authRes || !authRes.token) {
+          setIsAuthorized(false);
+          return;
+        }
+
+        setAdminName(authRes.admin?.display_name || authRes.admin?.role || 'Admin');
         await loadData();
       } catch (err: any) {
         console.error('Admin init error:', err);
-        if (err.response?.status === 403) {
-          setIsAuthorized(false);
-        }
+        setIsAuthorized(false);
       } finally {
         setIsLoading(false);
       }

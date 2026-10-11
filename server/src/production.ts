@@ -115,31 +115,99 @@ const storeDist = [
 console.log('[Static Check] Admin Dist Path:', adminDist, 'Exists:', fs.existsSync(adminDist));
 console.log('[Static Check] Store Dist Path:', storeDist, 'Exists:', fs.existsSync(storeDist));
 
-// Enforce trailing slash redirect preserving query strings
-app.use((req, res, next) => {
-  if (req.path === '/admin') {
-    const q = req.url.slice(req.path.length);
-    return res.redirect(301, '/admin/' + q);
+// Helper: Detect Telegram Mini App Context
+export function isTelegramMiniApp(req: express.Request): boolean {
+  const rawUrl = req.originalUrl || req.url || '';
+  const query = (req.query || {}) as Record<string, any>;
+  const hasTgQuery =
+    Boolean(query.tgWebAppData) ||
+    Boolean(query.tgWebAppVersion) ||
+    Boolean(query.tgWebAppPlatform) ||
+    Boolean(query.initData) ||
+    rawUrl.includes('tgWebAppData') ||
+    rawUrl.includes('tgWebAppVersion') ||
+    rawUrl.includes('tgWebAppPlatform') ||
+    rawUrl.includes('initData');
+
+  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+  const hasTgUA = userAgent.includes('telegram');
+  const hasTgHeader = Boolean(
+    req.headers['x-telegram-init-data'] ||
+    req.headers['x-telegram-bot-api-secret-token']
+  );
+
+  const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).toLowerCase();
+  const hasTgReferer =
+    referer.includes('tgwebappdata') ||
+    referer.includes('tgwebappversion') ||
+    referer.includes('tgwebappplatform') ||
+    referer.includes('telegram.org');
+
+  const hasAdminSession = Boolean(
+    req.headers.cookie?.includes('uchiro_admin_token') ||
+    req.headers.authorization?.startsWith('Bearer ') ||
+    query.admin_secret ||
+    query.adminKey ||
+    req.headers['x-admin-key']
+  );
+
+  return hasTgQuery || hasTgUA || hasTgHeader || hasTgReferer || hasAdminSession;
+}
+
+// Serve Admin static assets (JS/CSS) under /admin
+app.use(
+  '/admin',
+  express.static(adminDist, {
+    index: false,
+    redirect: false,
+    maxAge: '1y',
+    immutable: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      }
+    },
+  })
+);
+
+// Cloaked Admin SPA route
+app.all(['/admin', '/admin/*'], (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) {
+    return next();
   }
-  next();
-});
 
-// Mount Admin static assets FIRST
-app.use('/admin', express.static(adminDist, { index: false }));
+  // 1. PUBLIC WEB ACCESS: Cloak with 404
+  if (!isTelegramMiniApp(req)) {
+    res.status(404);
+    const storeIndex = path.join(storeDist, 'index.html');
+    if (fs.existsSync(storeIndex)) {
+      return res.sendFile(storeIndex);
+    }
+    return res.send('Cannot GET ' + req.path);
+  }
 
-// Admin SPA Fallback (strictly handles /admin/ and /admin/*)
-app.get(['/admin', '/admin/*'], (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) return next();
+  // 2. TELEGRAM MINI APP ACCESS: Serve Admin Portal
   const adminIndex = path.join(adminDist, 'index.html');
   if (fs.existsSync(adminIndex)) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.sendFile(adminIndex);
   }
-  return res.status(404).send('Admin SPA build not found');
+  return res.status(404).send('Admin build not found');
 });
 
-// Mount Store static assets SECOND
-app.use(express.static(storeDist));
+// Mount Store static assets
+app.use(
+  express.static(storeDist, {
+    index: false,
+    maxAge: '1y',
+    immutable: true,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      }
+    },
+  })
+);
 
 // Store SPA Fallback
 app.get('*', (req, res, next) => {

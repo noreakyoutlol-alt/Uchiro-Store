@@ -2799,7 +2799,7 @@ export class DataStore {
       const remainingSeconds = Math.ceil((cooldownMs - (now - lastClaim)) / 1000);
       return {
         success: false,
-        error: 'COOLDOWN_ACTIVE',
+        error: 'ALREADY_CLAIMED_TODAY',
         remainingSeconds,
         seconds_remaining: remainingSeconds,
         points: user.points || 0,

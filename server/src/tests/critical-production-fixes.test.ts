@@ -5,23 +5,28 @@ import { DataStore } from '../database/data-store';
 import { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis } from '../config/telegram-emojis';
 
 describe('FOUR CRITICAL PRODUCTION BOTTLENECK FIXES VERIFICATION', () => {
-  describe('1. Admin Route Hijack & Strict Trailing Slash Redirect', () => {
-    it('strictly redirects /admin to /admin/ with HTTP 301 to avoid Store SPA collision', async () => {
+  describe('1. Stealth Admin Cloaking & Telegram Mini App Gate', () => {
+    it('returns HTTP 404 when accessed by a regular web browser without Telegram context', async () => {
       const res = await request(app).get('/admin');
-      expect(res.status).toBe(301);
-      expect(res.headers.location).toBe('/admin/');
+      expect(res.status).toBe(404);
+
+      const deepRes = await request(app).get('/admin/orders');
+      expect(deepRes.status).toBe(404);
     });
 
-    it('serves Admin SPA at /admin/ with HTTP 200 and Cache-Control headers', async () => {
-      const res = await request(app).get('/admin/');
+    it('serves Admin SPA at /admin/ with HTTP 200 and Cache-Control headers when accessed via Telegram Mini App', async () => {
+      const res = await request(app)
+        .get('/admin/?tgWebAppData=mock_init_data');
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/html');
       expect(res.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
       expect(res.text).toContain('UCHIRO ADMIN');
     });
 
-    it('serves Admin SPA deep routes (/admin/orders, /admin/products) correctly', async () => {
-      const res = await request(app).get('/admin/orders');
+    it('serves Admin SPA deep routes (/admin/orders, /admin/products) via Telegram User-Agent correctly', async () => {
+      const res = await request(app)
+        .get('/admin/orders')
+        .set('User-Agent', 'Mozilla/5.0 Telegram-iOS/10.0');
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/html');
       expect(res.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');

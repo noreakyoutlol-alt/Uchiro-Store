@@ -33,21 +33,22 @@ describe('Task 8: Production Readiness & Final Verification Suite', () => {
       expect(res.headers['content-type']).toContain('text/html');
     });
 
-    it('serves client-admin SPA at /admin and admin deep routes with cache-control headers', async () => {
-      // 1. Regular access to /admin performs strict 301 redirect to /admin/ (prevents Store SPA collision)
-      const redirectRes = await request(app).get('/admin');
-      expect(redirectRes.status).toBe(301);
-      expect(redirectRes.headers.location).toBe('/admin/');
+    it('serves client-admin SPA at /admin when launched via Telegram, and returns 404 on public web', async () => {
+      // 1. Regular access to /admin on public web returns 404 (cloaked)
+      const publicRes = await request(app).get('/admin');
+      expect(publicRes.status).toBe(404);
 
-      // 2. Access to /admin/ serves Admin SPA index.html with HTTP 200 and no-cache headers
-      const res = await request(app).get('/admin/');
+      // 2. Access via Telegram Mini App serves Admin SPA index.html with HTTP 200 and no-cache headers
+      const res = await request(app).get('/admin/?tgWebAppData=mock_init_data');
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/html');
       expect(res.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');
       expect(res.text).toContain('UCHIRO ADMIN');
 
-      // 3. Deep routes (/admin/orders, /admin/settings) also serve Admin SPA index.html
-      const deepRes = await request(app).get('/admin/orders');
+      // 3. Deep routes (/admin/orders, /admin/settings) also serve Admin SPA index.html via Telegram
+      const deepRes = await request(app)
+        .get('/admin/orders')
+        .set('User-Agent', 'Mozilla/5.0 Telegram-iOS/10.0');
       expect(deepRes.status).toBe(200);
       expect(deepRes.headers['content-type']).toContain('text/html');
       expect(deepRes.headers['cache-control']).toBe('no-cache, no-store, must-revalidate');

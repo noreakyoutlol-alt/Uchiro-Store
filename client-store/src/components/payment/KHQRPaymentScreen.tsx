@@ -104,6 +104,18 @@ export const KHQRPaymentScreen: React.FC<KHQRPaymentScreenProps> = ({
 
   // 3. Download Real KHPay QR Code on Branded Card Template or High-Res PNG
   const handleDownloadQR = async () => {
+    // Fast client-side canvas download
+    const qrCanvas = document.querySelector('canvas#khqr-canvas') as HTMLCanvasElement;
+    if (qrCanvas) {
+      const a = document.createElement('a');
+      a.href = qrCanvas.toDataURL('image/png');
+      a.download = `KHQR-Order-${order.order_number || order.id || 'payment'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
     setIsCompositingQR(true);
     try {
       let qrImageSource = '';

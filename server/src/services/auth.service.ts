@@ -69,12 +69,12 @@ export class AuthService {
 
     // 2. Validate via Telegram Admin Bot initData
     if (initDataRaw) {
-      const validation = validateTelegramInitData(initDataRaw, env.ADMIN_BOT_TOKEN);
+      const validation = validateTelegramInitData(initDataRaw, env.ADMIN_BOT_TOKEN || env.STORE_BOT_TOKEN);
       if (validation.isValid && validation.data?.user) {
-        const tgId = validation.data.user.id;
+        const tgId = Number(validation.data.user.id);
         const isApproved = env.ADMIN_TELEGRAM_USER_IDS.includes(tgId);
 
-        if (!isApproved && env.STRICT_TELEGRAM_AUTH) {
+        if (!isApproved) {
           throw new AppError('Forbidden: Telegram account is not authorized as an admin', 403, 'FORBIDDEN_ADMIN');
         }
 
@@ -101,11 +101,13 @@ export class AuthService {
         );
 
         return { admin, token };
+      } else {
+        throw new AppError('Invalid Telegram authentication signature', 401, 'INVALID_TELEGRAM_AUTH');
       }
     }
 
-    // 3. Dev mode fallback
-    if (!env.STRICT_TELEGRAM_AUTH) {
+    // 3. Test mode fallback (strictly in test environment)
+    if (process.env.NODE_ENV === 'test') {
       const defaultAdmin = {
         id: 'admin-dev-01',
         telegram_id: env.ADMIN_TELEGRAM_USER_IDS[0] || 123456789,
@@ -129,7 +131,7 @@ export class AuthService {
       return { admin: defaultAdmin, token };
     }
 
-    throw new AppError('Admin authentication failed', 401, 'INVALID_ADMIN_AUTH');
+    throw new AppError('Admin authentication failed: Telegram Mini App context required', 401, 'INVALID_ADMIN_AUTH');
   }
 
   // ================= GET ME =================
