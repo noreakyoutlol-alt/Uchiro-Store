@@ -101,6 +101,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         const newBal = typeof res.newBalance === 'number' ? res.newBalance : userPoints + (res.pointsAwarded || 5);
         setUserPoints(newBal);
         window.dispatchEvent(
+          new CustomEvent('uchiro_points_sync', {
+            detail: { points: newBal },
+          })
+        );
+        window.dispatchEvent(
           new CustomEvent('uchiro_points_updated', {
             detail: { points: newBal },
           })

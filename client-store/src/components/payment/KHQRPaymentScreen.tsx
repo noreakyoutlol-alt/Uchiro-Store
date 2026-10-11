@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import {
   Clock,
@@ -244,20 +244,18 @@ export const KHQRPaymentScreen: React.FC<KHQRPaymentScreenProps> = ({
     }
   };
 
-  // 4. Open ABA Mobile Deeplink with fallback
+  // 4. Open ABA Mobile Deeplink with Telegram WebApp support
   const handleOpenABA = () => {
     const deeplink = payment.aba_deep_link || (payment as any).abapay_deeplink;
     const fallbackUrl = (payment as any).payment_url || payment.bakong_deep_link || deeplink || '#';
+    const targetLink = deeplink && deeplink !== '#' ? deeplink : fallbackUrl;
+    if (!targetLink || targetLink === '#') return;
 
-    if (deeplink && deeplink !== '#') {
-      window.location.href = deeplink;
-      setTimeout(() => {
-        if (fallbackUrl && fallbackUrl !== '#') {
-          window.open(fallbackUrl, '_blank');
-        }
-      }, 1500);
-    } else if (fallbackUrl && fallbackUrl !== '#') {
-      window.open(fallbackUrl, '_blank');
+    const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+    if (tg?.openLink) {
+      tg.openLink(targetLink, { try_instant_view: false });
+    } else {
+      window.location.href = targetLink;
     }
   };
 
@@ -313,7 +311,8 @@ export const KHQRPaymentScreen: React.FC<KHQRPaymentScreenProps> = ({
                 </span>
               </div>
             ) : payment.qr_payload ? (
-              <QRCodeSVG
+              <QRCodeCanvas
+                id="khqr-canvas"
                 value={payment.qr_payload}
                 size={195}
                 level="M"

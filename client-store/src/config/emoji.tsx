@@ -88,11 +88,9 @@ export interface TgEmojiProps {
 }
 
 /**
- * Universal High-Speed Local Telegram Premium & Unicode Emoji Renderer:
- * - Loads static .webp and animated video .webm assets directly from /emojis/
- * - Instantaneous fallback to native crisp Unicode emoji character glyphs
- * - Supports Lucide SVG rendering when asSvg={true}
- * - 100% backward compatible with all props (id, emojiId, emoji, name, fallback, size, className, asSvg)
+ * Universal Bulletproof Unicode Emoji Renderer:
+ * Eliminates broken <img> / <video> tags and renders crisp 100% visible Unicode emojis
+ * using the master TELEGRAM_EMOJIS registry with zero latency and zero broken icons.
  */
 export const TgEmoji: React.FC<TgEmojiProps> = ({
   id,
@@ -100,92 +98,39 @@ export const TgEmoji: React.FC<TgEmojiProps> = ({
   name,
   fallback,
   emoji,
-  className = 'inline-block align-middle',
+  className = "inline-flex items-center justify-center select-none",
   asSvg = false,
-  size = 20,
+  size,
 }) => {
-  const resolvedId = id || emojiId || (typeof emoji === 'string' && (emoji.startsWith('5') || emoji.startsWith('6')) ? emoji : undefined);
+  const targetId = id || emojiId || (typeof emoji === 'string' && (emoji.startsWith('5') || emoji.startsWith('6')) ? emoji : undefined);
   const rawKey = name || (typeof emoji === 'string' && !emoji.startsWith('5') && !emoji.startsWith('6') ? emoji : undefined);
   const key = rawKey?.toUpperCase();
 
-  const entry = key
-    ? TELEGRAM_EMOJIS[key]
-    : Object.values(TELEGRAM_EMOJIS).find((e: any) => e.customEmojiId === resolvedId);
-
-  const targetId = resolvedId || entry?.customEmojiId;
-  const displayFallback =
-    entry?.fallback ||
-    fallback ||
-    (typeof emoji === 'string' && !emoji.startsWith('5') && !emoji.startsWith('6') ? emoji : '✨');
-
-  const sizeNumber = typeof size === 'number' ? size : parseInt(String(size), 10) || 20;
-  const sizeCss = typeof size === 'number' || /^\d+$/.test(String(size)) ? `${size}px` : String(size);
+  const sizeNumber = typeof size === 'number' ? size : parseInt(String(size), 10) || undefined;
 
   if (asSvg && key && LOCAL_SVG_ICONS[key]) {
     const IconComponent = LOCAL_SVG_ICONS[key];
-    return <IconComponent size={sizeNumber} className={className} />;
+    return <IconComponent size={sizeNumber || 20} className={className} />;
   }
 
-  const [failedTarget, setFailedTarget] = useState<string | null>(null);
-  const imgFailed = targetId ? failedTarget === targetId : false;
+  const entry = key
+    ? TELEGRAM_EMOJIS[key]
+    : Object.values(TELEGRAM_EMOJIS).find((e: any) => e.customEmojiId === targetId);
 
-  // If no customEmojiId or asset failed to load, render native crisp Unicode emoji
-  if (!targetId || imgFailed) {
-    return (
-      <span
-        aria-hidden="true"
-        className={`inline-flex items-center justify-center select-none ${className}`}
-        style={{ fontSize: sizeCss, lineHeight: 1 }}
-      >
-        {displayFallback}
-      </span>
-    );
-  }
-
-  const cleanTarget = targetId.replace(/^\/?emojis\//, '');
-  const isExplicitWebm = cleanTarget.endsWith('.webm');
-  const isExplicitWebp = cleanTarget.endsWith('.webp');
-
-  const isVideo =
-    isExplicitWebm ||
-    (!isExplicitWebp && (
-      WEBM_EMOJI_IDS.has(cleanTarget) ||
-      WEBM_EMOJI_NAMES.has(cleanTarget) ||
-      (Boolean(key) && WEBM_EMOJI_NAMES.has(key!))
-    ));
-
-  const assetSrc = isExplicitWebm || isExplicitWebp
-    ? `/emojis/${cleanTarget}`
-    : (isVideo ? `/emojis/${cleanTarget}.webm` : `/emojis/${cleanTarget}.webp`);
+  const displayChar = entry?.fallback || fallback || (typeof emoji === 'string' && !emoji.startsWith('5') && !emoji.startsWith('6') ? emoji : '✨');
 
   return (
     <span
-      className={`inline-flex items-center justify-center select-none ${className}`}
-      style={{ width: sizeCss, height: sizeCss, verticalAlign: '-0.15em' }}
+      aria-hidden="true"
+      className={className}
+      style={{
+        display: 'inline-block',
+        lineHeight: 1,
+        verticalAlign: '-0.1em',
+        fontSize: size ? (typeof size === 'number' ? `${size}px` : size) : undefined,
+      }}
     >
-      {isVideo ? (
-        <video
-          src={assetSrc}
-          autoPlay
-          loop
-          muted
-          playsInline
-          width={sizeNumber}
-          height={sizeNumber}
-          className="w-full h-full object-contain pointer-events-none"
-          onError={() => setFailedTarget(targetId)}
-        />
-      ) : (
-        <img
-          src={assetSrc}
-          alt={displayFallback}
-          width={sizeNumber}
-          height={sizeNumber}
-          loading="lazy"
-          className="w-full h-full object-contain pointer-events-none"
-          onError={() => setFailedTarget(targetId)}
-        />
-      )}
+      {displayChar}
     </span>
   );
 };

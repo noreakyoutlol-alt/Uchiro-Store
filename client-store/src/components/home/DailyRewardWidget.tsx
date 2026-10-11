@@ -75,7 +75,7 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
   };
 
   const handleClaim = async () => {
-    if (isClaiming || !status?.can_claim) return;
+    if (isClaiming || !status?.can_claim || countdown > 0) return;
     setIsClaiming(true);
     setClaimFeedback(null);
 
@@ -83,7 +83,7 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
       const res = await StoreAPI.claimDailyReward();
 
       if (res && res.success) {
-        const remaining = res.seconds_remaining ?? res.status?.seconds_remaining ?? 0;
+        const remaining = res.seconds_remaining ?? (res as any).remainingSeconds ?? res.status?.seconds_remaining ?? 86400;
         if (remaining > 0) {
           targetEndRef.current = Date.now() + remaining * 1000;
           setCountdown(remaining);
@@ -124,12 +124,12 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
           text: res.message || '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
         });
       } else {
-        const remaining = res?.seconds_remaining ?? res?.status?.seconds_remaining ?? 0;
+        const remaining = res?.seconds_remaining ?? (res as any)?.remainingSeconds ?? res?.status?.seconds_remaining ?? 0;
         if (remaining > 0) {
           targetEndRef.current = Date.now() + remaining * 1000;
           setCountdown(remaining);
         }
-        setStatus((prev) => (prev ? { ...prev, can_claim: false } : null));
+        setStatus((prev) => (prev ? { ...prev, can_claim: false, seconds_remaining: remaining } : null));
         setClaimFeedback({
           type: 'error',
           text: res?.message || 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
@@ -197,11 +197,11 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
           </div>
         </div>
 
-        {status?.can_claim ? (
+        {status?.can_claim && countdown <= 0 ? (
           <button
             onClick={handleClaim}
-            disabled={isClaiming}
-            className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#FFD166]/30 transition-all shrink-0 cursor-pointer"
+            disabled={isClaiming || countdown > 0 || !status?.can_claim}
+            className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#FFD166]/30 transition-all shrink-0 cursor-pointer disabled:opacity-50"
           >
             {isClaiming ? (
               <Loader2 className="w-3 h-3 animate-spin" />

@@ -2691,18 +2691,23 @@ export class DataStore {
   }
 
   static getDailyRewardStatus(telegramId: number): DailyRewardStatus {
+    const user = this.users.get(telegramId);
     const record = this.dailyRewards.get(telegramId);
     const now = Date.now();
-    const todayIndex = this.getPhnomPenhDayIndex(now);
+    const lastClaim = user?.last_daily_claim_at
+      ? new Date(user.last_daily_claim_at).getTime()
+      : (record?.lastClaimed || 0);
+    const cooldownMs = 24 * 60 * 60 * 1000;
 
     const baseReward = this.storeSettings.daily_reward_points || 5;
     const streakBonus = this.storeSettings.streak_bonus_points || 15;
     const streakInterval = this.storeSettings.streak_interval_days || 7;
 
-    // Calculate when next Phnom Penh day begins
-    const nextDayStartMs = (todayIndex + 1) * 24 * 60 * 60 * 1000 - this.PHNOM_PENH_OFFSET_MS;
+    const canClaim = lastClaim === 0 || (now - lastClaim >= cooldownMs);
+    const secondsRemaining = canClaim ? 0 : Math.ceil((cooldownMs - (now - lastClaim)) / 1000);
+    const nextClaimAt = canClaim ? null : new Date(lastClaim + cooldownMs).toISOString();
 
-    if (!record) {
+    if (!record && lastClaim === 0) {
       const streakDays: DailyStreakDay[] = [1, 2, 3, 4, 5, 6, 7].map((d) => ({
         day: d,
         points: d === 7 ? baseReward + streakBonus : baseReward,
@@ -2723,27 +2728,17 @@ export class DataStore {
       };
     }
 
-    const lastClaimDayIndex = this.getPhnomPenhDayIndex(record.lastClaimed);
-    const isSameDay = todayIndex === lastClaimDayIndex;
-    const isConsecutiveDay = todayIndex === lastClaimDayIndex + 1;
-    const canClaim = !isSameDay;
+    const isConsecutive = lastClaim > 0 && (now - lastClaim < 48 * 60 * 60 * 1000);
+    const currentStreak = record ? record.streak : 1;
+    const effectiveStreak = isConsecutive ? currentStreak : 1;
+    const nextStreak = canClaim ? (isConsecutive ? currentStreak + 1 : 1) : effectiveStreak;
 
-    let currentStreak = record.streak;
-    if (!isSameDay && !isConsecutiveDay) {
-      currentStreak = 1; // Missed day, streak resets to 1
-    }
-
-    const nextStreak = canClaim ? (isConsecutiveDay ? record.streak + 1 : 1) : currentStreak;
     const isBonusDay = nextStreak % streakInterval === 0;
     const rewardPoints = isBonusDay ? baseReward + streakBonus : baseReward;
 
-    const secondsRemaining = canClaim
-      ? 0
-      : Math.max(0, Math.ceil((nextDayStartMs - now) / 1000));
-
     const cycleDay = canClaim
       ? (nextStreak % 7 === 0 ? 7 : nextStreak % 7)
-      : (currentStreak % 7 === 0 ? 7 : currentStreak % 7);
+      : (effectiveStreak % 7 === 0 ? 7 : effectiveStreak % 7);
 
     const claimedDayCount = canClaim ? cycleDay - 1 : cycleDay;
 
@@ -2757,12 +2752,12 @@ export class DataStore {
 
     return {
       can_claim: canClaim,
-      current_streak: canClaim ? (isConsecutiveDay ? record.streak : 1) : currentStreak,
-      last_claimed_at: new Date(record.lastClaimed).toISOString(),
-      next_claim_at: canClaim ? null : new Date(nextDayStartMs).toISOString(),
+      current_streak: canClaim ? (isConsecutive ? currentStreak : 1) : effectiveStreak,
+      last_claimed_at: lastClaim > 0 ? new Date(lastClaim).toISOString() : null,
+      next_claim_at: nextClaimAt,
       seconds_remaining: secondsRemaining,
       reward_points: rewardPoints,
-      total_check_ins: record.totalPoints ? Math.round(record.totalPoints / 5) : record.streak,
+      total_check_ins: record?.totalPoints ? Math.round(record.totalPoints / 5) : effectiveStreak,
       streak_days: streakDays,
     };
   }
@@ -2774,48 +2769,10 @@ export class DataStore {
     newBalance: number;
     streak: number;
     seconds_remaining?: number;
+    remainingSeconds?: number;
     next_claim_at?: string | null;
     error?: string;
   } {
-    const status = this.getDailyRewardStatus(telegramId);
-    if (!status.can_claim) {
-      const currentPoints = this.users.get(telegramId)?.points ?? this.profiles.get(telegramId)?.points ?? 0;
-      return {
-        success: false,
-        points: currentPoints,
-        pointsAwarded: 0,
-        newBalance: currentPoints,
-        streak: status.current_streak,
-        seconds_remaining: status.seconds_remaining,
-        next_claim_at: status.next_claim_at,
-        error: 'ALREADY_CLAIMED_TODAY',
-      };
-    }
-
-    const record = this.dailyRewards.get(telegramId);
-    const now = Date.now();
-    const todayIndex = this.getPhnomPenhDayIndex(now);
-
-    let newStreak = 1;
-    if (record) {
-      const lastClaimDayIndex = this.getPhnomPenhDayIndex(record.lastClaimed);
-      if (todayIndex === lastClaimDayIndex + 1) {
-        newStreak = record.streak + 1;
-      }
-    }
-
-    const baseReward = this.storeSettings.daily_reward_points || 5;
-    const streakBonus = this.storeSettings.streak_bonus_points || 15;
-    const streakInterval = this.storeSettings.streak_interval_days || 7;
-    const isBonus = newStreak % streakInterval === 0;
-    const totalPointsAwarded = isBonus ? baseReward + streakBonus : baseReward;
-
-    this.dailyRewards.set(telegramId, {
-      lastClaimed: now,
-      streak: newStreak,
-      totalPoints: (record?.totalPoints || 0) + totalPointsAwarded,
-    });
-
     let user = this.users.get(telegramId);
     let profile = this.profiles.get(telegramId);
 
@@ -2828,9 +2785,50 @@ export class DataStore {
       profile = this.profiles.get(telegramId) || created.profile;
     }
 
-    const pointsAwarded = totalPointsAwarded;
+    const now = Date.now();
+    const lastClaim = user.last_daily_claim_at
+      ? new Date(user.last_daily_claim_at).getTime()
+      : (this.dailyRewards.get(telegramId)?.lastClaimed || 0);
+    const cooldownMs = 24 * 60 * 60 * 1000;
+
+    const record = this.dailyRewards.get(telegramId);
+    const streak = record?.streak || 1;
+
+    // Strict rolling 24-hour server lock
+    if (lastClaim > 0 && now - lastClaim < cooldownMs) {
+      const remainingSeconds = Math.ceil((cooldownMs - (now - lastClaim)) / 1000);
+      return {
+        success: false,
+        error: 'COOLDOWN_ACTIVE',
+        remainingSeconds,
+        seconds_remaining: remainingSeconds,
+        points: user.points || 0,
+        pointsAwarded: 0,
+        newBalance: user.points || 0,
+        streak,
+        next_claim_at: new Date(lastClaim + cooldownMs).toISOString(),
+      };
+    }
+
+    let newStreak = 1;
+    if (lastClaim > 0 && now - lastClaim < 48 * 60 * 60 * 1000) {
+      newStreak = streak + 1;
+    }
+
+    const baseReward = this.storeSettings.daily_reward_points || 5;
+    const streakBonus = this.storeSettings.streak_bonus_points || 15;
+    const streakInterval = this.storeSettings.streak_interval_days || 7;
+    const isBonus = newStreak % streakInterval === 0;
+    const pointsAwarded = isBonus ? baseReward + streakBonus : baseReward;
+
+    this.dailyRewards.set(telegramId, {
+      lastClaimed: now,
+      streak: newStreak,
+      totalPoints: (record?.totalPoints || 0) + pointsAwarded,
+    });
+
     user.points = (user.points || 0) + pointsAwarded;
-    user.last_daily_claim_at = new Date().toISOString();
+    user.last_daily_claim_at = new Date(now).toISOString();
     if (profile) {
       profile.points = user.points;
       profile.loyalty_points = user.points;
@@ -2846,13 +2844,12 @@ export class DataStore {
       description: isBonus ? `+${pointsAwarded} Daily Reward & Streak Bonus` : `+${pointsAwarded} Daily Reward`,
       reference_id: null,
       balance_after: user.points,
-      created_at: new Date().toISOString(),
+      created_at: new Date(now).toISOString(),
     };
     this.pointLedger.unshift(ledgerEntry);
 
-    const nextDayStartMs = (todayIndex + 1) * 24 * 60 * 60 * 1000 - this.PHNOM_PENH_OFFSET_MS;
-    const secondsRemaining = Math.max(0, Math.ceil((nextDayStartMs - now) / 1000));
-    const nextClaimAt = new Date(nextDayStartMs).toISOString();
+    const secondsRemaining = Math.ceil(cooldownMs / 1000);
+    const nextClaimAt = new Date(now + cooldownMs).toISOString();
 
     this.saveToDisk();
     return {
@@ -2861,6 +2858,7 @@ export class DataStore {
       pointsAwarded,
       newBalance: user.points,
       streak: newStreak,
+      remainingSeconds: secondsRemaining,
       seconds_remaining: secondsRemaining,
       next_claim_at: nextClaimAt,
     };

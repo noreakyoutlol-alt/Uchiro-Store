@@ -115,45 +115,33 @@ const storeDist = [
 console.log('[Static Check] Admin Dist Path:', adminDist, 'Exists:', fs.existsSync(adminDist));
 console.log('[Static Check] Store Dist Path:', storeDist, 'Exists:', fs.existsSync(storeDist));
 
-// Strict redirect before static mount (only when path lacks trailing slash)
-app.get('/admin', (req, res, next) => {
+// Enforce trailing slash redirect preserving query strings
+app.use((req, res, next) => {
   if (req.path === '/admin') {
-    return res.redirect(301, '/admin/');
+    const q = req.url.slice(req.path.length);
+    return res.redirect(301, '/admin/' + q);
   }
-  return next();
+  next();
 });
 
-// Mount Admin assets
-app.use(
-  '/admin',
-  express.static(adminDist, {
-    maxAge: '1y',
-    immutable: true,
-    index: false,
-  })
-);
+// Mount Admin static assets FIRST
+app.use('/admin', express.static(adminDist, { index: false }));
 
-// Direct Admin SPA fallback
-app.get('/admin/*', (req, res, next) => {
+// Admin SPA Fallback (strictly handles /admin/ and /admin/*)
+app.get(['/admin', '/admin/*'], (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) return next();
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   const adminIndex = path.join(adminDist, 'index.html');
   if (fs.existsSync(adminIndex)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.sendFile(adminIndex);
   }
-  return res.status(404).send('Admin SPA build not found at: ' + adminIndex);
+  return res.status(404).send('Admin SPA build not found');
 });
 
-// Mount Store assets
-app.use(
-  express.static(storeDist, {
-    maxAge: '1y',
-    immutable: true,
-    index: false,
-  })
-);
+// Mount Store static assets SECOND
+app.use(express.static(storeDist));
 
-// Direct Store SPA fallback
+// Store SPA Fallback
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/webhook') || req.path.startsWith('/admin')) {
     return next();
@@ -163,7 +151,7 @@ app.get('*', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return res.sendFile(storeIndex);
   }
-  return res.status(404).send('Store SPA build not found at: ' + storeIndex);
+  return res.status(404).send('Store SPA build not found');
 });
 
 // Central Error Handler

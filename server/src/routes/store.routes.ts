@@ -254,24 +254,27 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
   const currentBalance = profile?.points ?? result.newBalance ?? user.points ?? 0;
 
   if (!result.success) {
+    const remSec = result.seconds_remaining ?? (result as any).remainingSeconds ?? status.seconds_remaining ?? 0;
     return res.json({
       success: false,
-      error: result.error || 'ALREADY_CLAIMED_TODAY',
+      error: result.error || 'COOLDOWN_ACTIVE',
+      remainingSeconds: remSec,
+      seconds_remaining: remSec,
       points: currentBalance,
       pointsAwarded: 0,
       newBalance: currentBalance,
       streak: result.streak,
-      seconds_remaining: status.seconds_remaining,
       next_claim_at: status.next_claim_at,
       message: 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
       data: {
         ...status,
         success: false,
+        remainingSeconds: remSec,
+        seconds_remaining: remSec,
         points: currentBalance,
         pointsAwarded: 0,
         newBalance: currentBalance,
         streak: result.streak,
-        seconds_remaining: status.seconds_remaining,
         next_claim_at: status.next_claim_at,
       },
     });
