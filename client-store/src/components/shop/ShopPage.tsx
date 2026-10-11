@@ -13,6 +13,7 @@ import { Product, Category } from '../../types';
 import { ProductCard } from '../product/ProductCard';
 import { useLanguage } from '../../context/LanguageContext';
 import { CollectionsGrid, GAME_COLLECTIONS } from '../home/CollectionsGrid';
+import { CategoryIcon } from '../../config/emoji';
 
 interface ShopPageProps {
   products: Product[];
@@ -285,13 +286,13 @@ export const ShopPage: React.FC<ShopPageProps> = ({
               activeCollectionMeta?.containerClass || 'bg-amber-950/40 border-amber-500/50'
             } ${activeCollectionMeta?.glowClass || ''}`}
           >
-            {activeCollectionMeta?.emoji ? (
-              <span className="text-base select-none" role="img" aria-label={activeCollectionMeta.name}>
-                {activeCollectionMeta.emoji}
-              </span>
-            ) : (
-              <CollectionIcon className="w-4 h-4" />
-            )}
+            <CategoryIcon
+              slug={activeCollectionMeta?.slug}
+              name={activeCollectionMeta?.name}
+              fallbackEmoji={activeCollectionMeta?.emoji}
+              className="w-5 h-5"
+              imgClassName="w-5 h-5 object-contain"
+            />
           </div>
           <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight">
             {activeCollectionMeta?.name || 'Collection'}

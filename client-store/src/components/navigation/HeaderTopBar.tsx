@@ -127,6 +127,7 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
     };
 
     window.addEventListener('uchiro_points_updated', handlePointsEvent);
+    window.addEventListener('uchiro_points_sync', handlePointsEvent);
 
     return () => {
       isMounted = false;
@@ -135,6 +136,7 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
       window.removeEventListener('uchiro_points_updated', handlePointsEvent);
+      window.removeEventListener('uchiro_points_sync', handlePointsEvent);
     };
   }, []);
 

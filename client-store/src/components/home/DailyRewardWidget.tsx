@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Gift, Flame, CheckCircle, Sparkles, Loader2, Crown, Clock } from 'lucide-react';
 import { StoreAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
-import { DailyRewardStatus } from '../../types';
+import { DailyRewardStatus, TelegramUser } from '../../types';
 
 interface DailyRewardWidgetProps {
+  user?: TelegramUser | null;
   onRewardClaimed?: (newBalance: number) => void;
 }
 
-export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardClaimed }) => {
+export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ user, onRewardClaimed }) => {
   const { t } = useLanguage();
   const [status, setStatus] = useState<DailyRewardStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,6 +18,14 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
   const targetEndRef = useRef<number>(0);
 
   const [claimFeedback, setClaimFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Hard-lock: check both prop user and API status timestamp
+  const isClaimedToday = Boolean(
+    (user?.last_daily_claim_at && (Date.now() - new Date(user.last_daily_claim_at).getTime() < 86400000)) ||
+    (status?.last_claimed_at && (Date.now() - new Date(status.last_claimed_at).getTime() < 86400000)) ||
+    (status && !status.can_claim) ||
+    countdown > 0
+  );
 
   useEffect(() => {
     loadStatus();
@@ -75,7 +84,7 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
   };
 
   const handleClaim = async () => {
-    if (isClaiming || !status?.can_claim || countdown > 0) return;
+    if (isClaiming || isClaimedToday || !status?.can_claim || countdown > 0) return;
     setIsClaiming(true);
     setClaimFeedback(null);
 
@@ -197,7 +206,19 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
           </div>
         </div>
 
-        {status?.can_claim && countdown <= 0 ? (
+        {isClaimedToday ? (
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/90 border border-slate-700/80 text-slate-400 text-[11px] font-bold shrink-0 select-none cursor-default"
+          >
+            <span className="text-emerald-400">✓ បានយកថ្ងៃនេះរួចហើយ</span>
+            {countdown > 0 && (
+              <span className="tabular-nums tracking-wide text-slate-300 font-mono flex items-center gap-1 border-l border-slate-700 pl-1.5">
+                <Clock className="w-3 h-3 text-[#FFD166]" />
+                {formatCountdown(countdown)}
+              </span>
+            )}
+          </div>
+        ) : (
           <button
             onClick={handleClaim}
             disabled={isClaiming || countdown > 0 || !status?.can_claim}
@@ -210,13 +231,6 @@ export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ onRewardCl
             )}
             <span>+{status?.reward_points || 5} Pts</span>
           </button>
-        ) : (
-          <div
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800/90 border border-slate-700/80 text-slate-300 text-[11px] font-bold shrink-0 select-none cursor-default"
-          >
-            <Clock className="w-3.5 h-3.5 text-[#FFD166]" />
-            <span className="tabular-nums tracking-wide">{formatCountdown(countdown)}</span>
-          </div>
         )}
       </div>
 

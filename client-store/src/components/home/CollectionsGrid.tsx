@@ -1,10 +1,12 @@
 import React from 'react';
 import { Product } from '../../types';
+import { CategoryIcon } from '../../config/emoji';
 
 export interface GameCollectionItem {
   name: string;
   slug: string;
   emoji: string;
+  asset?: string;
   icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   auraColor: string;
   glowClass: string;
@@ -19,6 +21,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Blox Fruits',
     slug: 'blox-fruits',
     emoji: '⚔️',
+    asset: '/emojis/sword.webp',
     auraColor: '#F59E0B',
     glowClass: 'shadow-[0_0_20px_rgba(245,158,11,0.35)]',
     containerClass: 'bg-amber-950/40 border border-amber-500/50 text-amber-400',
@@ -30,6 +33,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'MM2',
     slug: 'murder-mystery-2',
     emoji: '🔪',
+    asset: '/emojis/knife.webp',
     auraColor: '#EF4444',
     glowClass: 'shadow-[0_0_20px_rgba(239,68,68,0.35)]',
     containerClass: 'bg-red-950/40 border border-red-500/50 text-red-400',
@@ -41,6 +45,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Rivals',
     slug: 'rivals',
     emoji: '🎯',
+    asset: '/emojis/target.webp',
     auraColor: '#06B6D4',
     glowClass: 'shadow-[0_0_20px_rgba(6,182,212,0.35)]',
     containerClass: 'bg-cyan-950/40 border border-cyan-500/50 text-cyan-400',
@@ -52,6 +57,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Blade Ball',
     slug: 'blade-ball',
     emoji: '⚡',
+    asset: '/emojis/lightning.webp',
     auraColor: '#A855F7',
     glowClass: 'shadow-[0_0_20px_rgba(168,85,247,0.35)]',
     containerClass: 'bg-purple-950/40 border border-purple-500/50 text-purple-400',
@@ -63,6 +69,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Evade',
     slug: 'evade',
     emoji: '🏃',
+    asset: '/emojis/runner.webp',
     auraColor: '#10B981',
     glowClass: 'shadow-[0_0_20px_rgba(16,185,129,0.35)]',
     containerClass: 'bg-emerald-950/40 border border-emerald-500/50 text-emerald-400',
@@ -74,6 +81,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Steal Egg',
     slug: 'steal-egg',
     emoji: '🥚',
+    asset: '/emojis/egg.webp',
     auraColor: '#EAB308',
     glowClass: 'shadow-[0_0_20px_rgba(234,179,8,0.35)]',
     containerClass: 'bg-yellow-950/40 border border-yellow-500/50 text-yellow-400',
@@ -85,6 +93,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Gamepasses',
     slug: 'gamepasses',
     emoji: '🎟️',
+    asset: '/emojis/ticket.webp',
     auraColor: '#EC4899',
     glowClass: 'shadow-[0_0_20px_rgba(236,72,153,0.35)]',
     containerClass: 'bg-pink-950/40 border border-pink-500/50 text-pink-400',
@@ -96,6 +105,7 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
     name: 'Other',
     slug: 'other',
     emoji: '🎮',
+    asset: '/emojis/package.webm',
     auraColor: '#818CF8',
     glowClass: 'shadow-[0_0_20px_rgba(129,140,248,0.35)]',
     containerClass: 'bg-indigo-950/40 border border-indigo-500/50 text-indigo-400',
@@ -134,9 +144,13 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
                 <div
                   className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${c.containerClass}`}
                 >
-                  <span className="text-xl select-none" role="img" aria-label={c.name}>
-                    {c.emoji}
-                  </span>
+                  <CategoryIcon
+                    slug={c.slug}
+                    name={c.name}
+                    fallbackEmoji={c.emoji}
+                    className="w-6 h-6"
+                    imgClassName="w-6 h-6 object-contain"
+                  />
                 </div>
 
                 <div className="min-w-0">
@@ -171,9 +185,13 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
             <div
               className={`w-10 h-10 rounded-xl border flex items-center justify-center mb-1 transition-transform duration-200 group-hover:scale-105 ${c.containerClass}`}
             >
-              <span className="text-lg sm:text-xl select-none" role="img" aria-label={c.name}>
-                {c.emoji}
-              </span>
+              <CategoryIcon
+                slug={c.slug}
+                name={c.name}
+                fallbackEmoji={c.emoji}
+                className="w-6 h-6"
+                imgClassName="w-6 h-6 object-contain"
+              />
             </div>
 
             <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 text-center truncate max-w-full group-hover:text-amber-400 transition-colors">

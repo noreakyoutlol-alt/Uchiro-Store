@@ -99,21 +99,25 @@ app.use('/api/gacha', gachaRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/bots', botsRouter);
 
-// Resolve frontend paths dynamically to prevent Railway container breaks
-const adminDist = [
+// Resolve frontend paths dynamically to guarantee Railway production reliability
+const adminDistCandidates = [
   path.resolve(process.cwd(), 'client-admin/dist'),
+  path.resolve(process.cwd(), '../client-admin/dist'),
   path.resolve(__dirname, '../../client-admin/dist'),
   path.resolve(__dirname, '../../../client-admin/dist'),
-].find(p => fs.existsSync(p)) || path.resolve(process.cwd(), 'client-admin/dist');
+];
+const adminDist = adminDistCandidates.find(p => fs.existsSync(path.join(p, 'index.html'))) || adminDistCandidates[0];
 
-const storeDist = [
+const storeDistCandidates = [
   path.resolve(process.cwd(), 'client-store/dist'),
+  path.resolve(process.cwd(), '../client-store/dist'),
   path.resolve(__dirname, '../../client-store/dist'),
   path.resolve(__dirname, '../../../client-store/dist'),
-].find(p => fs.existsSync(p)) || path.resolve(process.cwd(), 'client-store/dist');
+];
+const storeDist = storeDistCandidates.find(p => fs.existsSync(path.join(p, 'index.html'))) || storeDistCandidates[0];
 
-console.log('[Static Check] Admin Dist Path:', adminDist, 'Exists:', fs.existsSync(adminDist));
-console.log('[Static Check] Store Dist Path:', storeDist, 'Exists:', fs.existsSync(storeDist));
+console.log(`[Railway Verify] Admin dist index.html exists: ${fs.existsSync(path.join(adminDist, 'index.html'))} at ${adminDist}`);
+console.log(`[Railway Verify] Store dist index.html exists: ${fs.existsSync(path.join(storeDist, 'index.html'))} at ${storeDist}`);
 
 // Helper: Detect Telegram Mini App Context
 export function isTelegramMiniApp(req: express.Request): boolean {
@@ -154,7 +158,33 @@ export function isTelegramMiniApp(req: express.Request): boolean {
   return hasTgQuery || hasTgUA || hasTgHeader || hasTgReferer || hasAdminSession;
 }
 
-// Serve Admin static assets (JS/CSS) under /admin
+// Mount static emojis
+const storeEmojiCandidates = [
+  path.resolve(process.cwd(), 'client-store/public/emojis'),
+  path.resolve(process.cwd(), '../client-store/public/emojis'),
+  path.resolve(__dirname, '../../client-store/public/emojis'),
+  path.resolve(__dirname, '../../../client-store/public/emojis'),
+];
+const storeEmojiDir = storeEmojiCandidates.find(p => fs.existsSync(p)) || storeEmojiCandidates[0];
+if (fs.existsSync(storeEmojiDir)) {
+  app.use('/emojis', express.static(storeEmojiDir, { maxAge: '7d', immutable: true }));
+  app.use('/admin/emojis', express.static(storeEmojiDir, { maxAge: '7d', immutable: true }));
+}
+
+// Cloaked Admin Portal Middleware
+app.use('/admin', (req, res, next) => {
+  if (req.path.startsWith('/emojis')) return next();
+  // 1. If public browser: Return hard 404
+  if (!isTelegramMiniApp(req)) {
+    res.status(404);
+    const storeIndex = path.join(storeDist, 'index.html');
+    if (fs.existsSync(storeIndex)) return res.sendFile(storeIndex);
+    return res.send('Cannot GET ' + req.originalUrl);
+  }
+  next();
+});
+
+// Serve Admin static assets (JS/CSS) under /admin when allowed
 app.use(
   '/admin',
   express.static(adminDist, {
@@ -172,7 +202,7 @@ app.use(
 
 // Cloaked Admin SPA route
 app.all(['/admin', '/admin/*'], (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/webhook') || req.path.startsWith('/admin/emojis')) {
     return next();
   }
 

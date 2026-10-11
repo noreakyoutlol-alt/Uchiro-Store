@@ -9,6 +9,11 @@
     "client-admin"
   ],
   "scripts": {
+    "install:all": "npm install && npm install --prefix client-admin && npm install --prefix client-store && npm install --prefix server",
+    "build:admin": "npm run build --prefix client-admin",
+    "build:store": "npm run build --prefix client-store",
+    "build:server": "npm run build --prefix server",
+    "build": "npm run build:admin && npm run build:store && npm run build:server",
     "start": "node server/dist/production.js",
     "dev": "concurrently -n \"API,STORE,ADMIN,BOTS\" -c \"cyan,green,magenta,yellow\" \"npm run dev:api\" \"npm run dev:store\" \"npm run dev:admin\" \"npm run dev:bots\"",
     "dev:store": "npm run --workspace=client-store dev",
@@ -16,8 +21,7 @@
     "dev:api": "npm run --workspace=server dev",
     "dev:bots": "npm run --workspace=server dev:bots",
     "test": "npm run --workspace=server test",
-    "typecheck": "npm run --workspace=server typecheck && npm run --workspace=client-store typecheck && npm run --workspace=client-admin typecheck",
-    "build": "npm run --workspace=server build && npm run --workspace=client-store build && npm run --workspace=client-admin build"
+    "typecheck": "npm run --workspace=server typecheck && npm run --workspace=client-store typecheck && npm run --workspace=client-admin typecheck"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

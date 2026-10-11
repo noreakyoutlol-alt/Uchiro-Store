@@ -433,6 +433,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
 
       {/* 2. Daily Check-in Reward (Section 30: Dedicated in Profile / Rewards) */}
       <DailyRewardWidget
+        user={user}
         onRewardClaimed={() => {
           if (onRefreshProfile) onRefreshProfile();
           loadProfileStats();

@@ -2542,6 +2542,20 @@ export class DataStore {
     return this.users.get(telegramId) || null;
   }
 
+  static async saveUser(user: TelegramUser): Promise<void> {
+    if (user && typeof user.telegram_id === 'number') {
+      this.users.set(user.telegram_id, user);
+      const profile = this.profiles.get(user.telegram_id);
+      if (profile) {
+        profile.points = user.points || 0;
+        profile.loyalty_points = user.points || 0;
+        profile.reward_points = user.points || 0;
+        profile.last_daily_claim_at = user.last_daily_claim_at || null;
+      }
+      this.saveToDisk();
+    }
+  }
+
   static setUserLanguagePreference(telegramId: number, lang: string): TelegramUser | null {
     const user = this.users.get(telegramId);
     if (!user) return null;
@@ -2770,7 +2784,10 @@ export class DataStore {
     streak: number;
     seconds_remaining?: number;
     remainingSeconds?: number;
+    remainingMs?: number;
     next_claim_at?: string | null;
+    nextClaimAt?: string | null;
+    message?: string;
     error?: string;
   } {
     let user = this.users.get(telegramId);
@@ -2796,16 +2813,20 @@ export class DataStore {
 
     // Strict rolling 24-hour server lock
     if (lastClaim > 0 && now - lastClaim < cooldownMs) {
-      const remainingSeconds = Math.ceil((cooldownMs - (now - lastClaim)) / 1000);
+      const remainingMs = cooldownMs - (now - lastClaim);
+      const remainingSeconds = Math.ceil(remainingMs / 1000);
       return {
         success: false,
         error: 'ALREADY_CLAIMED_TODAY',
+        message: 'You have already claimed your daily reward today.',
+        remainingMs,
         remainingSeconds,
         seconds_remaining: remainingSeconds,
         points: user.points || 0,
         pointsAwarded: 0,
         newBalance: user.points || 0,
         streak,
+        nextClaimAt: new Date(lastClaim + cooldownMs).toISOString(),
         next_claim_at: new Date(lastClaim + cooldownMs).toISOString(),
       };
     }
@@ -2858,8 +2879,10 @@ export class DataStore {
       pointsAwarded,
       newBalance: user.points,
       streak: newStreak,
+      remainingMs: cooldownMs,
       remainingSeconds: secondsRemaining,
       seconds_remaining: secondsRemaining,
+      nextClaimAt,
       next_claim_at: nextClaimAt,
     };
   }

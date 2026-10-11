@@ -255,30 +255,46 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
 
   if (!result.success) {
     const remSec = result.seconds_remaining ?? (result as any).remainingSeconds ?? status.seconds_remaining ?? 0;
-    return res.json({
+    const remMs = (result as any).remainingMs ?? (remSec * 1000);
+    const nextClaimAt = (result as any).nextClaimAt || (result as any).next_claim_at || status.next_claim_at;
+    const isExplicitUserClaimDaily = req.path.endsWith('/claim-daily');
+
+    const errPayload = {
       success: false,
-      error: result.error || 'COOLDOWN_ACTIVE',
+      error: isExplicitUserClaimDaily ? 'ALREADY_CLAIMED' : (result.error || 'ALREADY_CLAIMED_TODAY'),
+      message: 'You have already claimed your daily reward today.',
+      remainingMs: remMs,
       remainingSeconds: remSec,
       seconds_remaining: remSec,
       points: currentBalance,
       pointsAwarded: 0,
       newBalance: currentBalance,
       streak: result.streak,
-      next_claim_at: status.next_claim_at,
-      message: 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
+      nextClaimAt,
+      next_claim_at: nextClaimAt,
       data: {
         ...status,
         success: false,
+        remainingMs: remMs,
         remainingSeconds: remSec,
         seconds_remaining: remSec,
         points: currentBalance,
         pointsAwarded: 0,
         newBalance: currentBalance,
         streak: result.streak,
-        next_claim_at: status.next_claim_at,
+        nextClaimAt,
+        next_claim_at: nextClaimAt,
       },
-    });
+    };
+
+    if (isExplicitUserClaimDaily) {
+      return res.status(400).json(errPayload);
+    }
+    return res.json(errPayload);
   }
+
+  const nextClaimAt = (result as any).nextClaimAt || (result as any).next_claim_at || status.next_claim_at;
+  const remSec = status.seconds_remaining ?? 86400;
 
   return res.json({
     success: true,
@@ -286,8 +302,9 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
     pointsAwarded: result.pointsAwarded,
     newBalance: result.newBalance,
     streak: result.streak,
-    seconds_remaining: status.seconds_remaining,
-    next_claim_at: status.next_claim_at,
+    seconds_remaining: remSec,
+    nextClaimAt,
+    next_claim_at: nextClaimAt,
     message: `🎉 ទទួលបាន +${result.pointsAwarded} ពិន្ទុជោគជ័យ!`,
     data: {
       ...status,
@@ -296,8 +313,9 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
       pointsAwarded: result.pointsAwarded,
       newBalance: result.newBalance,
       streak: result.streak,
-      seconds_remaining: status.seconds_remaining,
-      next_claim_at: status.next_claim_at,
+      seconds_remaining: remSec,
+      nextClaimAt,
+      next_claim_at: nextClaimAt,
       message: `🎉 ទទួលបាន +${result.pointsAwarded} ពិន្ទុជោគជ័យ!`,
     },
   });
@@ -308,12 +326,15 @@ storeRouter.get('/daily-reward', handleDailyRewardStatus);
 storeRouter.get('/daily-reward/status', handleDailyRewardStatus);
 storeRouter.get('/daily-status', handleDailyRewardStatus);
 storeRouter.get('/gacha/daily-status', handleDailyRewardStatus);
+storeRouter.get('/user/daily-status', handleDailyRewardStatus);
 
 // Claim Daily Reward (Requirement 34: Must be manually claimed)
 storeRouter.post('/daily-reward/claim', handleDailyRewardClaim);
 storeRouter.post('/daily-claim', handleDailyRewardClaim);
 storeRouter.post('/claim-points', handleDailyRewardClaim);
 storeRouter.post('/gacha/daily-claim', handleDailyRewardClaim);
+storeRouter.post('/user/claim-daily', handleDailyRewardClaim);
+storeRouter.post('/claim-daily', handleDailyRewardClaim);
 
 // Point Ledger (Requirement 67)
 storeRouter.get('/points/ledger', requireTelegramAuth, (req: RequestWithAuth, res) => {
