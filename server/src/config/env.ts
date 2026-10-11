@@ -88,8 +88,8 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   ADMIN_JWT_SECRET: z.string().default('super_secure_uchiro_v3_admin_jwt_secret_min_32_chars_long'),
   ADMIN_JWT_EXPIRES_IN: z.string().default('24h'),
-  ENCRYPTION_KEY: z.string().default('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'),
-  CREDENTIALS_ENCRYPTION_KEY: z.string().default('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'),
+  ENCRYPTION_KEY: z.string().default('0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdef'),
+  CREDENTIALS_ENCRYPTION_KEY: z.string().default('0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdef'),
 
   // Supabase (SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY for backend only; SUPABASE_PUBLISHABLE_KEY / SUPABASE_ANON_KEY for frontend)
   SUPABASE_URL: z.string().default('https://your-project-id.supabase.co'),
@@ -118,11 +118,11 @@ const envSchema = z.object({
     .transform((val) => val.replace(/^@/, '').trim()),
   ADMIN_BOT_WEBHOOK_URL: z.string().default('http://localhost:5000/api/webhook/admin-bot'),
   ADMIN_BOT_WEBHOOK_SECRET: z.string().default('uchiro_admin_webhook_secret_key_v3'),
-  ADMIN_TELEGRAM_USER_IDS: z.string().default('123456789,987654321').transform((val) =>
-    val.split(',').map((id) => Number(id.trim())).filter((id) => !isNaN(id))
+  ADMIN_TELEGRAM_USER_IDS: z.string().default('').transform((val) =>
+    val.split(',').map((id) => Number(id.trim())).filter((id) => !isNaN(id) && id > 0)
   ),
-  ADMIN_TELEGRAM_IDS: z.string().default('123456789,987654321').transform((val) =>
-    val.split(',').map((id) => Number(id.trim())).filter((id) => !isNaN(id))
+  ADMIN_TELEGRAM_IDS: z.string().default('').transform((val) =>
+    val.split(',').map((id) => Number(id.trim())).filter((id) => !isNaN(id) && id > 0)
   ),
 
   // KHPay Payment Gateway (Streamlined: URL + API Key with Bearer Auth)
@@ -161,7 +161,7 @@ const defaultSupabasePublishable =
 const adminIds =
   process.env.ADMIN_TELEGRAM_IDS ||
   process.env.ADMIN_TELEGRAM_USER_IDS ||
-  '123456789,987654321';
+  '';
 
 const publicUrl =
   process.env.PUBLIC_URL ||
@@ -223,8 +223,8 @@ const parsed = envSchema.safeParse({
   CLIENT_STORE_URL: resolvedStoreWebappUrl,
   ADMIN_WEBAPP_URL: resolvedAdminWebappUrl,
   CLIENT_ADMIN_URL: resolvedAdminWebappUrl,
-  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || process.env.CREDENTIALS_ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-  CREDENTIALS_ENCRYPTION_KEY: process.env.CREDENTIALS_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || process.env.CREDENTIALS_ENCRYPTION_KEY || '0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdef',
+  CREDENTIALS_ENCRYPTION_KEY: process.env.CREDENTIALS_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY || '0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdef',
   KHPAY_BASE_URL: khpayBaseUrl,
   KHPAY_API_URL: khpayBaseUrl,
 });

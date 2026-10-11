@@ -193,7 +193,7 @@ export function resolveTelegramIdFromReq(req: RequestWithAuth): number | null {
     });
     return id;
   }
-  return 6594079594;
+  return null;
 }
 
 export const handleDailyRewardStatus = (req: RequestWithAuth, res: any) => {
@@ -227,15 +227,18 @@ export const handleDailyRewardStatus = (req: RequestWithAuth, res: any) => {
 };
 
 export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
-  const tgId = Number(
+  const resolved =
     req.user?.telegram_id ||
     req.body?.telegramId ||
     req.body?.telegram_id ||
     req.query?.telegramId ||
     req.query?.telegram_id ||
-    req.headers['x-telegram-id'] ||
-    6594079594
-  );
+    req.headers['x-telegram-id'];
+
+  if (!resolved || isNaN(Number(resolved))) {
+    return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
+  }
+  const tgId = Number(resolved);
 
   let user = DataStore.getTelegramUser(tgId);
   if (!user) {

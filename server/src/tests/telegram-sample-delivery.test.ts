@@ -4,7 +4,7 @@ import { FulfillmentService } from '../services/fulfillment.service';
 import { generateReceiptPdf } from '../utils/receipt.util';
 
 describe('Telegram Account Delivery & Sample Dispatch Verification', () => {
-  const targetTelegramId = 6594079594;
+  const targetTelegramId = Number(process.env.TEST_TELEGRAM_ID || 999888777);
   const sampleOrderId = `ORD-SAMPLE-${Date.now()}`;
   const sampleOrderNumber = 'UCH-998877';
   const sampleUsername = 'UchiroLuxuryGod';

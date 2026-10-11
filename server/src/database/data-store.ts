@@ -28,10 +28,14 @@ import {
   StoreSettings,
   DeliveryAccessLog,
   DeliveryAccessAction,
+  DeliveredAccount,
 } from '../types';
 import { encrypt, decrypt } from '../security/encryption';
 import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
+import { env } from '../config/env';
+
+export type { DeliveredAccount };
 
 // Seed Categories
 const initialCategories: Category[] = [
@@ -729,7 +733,7 @@ export class DataStore {
   private static adminUsers: AdminUser[] = [
     {
       id: uuidv4(),
-      telegram_id: 123456789,
+      telegram_id: env.ADMIN_TELEGRAM_USER_IDS[0] || 999999999,
       username: 'uchiro_founder',
       display_name: 'Uchiro Founder',
       role: 'superadmin',
@@ -1621,93 +1625,16 @@ export class DataStore {
     return { success: true, order };
   }
 
-  private static readonly PERSIST_FILE = path.resolve(__dirname, '../../data/store-data.json');
-
   public static saveToDisk(): void {
-    this.persistToDisk();
+    // Disk sync removed in V3 (ephemeral filesystem on Railway)
   }
 
   public static persistToDisk(): void {
-    if (process.env.NODE_ENV === 'test') return;
-    try {
-      const dir = path.dirname(this.PERSIST_FILE);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      const data = {
-        orders: this.orders,
-        inventory: this.inventory.map((i) => ({
-          id: i.id,
-          product_id: i.product_id,
-          status: i.status,
-          is_sold: i.is_sold,
-          order_id: i.order_id,
-        })),
-        users: Array.from(this.users.values()),
-        profiles: Array.from(this.profiles.values()),
-        dailyRewards: Array.from(this.dailyRewards.entries()).map(([k, v]) => ({
-          telegramId: k,
-          ...v,
-        })),
-        pointLedger: this.pointLedger,
-      };
-      fs.writeFileSync(this.PERSIST_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    } catch {
-      // Non-fatal fallback for tests or read-only disks
-    }
+    // Disk sync removed in V3 (ephemeral filesystem on Railway)
   }
 
   public static loadFromDisk(): void {
-    if (process.env.NODE_ENV === 'test') return;
-    try {
-      if (!fs.existsSync(this.PERSIST_FILE)) return;
-      const raw = fs.readFileSync(this.PERSIST_FILE, 'utf-8');
-      if (!raw || !raw.trim()) return;
-      const data = JSON.parse(raw);
-      if (Array.isArray(data.orders)) {
-        this.orders = data.orders;
-      }
-      if (Array.isArray(data.inventory)) {
-        data.inventory.forEach((saved: any) => {
-          const item = this.inventory.find((i) => i.id === saved.id);
-          if (item) {
-            item.status = saved.status;
-            item.is_sold = saved.is_sold;
-            item.order_id = saved.order_id;
-          }
-        });
-      }
-      if (Array.isArray(data.users)) {
-        data.users.forEach((u: TelegramUser) => {
-          if (u && typeof u.telegram_id === 'number') {
-            this.users.set(u.telegram_id, u);
-          }
-        });
-      }
-      if (Array.isArray(data.profiles)) {
-        data.profiles.forEach((p: Profile) => {
-          if (p && typeof p.telegram_id === 'number') {
-            this.profiles.set(p.telegram_id, p);
-          }
-        });
-      }
-      if (Array.isArray(data.dailyRewards)) {
-        data.dailyRewards.forEach((r: any) => {
-          if (r && typeof r.telegramId === 'number') {
-            this.dailyRewards.set(r.telegramId, {
-              lastClaimed: r.lastClaimed,
-              streak: r.streak,
-              totalPoints: r.totalPoints,
-            });
-          }
-        });
-      }
-      if (Array.isArray(data.pointLedger)) {
-        this.pointLedger = data.pointLedger;
-      }
-    } catch {
-      // Non-fatal fallback for tests or unformatted files
-    }
+    // Disk sync removed in V3 (ephemeral filesystem on Railway)
   }
 
   static shouldAlertLowStock(productId: string, currentStock: number): boolean {
@@ -3453,6 +3380,70 @@ export class DataStore {
     };
   }
 
+  // ================= STRUCTURED DELIVERED ACCOUNT RETRIEVAL =================
+  static getDeliveredAccountsByTelegramId(telegramId: number | string): DeliveredAccount[] {
+    const numericId = Number(telegramId);
+    const userOrders = this.orders.filter(
+      (o) => o.telegram_id === numericId || String(o.telegram_id) === String(telegramId)
+    );
+    const deliveredAccounts: DeliveredAccount[] = [];
+
+    for (const order of userOrders) {
+      if (!order.delivery_credentials || order.delivery_credentials.length === 0) {
+        continue;
+      }
+      order.delivery_credentials.forEach((cred, idx) => {
+        if (!cred) return;
+        // Skip pure digital code vouchers if they don't have account structure
+        if (cred.type === 'code' && !cred.username && !cred.password) return;
+
+        const accountId = cred.account_id || `${order.id}_acc_${idx}`;
+        const orderCode = order.order_number || order.id;
+        const gameTitle =
+          order.product_title || order.items?.[0]?.product_title || 'Gaming Account';
+        const username = cred.username || cred.login || 'N/A';
+        const password = cred.password || '';
+        const twoFactorSecret = cred.two_factor || cred.authenticator_secret || undefined;
+        const backupCodes = Array.isArray(cred.backup_codes)
+          ? cred.backup_codes
+          : cred.backup_codes
+          ? [cred.backup_codes]
+          : undefined;
+        const notes = cred.notes || order.fulfillment_notes || undefined;
+        const deliveredAt = order.delivered_at || order.created_at || new Date().toISOString();
+
+        deliveredAccounts.push({
+          account_id: accountId,
+          order_code: orderCode,
+          game_title: gameTitle,
+          username,
+          password,
+          two_factor_secret: twoFactorSecret,
+          backup_codes: backupCodes,
+          notes,
+          delivered_at: deliveredAt,
+        });
+      });
+    }
+
+    return deliveredAccounts;
+  }
+
+  static getDeliveredAccountById(
+    telegramId: number | string,
+    accountId: string
+  ): DeliveredAccount | null {
+    const accounts = this.getDeliveredAccountsByTelegramId(telegramId);
+    return (
+      accounts.find(
+        (a) =>
+          a.account_id === accountId ||
+          a.account_id.startsWith(accountId) ||
+          accountId.startsWith(a.account_id)
+      ) || null
+    );
+  }
+
   // ================= 14-DAY WARRANTY OPERATIONS =================
   static replaceWarrantyOrder(
     orderId: string,
@@ -3589,5 +3580,306 @@ export class DataStore {
   }
 }
 
-// Automatically restore persisted data from disk on module initialization
-DataStore.loadFromDisk();
+// ================= MODULE 1: SUPABASE PERSISTENCE =================
+import { supabase } from './supabase';
+
+export type OrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded';
+
+export interface StoredUser {
+  telegramId: string;
+  username: string | null;
+  firstName: string | null;
+  points: number;
+  streakCount: number;
+  lastDailyClaimAt: string | null;
+  extra: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveUserInput {
+  telegramId: string | number;
+  username?: string | null;
+  firstName?: string | null;
+  extra?: Record<string, unknown>;
+}
+
+export type ClaimResult =
+  | {
+      success: true;
+      points: number;
+      pointsAwarded: number;
+      streak: number;
+      nextClaimAt: string;
+      serverNow: string;
+    }
+  | {
+      success: false;
+      error: 'ALREADY_CLAIMED';
+      remainingMs: number;
+      points: number;
+      streak: number;
+      serverNow: string;
+    };
+
+export type AdjustPointsResult =
+  | { success: true; points: number }
+  | { success: false; error: 'INSUFFICIENT_POINTS'; points: number };
+
+export interface StoredOrder {
+  id: string;
+  orderCode: string;
+  telegramId: string | null;
+  items: unknown[];
+  totalAmount: number;
+  currency: string;
+  status: OrderStatus;
+  paymentProvider: string | null;
+  paymentRef: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOrderInput {
+  orderCode: string;
+  telegramId?: string | number | null;
+  items: unknown[];
+  totalAmount: number;
+  currency?: string;
+  paymentProvider?: string;
+  paymentRef?: string | null;
+}
+
+interface UserRow {
+  telegram_id: string;
+  username: string | null;
+  first_name: string | null;
+  points: number;
+  streak_count: number;
+  last_daily_claim_at: string | null;
+  extra: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface OrderRow {
+  id: string;
+  order_code: string;
+  telegram_id: string | null;
+  items: unknown[] | null;
+  total_amount: number | string;
+  currency: string;
+  status: OrderStatus;
+  payment_provider: string | null;
+  payment_ref: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ClaimRpcSuccess {
+  success: true;
+  points: number;
+  points_awarded: number;
+  streak: number;
+  next_claim_at: string;
+  server_now: string;
+}
+
+interface ClaimRpcCooldown {
+  success: false;
+  error: 'ALREADY_CLAIMED';
+  remaining_ms: number;
+  points: number;
+  streak: number;
+  server_now: string;
+}
+
+interface AdjustRpcResult {
+  success: boolean;
+  error?: string;
+  points: number;
+}
+
+function rowToUser(row: UserRow): StoredUser {
+  return {
+    telegramId: row.telegram_id,
+    username: row.username,
+    firstName: row.first_name,
+    points: row.points ?? 0,
+    streakCount: row.streak_count ?? 0,
+    lastDailyClaimAt: row.last_daily_claim_at,
+    extra: row.extra ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToOrder(row: OrderRow): StoredOrder {
+  return {
+    id: row.id,
+    orderCode: row.order_code,
+    telegramId: row.telegram_id,
+    items: row.items ?? [],
+    totalAmount: Number(row.total_amount),
+    currency: row.currency,
+    status: row.status,
+    paymentProvider: row.payment_provider,
+    paymentRef: row.payment_ref,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getUser(telegramId: string | number): Promise<StoredUser | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('telegram_id', String(telegramId))
+    .maybeSingle();
+  if (error) throw new Error(`getUser failed: ${error.message}`);
+  return data ? rowToUser(data as UserRow) : null;
+}
+
+/**
+ * Saves PROFILE fields only (username, firstName, extra). Points, streak and claim time
+ * are never written here — they change only through claimDailyReward / adjustPoints so
+ * a stale object can never overwrite a balance.
+ */
+export async function saveUser(input: SaveUserInput): Promise<StoredUser> {
+  const payload: Record<string, unknown> = {
+    telegram_id: String(input.telegramId),
+    updated_at: new Date().toISOString(),
+  };
+  if (input.username !== undefined) payload.username = input.username;
+  if (input.firstName !== undefined) payload.first_name = input.firstName;
+  if (input.extra !== undefined) payload.extra = input.extra;
+
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(payload, { onConflict: 'telegram_id' })
+    .select('*')
+    .single();
+  if (error || !data) throw new Error(`saveUser failed: ${error?.message ?? 'no row returned'}`);
+  return rowToUser(data as UserRow);
+}
+
+export async function claimDailyReward(telegramId: string | number): Promise<ClaimResult> {
+  const { data, error } = await supabase.rpc('claim_daily_reward', {
+    p_telegram_id: String(telegramId),
+  });
+  if (error || !data) throw new Error(`claimDailyReward failed: ${error?.message ?? 'empty result'}`);
+
+  const raw = data as ClaimRpcSuccess | ClaimRpcCooldown;
+  if (raw.success) {
+    return {
+      success: true,
+      points: raw.points,
+      pointsAwarded: raw.points_awarded,
+      streak: raw.streak,
+      nextClaimAt: raw.next_claim_at,
+      serverNow: raw.server_now,
+    };
+  }
+  return {
+    success: false,
+    error: 'ALREADY_CLAIMED',
+    remainingMs: Number(raw.remaining_ms),
+    points: raw.points,
+    streak: raw.streak,
+    serverNow: raw.server_now,
+  };
+}
+
+export async function adjustPoints(
+  telegramId: string | number,
+  delta: number,
+  reason: string,
+): Promise<AdjustPointsResult> {
+  const { data, error } = await supabase.rpc('adjust_points', {
+    p_telegram_id: String(telegramId),
+    p_delta: Math.trunc(delta),
+    p_reason: reason,
+  });
+  if (error || !data) throw new Error(`adjustPoints failed: ${error?.message ?? 'empty result'}`);
+  const raw = data as AdjustRpcResult;
+  if (raw.success) return { success: true, points: raw.points };
+  return { success: false, error: 'INSUFFICIENT_POINTS', points: raw.points };
+}
+
+export async function createOrder(input: CreateOrderInput): Promise<StoredOrder> {
+  const telegramId =
+    input.telegramId === undefined || input.telegramId === null ? null : String(input.telegramId);
+
+  if (telegramId !== null) {
+    const { error: userError } = await supabase
+      .from('users')
+      .upsert({ telegram_id: telegramId }, { onConflict: 'telegram_id', ignoreDuplicates: true });
+    if (userError) throw new Error(`createOrder (ensure user) failed: ${userError.message}`);
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .insert({
+      order_code: input.orderCode,
+      telegram_id: telegramId,
+      items: input.items,
+      total_amount: input.totalAmount,
+      currency: input.currency ?? 'USD',
+      payment_provider: input.paymentProvider ?? 'khpay',
+      payment_ref: input.paymentRef ?? null,
+    })
+    .select('*')
+    .single();
+  if (error || !data) throw new Error(`createOrder failed: ${error?.message ?? 'no row returned'}`);
+  return rowToOrder(data as OrderRow);
+}
+
+export async function getOrderByCode(orderCode: string): Promise<StoredOrder | null> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('order_code', orderCode)
+    .maybeSingle();
+  if (error) throw new Error(`getOrderByCode failed: ${error.message}`);
+  return data ? rowToOrder(data as OrderRow) : null;
+}
+
+export async function listOrdersByUser(telegramId: string | number): Promise<StoredOrder[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('telegram_id', String(telegramId))
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(`listOrdersByUser failed: ${error.message}`);
+  return ((data ?? []) as OrderRow[]).map(rowToOrder);
+}
+
+const ALLOWED_FROM: Record<OrderStatus, OrderStatus[]> = {
+  pending: [],
+  paid: ['pending'],
+  failed: ['pending'],
+  cancelled: ['pending'],
+  refunded: ['paid'],
+};
+
+/**
+ * Idempotent, forward-only status change keyed by payment_ref.
+ * Returns the updated order, or null if nothing changed (already in that state / transition not allowed).
+ */
+export async function transitionOrderStatus(
+  paymentRef: string,
+  to: OrderStatus,
+): Promise<StoredOrder | null> {
+  const from = ALLOWED_FROM[to];
+  if (from.length === 0) return null;
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status: to, updated_at: new Date().toISOString() })
+    .eq('payment_ref', paymentRef)
+    .in('status', from)
+    .select('*')
+    .maybeSingle();
+  if (error) throw new Error(`transitionOrderStatus failed: ${error.message}`);
+  return data ? rowToOrder(data as OrderRow) : null;
+}
+

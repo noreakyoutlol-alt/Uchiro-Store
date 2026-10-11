@@ -35,7 +35,7 @@ export class BroadcastService {
     }
 
     // 2. From Postgres / Supabase users table if connected
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured()) {
       try {
         const { data, error } = await supabase
           .from('users')

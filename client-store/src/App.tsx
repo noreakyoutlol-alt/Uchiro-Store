@@ -13,6 +13,7 @@ import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { KHQRPaymentScreen } from './components/payment/KHQRPaymentScreen';
 import { DeliveredOrderModal } from './components/orders/DeliveredOrderModal';
 import { OrderReceiptModal } from './components/orders/OrderReceiptModal';
+import { VaultPage } from './components/vault/VaultPage';
 import { TelegramBrowserBlocked } from './components/common/TelegramBrowserBlocked';
 import { Product, Category, Order, TelegramUser, Profile, GachaPool } from './types';
 import { StoreAPI } from './services/api';
@@ -88,6 +89,8 @@ const StoreAppContent: React.FC = () => {
   const [activePayment, setActivePayment] = useState<any | null>(null);
   const [deliveredOrderModal, setDeliveredOrderModal] = useState<Order | null>(null);
   const [receiptOrderModal, setReceiptOrderModal] = useState<Order | null>(null);
+  const [vaultOrderId, setVaultOrderId] = useState<string | undefined>();
+  const [vaultAccountId, setVaultAccountId] = useState<string | undefined>();
 
   useEffect(() => {
     initializeApp();
@@ -184,11 +187,22 @@ const StoreAppContent: React.FC = () => {
         setOrders([]);
       }
 
-      // Handle Telegram Deep Link query parameters: ?order=...&view=receipt|delivery
+      // Handle Telegram Deep Link query parameters: ?tab=vault&orderId=...&accountId=...
       const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam === 'vault') {
+        setActiveTab('vault');
+        const deepOrderId = urlParams.get('orderId') || urlParams.get('order');
+        const deepAccountId = urlParams.get('accountId');
+        if (deepOrderId) setVaultOrderId(deepOrderId);
+        if (deepAccountId) setVaultAccountId(deepAccountId);
+      } else if (tabParam === 'orders' || tabParam === 'shop' || tabParam === 'gacha' || tabParam === 'profile') {
+        setActiveTab(tabParam as TabType);
+      }
+
       const orderParam = urlParams.get('order');
       const viewParam = urlParams.get('view');
-      if (orderParam) {
+      if (orderParam && tabParam !== 'vault') {
         let targetOrder = userOrders.find((o) => o.order_number === orderParam || o.id === orderParam);
         if (!targetOrder) {
           try {
@@ -427,6 +441,14 @@ const StoreAppContent: React.FC = () => {
             onSelectOrder={setDeliveredOrderModal}
             onNavigateToTab={setActiveTab}
             onRefreshProfile={refreshProfileAndOrders}
+          />
+        )}
+
+        {activeTab === 'vault' && (
+          <VaultPage
+            onBack={() => setActiveTab('shop')}
+            initialOrderId={vaultOrderId}
+            initialAccountId={vaultAccountId}
           />
         )}
       </main>

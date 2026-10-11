@@ -87,7 +87,7 @@ export function requireTelegramAuth(req: RequestWithAuth, res: Response, next: N
     process.env.NODE_ENV === 'development';
 
   if (isQrCreationOrCheckout && isDevOrTest) {
-    const guestTgId = 123456789;
+    const guestTgId = 999000001;
     const { user } = DataStore.findOrCreateTelegramUser({
       telegram_id: guestTgId,
       first_name: 'Guest Customer',

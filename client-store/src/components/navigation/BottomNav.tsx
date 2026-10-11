@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { AppIcon, SemanticIconKey } from '../common/AppIcon';
 import { useLanguage } from '../../context/LanguageContext';
 
-export type TabType = 'home' | 'shop' | 'gacha' | 'orders' | 'profile';
+export type TabType = 'home' | 'shop' | 'gacha' | 'orders' | 'profile' | 'vault';
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -61,6 +61,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       activeColor: 'text-rose-400',
       glow: 'drop-shadow-[0_0_8px_rgba(244,63,94,0.65)]',
       bg: 'bg-rose-500/15 border-rose-500/30 shadow-[0_0_8px_rgba(244,63,94,0.2)]',
+    },
+    vault: {
+      activeColor: 'text-amber-400',
+      glow: 'drop-shadow-[0_0_8px_rgba(245,158,11,0.65)]',
+      bg: 'bg-amber-500/15 border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.2)]',
     },
   };
 

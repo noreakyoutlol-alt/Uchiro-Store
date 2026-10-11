@@ -113,6 +113,18 @@ export type OrderStatus =
   | 'expired'
   | 'failed';
 
+export interface DeliveredAccount {
+  account_id: string;
+  order_code: string;
+  game_title: string;          // e.g. "Blox Fruits Max Level + Kitsune"
+  username: string;
+  password: string;
+  two_factor_secret?: string;   // e.g. "JBSWY3DPEHPK3PXP"
+  backup_codes?: string[];      // e.g. ["ABCD-1234", "EFGH-5678"]
+  notes?: string;               // Warranty & safety notes
+  delivered_at: string;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;

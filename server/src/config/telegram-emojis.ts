@@ -66,6 +66,8 @@ export const TELEGRAM_EMOJIS: Record<string, TelegramEmojiDef> = {
   BAR_CHART:     { fallback: '📊', customEmojiId: '5226508924697453639' },
   PIN:           { fallback: '📍', customEmojiId: '5292291996717690768' },
   SCROLL:        { fallback: '📜', customEmojiId: '5217939515754174728' },
+  BACKPACK:      { fallback: '🎒' },
+  VAULT:         { fallback: '🎒' },
   MEMO:          { fallback: '📝', customEmojiId: '5837003105228558796' },
   SATELLITE:     { fallback: '📡', customEmojiId: '5321141214735508486' },
   MEGAPHONE:     { fallback: '📢', customEmojiId: '6300742299114541958' },

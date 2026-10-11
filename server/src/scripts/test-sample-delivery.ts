@@ -21,7 +21,7 @@ for (const p of envPaths) {
   }
 }
 
-const TARGET_TELEGRAM_ID = 6594079594;
+const TARGET_TELEGRAM_ID = Number(process.env.TEST_TELEGRAM_ID || 0);
 const BOT_TOKEN = (process.env.STORE_BOT_TOKEN || '').trim();
 
 async function runSampleDeliveryTest(): Promise<void> {
@@ -143,7 +143,7 @@ async function runSampleDeliveryTest(): Promise<void> {
   console.log('✅ All interactive sub-screen handlers verified cleanly!\n');
 
   // 5. Telegram Dispatch
-  console.log('📡 Step 5: Telegram Dispatch to 6594079594...');
+  console.log(`📡 Step 5: Telegram Dispatch to ${TARGET_TELEGRAM_ID}...`);
   if (BOT_TOKEN && !BOT_TOKEN.startsWith('mock_')) {
     try {
       const bot = new Telegraf(BOT_TOKEN);

@@ -28,7 +28,7 @@ export function checkAdminAuthorization(req: Request): AdminAuthCheckResult {
   if (adminSecret && (adminSecret === env.ADMIN_BOT_WEBHOOK_SECRET || adminSecret === env.ADMIN_JWT_SECRET)) {
     return {
       isAuthorized: true,
-      adminTgId: env.ADMIN_TELEGRAM_USER_IDS[0] || 123456789,
+      adminTgId: env.ADMIN_TELEGRAM_USER_IDS[0] || 0,
       reason: 'admin_secret_verified',
     };
   }
@@ -81,7 +81,7 @@ export function checkAdminAuthorization(req: Request): AdminAuthCheckResult {
     if (secretMatch && (secretMatch[1] === env.ADMIN_BOT_WEBHOOK_SECRET || secretMatch[1] === env.ADMIN_JWT_SECRET)) {
       return {
         isAuthorized: true,
-        adminTgId: env.ADMIN_TELEGRAM_USER_IDS[0] || 123456789,
+        adminTgId: env.ADMIN_TELEGRAM_USER_IDS[0] || 0,
         reason: 'cookie_secret_verified',
       };
     }
@@ -132,7 +132,7 @@ export function checkAdminAuthorization(req: Request): AdminAuthCheckResult {
       if (refSecret && (refSecret === env.ADMIN_BOT_WEBHOOK_SECRET || refSecret === env.ADMIN_JWT_SECRET)) {
         return {
           isAuthorized: true,
-          adminTgId: env.ADMIN_TELEGRAM_USER_IDS[0] || 123456789,
+          adminTgId: env.ADMIN_TELEGRAM_USER_IDS[0] || 0,
           reason: 'referer_secret_verified',
         };
       }

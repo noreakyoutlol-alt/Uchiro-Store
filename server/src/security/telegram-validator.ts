@@ -24,7 +24,7 @@ export function validateTelegramInitData(
 ): { isValid: boolean; data?: TelegramParsedInitData; error?: string } {
   // Test environment bypass helper
   if (process.env.NODE_ENV === 'test') {
-    let user = { id: 123456789, first_name: 'Test Customer', username: 'test_customer' };
+    let user = { id: 999000001, first_name: 'Test Customer', username: 'test_customer' };
     if (initDataRaw) {
       try {
         const params = new URLSearchParams(initDataRaw);
@@ -53,7 +53,7 @@ export function validateTelegramInitData(
     try {
       const params = new URLSearchParams(initDataRaw);
       const userStr = params.get('user');
-      const user = userStr ? JSON.parse(userStr) : { id: 123456789, first_name: 'Dev User' };
+      const user = userStr ? JSON.parse(userStr) : { id: 999000001, first_name: 'Dev User' };
       return {
         isValid: true,
         data: {
@@ -64,7 +64,7 @@ export function validateTelegramInitData(
         },
       };
     } catch {
-      return { isValid: true, data: { user: { id: 123456789, first_name: 'Dev User' }, auth_date: 0, hash: '' } };
+      return { isValid: true, data: { user: { id: 999000001, first_name: 'Dev User' }, auth_date: 0, hash: '' } };
     }
   }
 

@@ -46,7 +46,7 @@ export class AuthService {
     if (adminKey && adminKey === env.ADMIN_BOT_WEBHOOK_SECRET) {
       const admin = {
         id: 'admin-super-01',
-        telegram_id: env.ADMIN_TELEGRAM_USER_IDS[0] || 123456789,
+        telegram_id: env.ADMIN_TELEGRAM_USER_IDS[0] || 0,
         username: 'uchiro_founder',
         display_name: 'Uchiro SuperAdmin',
         role: 'superadmin' as const,
@@ -110,7 +110,7 @@ export class AuthService {
     if (process.env.NODE_ENV === 'test') {
       const defaultAdmin = {
         id: 'admin-dev-01',
-        telegram_id: env.ADMIN_TELEGRAM_USER_IDS[0] || 123456789,
+        telegram_id: env.ADMIN_TELEGRAM_USER_IDS[0] || 0,
         username: 'uchiro_dev_admin',
         display_name: 'Lead Developer Admin',
         role: 'superadmin' as const,

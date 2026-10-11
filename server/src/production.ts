@@ -14,6 +14,7 @@ import { paymentRouter } from './routes/payment.routes';
 import { gachaRouter } from './routes/gacha.routes';
 import { supportRouter } from './routes/support.routes';
 import { adminRouter } from './routes/admin.routes';
+import { dailyClaimRouter } from './routes/daily-claim';
 import { botsRouter, webhookRouter } from './routes/bots.routes';
 import { storeBot } from './bots/store-bot';
 import { adminBot } from './bots/admin-bot';
@@ -91,6 +92,7 @@ app.use('/api/admin', adminRouter);
 // 2. Store API (/api/*)
 app.use('/api/webhook', webhookRouter);
 app.use('/api/auth', authRouter);
+app.use('/api', dailyClaimRouter);
 app.use('/api/store', storeRouter);
 app.use('/api', storeRouter);
 app.use('/api/orders', orderRouter);

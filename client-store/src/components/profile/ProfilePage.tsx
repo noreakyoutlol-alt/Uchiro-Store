@@ -322,6 +322,28 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             </span>
           </div>
         </div>
+
+        {/* My Vault Entry Banner */}
+        <button
+          type="button"
+          onClick={() => onNavigateToTab('vault')}
+          className="w-full mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-[#FFD166]/10 to-amber-500/15 border border-[#FFD166]/30 flex items-center justify-between text-xs font-bold text-white hover:brightness-110 transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-base">🎒</span>
+            <div className="text-left">
+              <span className="block text-white leading-tight">
+                {language === 'km' ? 'កាតាបឥវ៉ាន់ & គណនីហ្គេម' : 'My Vault & Accounts'}
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                {language === 'km' ? 'មើល Username, Password និងកូដ 2FA' : 'View Usernames, Passwords & 2FA'}
+              </span>
+            </div>
+          </div>
+          <span className="text-[11px] text-[#FFD166] flex items-center gap-1">
+            {language === 'km' ? 'បើកមើល →' : 'Open →'}
+          </span>
+        </button>
       </div>
 
       {/* 2. Daily Check-in Reward (Section 30: Dedicated in Profile / Rewards) */}

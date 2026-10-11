@@ -3,6 +3,12 @@ import { env } from '../../config/env';
 import { DataStore } from '../../database/data-store';
 import { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis } from '../../config/telegram-emojis';
 import { FulfillmentService } from '../../services/fulfillment.service';
+import {
+  handleVaultMenu,
+  handleViewAccount,
+  handleGen2fa,
+  isMessageNotModifiedError,
+} from './handlers/orders';
 
 export { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis };
 
@@ -181,7 +187,7 @@ export function getMainMenuKeyboard(storeWebAppUrl?: string, lang: string = 'en'
   return Markup.inlineKeyboard([
     [
       createEmojiInlineButton({
-        text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
+        text: isKm ? 'ចូលហាងទំនិញ (Open Store)' : 'Open Store (Mini App)',
         emojiKey: 'SHOPPING_BAGS',
         targetUrl: resolvedStoreUrl,
       }),
@@ -189,7 +195,7 @@ export function getMainMenuKeyboard(storeWebAppUrl?: string, lang: string = 'en'
     [
       createEmojiInlineButton({
         text: isKm ? 'បង្វិល Gacha' : 'Play Gacha',
-        emojiKey: 'FERRIS_WHEEL',
+        emojiKey: 'SLOT_MACHINE',
         callbackData: 'menu_gacha',
       }),
       createEmojiInlineButton({
@@ -200,19 +206,19 @@ export function getMainMenuKeyboard(storeWebAppUrl?: string, lang: string = 'en'
     ],
     [
       createEmojiInlineButton({
-        text: isKm ? 'ទូផ្ទុកទំនិញ' : 'My Inventory & Vault',
-        emojiKey: 'PACKAGE',
-        callbackData: 'menu_vault',
+        text: isKm ? 'កាតាបឥវ៉ាន់ (Vault)' : 'My Vault',
+        emojiKey: 'BACKPACK',
+        callbackData: 'cb_vault_menu',
       }),
       createEmojiInlineButton({
         text: isKm ? 'ប្រវត្តិបញ្ជាទិញ' : 'Orders',
         emojiKey: 'SCROLL',
-        callbackData: 'menu_orders',
+        callbackData: 'cb_orders_menu',
       }),
     ],
     [
       createEmojiInlineButton({
-        text: isKm ? '🇰🇭 ភាសាខ្មែរ / English' : 'ភាសា / Language',
+        text: isKm ? 'ភាសាខ្មែរ / EN' : 'Language / ភាសា',
         emojiKey: 'GLOBE',
         callbackData: 'select_language',
       }),
@@ -444,66 +450,50 @@ export class StoreBotService {
       });
     });
 
-    this.bot.action('menu_vault', async (ctx) => {
-      try {
-        await ctx.answerCbQuery();
-      } catch {}
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const isKm = userLang === 'km';
-      const text = isKm
-        ? `📦 <b>ទូផ្ទុកទំនិញ (INVENTORY & VAULT)</b>\n\n` +
-          `មើល Account, Password, និងកូដសម្ងាត់ 2FA ទាំងអស់ដែលអ្នកបានទិញ។\n\n` +
-          `• សុវត្ថិភាពខ្ពស់ រក្សាទុកដោយ Encrypted Vault\n` +
-          `• ស្នើសុំកូដ 2FA OTP និង QR Code បានគ្រប់ពេលវេលា\n` +
-          `• ធានារយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
-          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីចូលមើលទូទំនិញរបស់អ្នក:`
-        : `📦 <b>MY INVENTORY & VAULT</b>\n\n` +
-          `Access all your purchased accounts, credentials, and 2FA secrets securely.\n\n` +
-          `• 100% Encrypted & Safe Storage\n` +
-          `• On-demand live 2FA code generation & QR scan\n` +
-          `• Full 14-day warranty guarantee\n\n` +
-          `👉 Tap below to view your inventory:`;
+    // Interactive In-Chat Vault & Inventory Handler
+    const triggerVault = async (ctx: any) => {
+      await handleVaultMenu(ctx, storeWebAppUrl);
+    };
 
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            createEmojiInlineButton({
-              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
-              emojiKey: 'SHOPPING_BAGS',
-              targetUrl: storeWebAppUrl,
-            }),
-          ],
-        ]),
-      });
+    this.bot.action(['cb_vault_menu', 'menu_vault'], triggerVault);
+    this.bot.action(['cb_orders_menu', 'menu_orders'], triggerVault);
+    this.bot.command(['vault', 'inventory', 'orders'], triggerVault);
+
+    // View specific delivered account credentials
+    this.bot.action(/^cb_view_acc_(.+)$/, async (ctx) => {
+      const accountId = ctx.match[1];
+      await handleViewAccount(ctx, accountId, storeWebAppUrl);
     });
 
-    this.bot.action('menu_orders', async (ctx) => {
+    // Generate live 2FA code
+    this.bot.action(/^cb_gen_2fa_(.+)$/, async (ctx) => {
+      const accountId = ctx.match[1];
+      await handleGen2fa(ctx, accountId, storeWebAppUrl);
+    });
+
+    // Return to main menu
+    this.bot.action('cb_main_menu', async (ctx) => {
       try {
         await ctx.answerCbQuery();
       } catch {}
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const isKm = userLang === 'km';
-      const text = isKm
-        ? `📜 <b>ប្រវត្តិបញ្ជាទិញ (ORDERS & RECEIPTS)</b>\n\n` +
-          `តាមដានស្ថានភាពនៃការទិញទំនិញ វិក្កយបត្រ KHQR និងការផ្ញើជូន Account របស់អ្នក។\n\n` +
-          `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីមើលបញ្ជី Orders របស់អ្នក:`
-        : `📜 <b>ORDER HISTORY & RECEIPTS</b>\n\n` +
-          `Track active deliveries, KHQR payment receipts, and warranty status in real time.\n\n` +
-          `👉 Tap below to view your orders:`;
+      const from = ctx.from;
+      const userLang = from ? DataStore.getUserLanguagePreference(from.id) || 'km' : 'km';
+      const welcomeText = getWelcomeMessage(userLang);
+      const keyboard = getMainMenuKeyboard(storeWebAppUrl, userLang);
 
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [
-            createEmojiInlineButton({
-              text: isKm ? '🛍️ ចូលហាងទំនិញ (Open Store)' : 'OPEN UCHIRO STORE (Mini App)',
-              emojiKey: 'SHOPPING_BAGS',
-              targetUrl: storeWebAppUrl,
-            }),
-          ],
-        ]),
-      });
+      try {
+        await ctx.editMessageText(formatTelegramHtml(welcomeText), {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      } catch (err) {
+        if (!isMessageNotModifiedError(err)) {
+          await ctx.reply(formatTelegramHtml(welcomeText), {
+            parse_mode: 'HTML',
+            ...keyboard,
+          });
+        }
+      }
     });
 
     // /help command (Clean formatted text & direct utility links)

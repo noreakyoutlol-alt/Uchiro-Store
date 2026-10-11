@@ -199,6 +199,20 @@ export const StoreAPI = {
     return res.data.data;
   },
 
+  getVaultAccounts: async (): Promise<any[]> => {
+    try {
+      const res = await api.get('/vault/accounts');
+      return res.data.accounts || res.data.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  getVaultAccountById: async (id: string): Promise<any> => {
+    const res = await api.get(`/vault/accounts/${id}`);
+    return res.data.account || res.data.data;
+  },
+
   getOrderById: async (id: string): Promise<Order> => {
     const res = await api.get(`/orders/${id}`);
     return res.data.data;
@@ -292,23 +306,64 @@ export const StoreAPI = {
   },
 
   claimDailyReward: async (telegramId?: number | string) => {
-    const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
-    const resolvedTgId = telegramId || tg?.initDataUnsafe?.user?.id;
-    const payload = resolvedTgId ? { telegramId: Number(resolvedTgId) } : {};
-    const res = await api.post('/daily-reward/claim', payload);
-    const data = res.data?.data || res.data;
-    return {
-      success: res.data?.success ?? data?.success ?? true,
-      pointsAwarded: res.data?.pointsAwarded ?? data?.pointsAwarded ?? 0,
-      newBalance: res.data?.newBalance ?? data?.newBalance ?? res.data?.points ?? data?.points,
-      points: res.data?.points ?? data?.points ?? res.data?.newBalance ?? data?.newBalance,
-      streak: res.data?.streak ?? data?.streak ?? 1,
-      seconds_remaining: res.data?.seconds_remaining ?? data?.seconds_remaining ?? 0,
-      next_claim_at: res.data?.next_claim_at ?? data?.next_claim_at ?? null,
-      message: res.data?.message || data?.message || '',
-      status: data,
-      ...data,
-    };
+    try {
+      const res = await api.post('/user/daily-claim');
+      const data = res.data;
+      if (data?.success) {
+        return {
+          success: true,
+          pointsAwarded: data.pointsAwarded ?? 0,
+          newBalance: data.points,
+          points: data.points,
+          streak: data.streak ?? 1,
+          seconds_remaining: 86400,
+          next_claim_at: data.nextClaimAt ?? null,
+          message: '🎉 ទទួលបានពិន្ទុជោគជ័យ!',
+          status: data,
+          ...data,
+        };
+      }
+      return {
+        success: false,
+        points: data.points ?? 0,
+        streak: data.streak ?? 1,
+        seconds_remaining: Math.ceil((data.remainingMs ?? 86400000) / 1000),
+        message: 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
+        status: data,
+        ...data,
+      };
+    } catch (err: any) {
+      if (err.response?.status === 409 && err.response?.data) {
+        const data = err.response.data;
+        return {
+          success: false,
+          points: data.points ?? 0,
+          streak: data.streak ?? 1,
+          seconds_remaining: Math.ceil((data.remainingMs ?? 86400000) / 1000),
+          message: 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
+          status: data,
+          ...data,
+        };
+      }
+      // Fallback to legacy endpoint if /user/daily-claim fails
+      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+      const resolvedTgId = telegramId || tg?.initDataUnsafe?.user?.id;
+      const payload = resolvedTgId ? { telegramId: Number(resolvedTgId) } : {};
+      const res = await api.post('/daily-reward/claim', payload);
+      const data = res.data?.data || res.data;
+      return {
+        success: res.data?.success ?? data?.success ?? true,
+        pointsAwarded: res.data?.pointsAwarded ?? data?.pointsAwarded ?? 0,
+        newBalance: res.data?.newBalance ?? data?.newBalance ?? res.data?.points ?? data?.points,
+        points: res.data?.points ?? data?.points ?? res.data?.newBalance ?? data?.newBalance,
+        streak: res.data?.streak ?? data?.streak ?? 1,
+        seconds_remaining: res.data?.seconds_remaining ?? data?.seconds_remaining ?? 0,
+        next_claim_at: res.data?.next_claim_at ?? data?.next_claim_at ?? null,
+        message: res.data?.message || data?.message || '',
+        status: data,
+        ...data,
+      };
+    }
   },
 
   getDailyRewardStatus: async (telegramId?: number | string) => {
