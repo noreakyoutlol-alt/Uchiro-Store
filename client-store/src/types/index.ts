@@ -82,6 +82,7 @@ export interface TelegramUser {
   language_code: string;
   points?: number;
   reward_points?: number;
+  streak_count?: number;
   last_daily_claim_at?: string | null;
 }
 

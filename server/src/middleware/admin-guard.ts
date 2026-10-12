@@ -6,6 +6,22 @@ import { validateTelegramInitData } from '../security/telegram-validator';
 export const ADMIN_404_HTML =
   '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The requested URL was not found on this server.</p></body></html>';
 
+/**
+ * Checks whether a given Telegram ID belongs to an authorized admin.
+ * Parses ADMIN_TELEGRAM_IDS safely from process.env, with fallback to env.ADMIN_TELEGRAM_USER_IDS.
+ */
+export function isAdmin(telegramId: string | number): boolean {
+  const raw = process.env.ADMIN_TELEGRAM_IDS || process.env.ADMIN_TELEGRAM_USER_IDS || '';
+  const adminIds = raw.split(',').map(id => id.trim()).filter(Boolean);
+  if (adminIds.includes(String(telegramId))) {
+    return true;
+  }
+  if (env.ADMIN_TELEGRAM_USER_IDS && env.ADMIN_TELEGRAM_USER_IDS.map(String).includes(String(telegramId))) {
+    return true;
+  }
+  return false;
+}
+
 export interface AdminAuthCheckResult {
   isAuthorized: boolean;
   adminTgId?: number;
@@ -46,7 +62,7 @@ export function checkAdminAuthorization(req: Request): AdminAuthCheckResult {
       const isApproved =
         decoded.role === 'admin' ||
         decoded.role === 'superadmin' ||
-        env.ADMIN_TELEGRAM_USER_IDS.includes(tgId);
+        isAdmin(tgId);
 
       if (isApproved) {
         return { isAuthorized: true, adminTgId: tgId, reason: 'bearer_token_verified' };
@@ -97,7 +113,7 @@ export function checkAdminAuthorization(req: Request): AdminAuthCheckResult {
     const validation = validateTelegramInitData(rawInitData, env.ADMIN_BOT_TOKEN || env.STORE_BOT_TOKEN);
     if (validation.isValid && validation.data?.user) {
       const tgId = Number(validation.data.user.id);
-      const isApproved = env.ADMIN_TELEGRAM_USER_IDS.includes(tgId);
+      const isApproved = isAdmin(tgId);
 
       if (isApproved) {
         return { isAuthorized: true, adminTgId: tgId, reason: 'telegram_init_data_verified' };

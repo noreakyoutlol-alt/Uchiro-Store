@@ -356,7 +356,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
       ) : (
         <div className="py-12 text-center rounded-xl bg-white dark:bg-[#121624] border border-slate-200 dark:border-white/10 p-6 space-y-2">
           <p className="text-sm font-bold text-slate-900 dark:text-white">
-            No products found
+            មិនទាន់មានទំនិញក្នុងស្តុកនៅឡើយទេ (No products available in stock)
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {searchQuery

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Zap,
   Gift,
@@ -150,6 +150,43 @@ export const GAME_CATEGORY_ASSETS: Record<string, GameCategoryAssetDef> = {
   },
 };
 
+export interface AnimatedWebmVideoProps {
+  src: string;
+  className?: string;
+  onError: () => void;
+}
+
+export const AnimatedWebmVideo: React.FC<AnimatedWebmVideoProps> = ({
+  src,
+  className = 'w-full h-full object-contain pointer-events-none',
+  onError,
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = true;
+      videoRef.current.defaultMuted = true;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [src]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      autoPlay
+      loop
+      muted
+      playsInline
+      {...({ 'webkit-playsinline': 'true' } as any)}
+      preload="auto"
+      className={className}
+      onError={onError}
+    />
+  );
+};
+
 export interface CategoryIconProps {
   slug?: string;
   name?: string;
@@ -212,12 +249,8 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({
   if (asset.endsWith('.webm')) {
     return (
       <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
-        <video
+        <AnimatedWebmVideo
           src={asset}
-          autoPlay
-          loop
-          muted
-          playsInline
           className={imgClassName}
           onError={() => setHasError(true)}
         />
@@ -288,21 +321,10 @@ export const TgEmoji: React.FC<TgEmojiProps> = ({
 
   const assetKey = cleanName || (entry ? Object.keys(TELEGRAM_EMOJIS).find(k => TELEGRAM_EMOJIS[k] === entry)?.toLowerCase() : '');
   const displayFallback = entry?.fallback || fallback || (typeof emoji === 'string' && !emoji.startsWith('5') && !emoji.startsWith('6') ? emoji : '✨');
-  const [hasError, setHasError] = useState(false);
+  const [hasWebmError, setHasWebmError] = useState(false);
+  const [hasWebpError, setHasWebpError] = useState(false);
 
-  if (hasError) {
-    return (
-      <span
-        aria-hidden="true"
-        className={className}
-        style={{ fontSize: `${numericSize}px`, lineHeight: 1, verticalAlign: '-0.1em' }}
-      >
-        {displayFallback}
-      </span>
-    );
-  }
-
-  const isAnimatedWebm = assetKey ? ANIMATED_WEBM_SET.has(assetKey) : (targetId ? ANIMATED_WEBM_SET.has(targetId) : false);
+  const isAnimatedWebm = !hasWebmError && (assetKey ? ANIMATED_WEBM_SET.has(assetKey) : (targetId ? ANIMATED_WEBM_SET.has(targetId) : false));
 
   if (isAnimatedWebm && (assetKey || targetId)) {
     const videoSrc = (assetKey && ANIMATED_WEBM_SET.has(assetKey))
@@ -314,14 +336,10 @@ export const TgEmoji: React.FC<TgEmojiProps> = ({
         className={className}
         style={{ width: `${numericSize}px`, height: `${numericSize}px`, verticalAlign: '-0.15em' }}
       >
-        <video
+        <AnimatedWebmVideo
           src={videoSrc}
-          autoPlay
-          loop
-          muted
-          playsInline
           className="w-full h-full object-contain pointer-events-none"
-          onError={() => setHasError(true)}
+          onError={() => setHasWebmError(true)}
         />
       </span>
     );
@@ -329,7 +347,7 @@ export const TgEmoji: React.FC<TgEmojiProps> = ({
 
   const targetSrc = assetKey ? `/emojis/${assetKey}.webp` : (targetId ? `/emojis/${targetId}.webp` : '');
 
-  if (!targetSrc) {
+  if (!targetSrc || hasWebpError) {
     return (
       <span
         aria-hidden="true"
@@ -353,7 +371,7 @@ export const TgEmoji: React.FC<TgEmojiProps> = ({
         height={numericSize}
         loading="lazy"
         className="w-full h-full object-contain pointer-events-none"
-        onError={() => setHasError(true)}
+        onError={() => setHasWebpError(true)}
       />
     </span>
   );

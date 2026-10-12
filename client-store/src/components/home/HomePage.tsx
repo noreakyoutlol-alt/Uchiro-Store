@@ -143,7 +143,9 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         ) : (
           <div className="py-8 text-center rounded-xl bg-white/80 dark:bg-[#121624]/80 border border-slate-200 dark:border-white/10 p-4">
-            <p className="text-xs text-slate-500">Products currently restocking</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              មិនទាន់មានទំនិញក្នុងស្តុកនៅឡើយទេ (No products available in stock)
+            </p>
           </div>
         )}
       </div>

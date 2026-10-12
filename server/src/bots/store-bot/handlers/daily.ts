@@ -111,15 +111,14 @@ export async function handleDailyMenu(ctx: Context): Promise<void> {
   const userLang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const statusText = daily.is_claimable
-    ? '✅ <b>អាចទទួលពិន្ទុបានឥឡូវនេះ!</b>'
-    : `⏳ <b>នៅសល់ម៉ោង:</b> <code>${daily.cooldown_str}</code>`;
+    ? '✅ អាចទទួលពិន្ទុបានឥឡូវនេះ!'
+    : `⏳ នៅសល់ម៉ោង: <code>${daily.cooldown_str}</code>`;
 
   const text =
-    `🎁 <b>ពិន្ទុប្រចាំថ្ងៃ (DAILY REWARD STREAK)</b>\n` +
+    `🎁 <b>ប្រព័ន្ធពិន្ទុប្រចាំថ្ងៃ (DAILY STREAK)</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔥 <b>Streak បច្ចុប្បន្ន:</b> <code>${daily.streak_count}</code> / 7 ថ្ងៃជាប់គ្នា\n` +
-    `💎 <b>ពិន្ទុសរុបរបស់អ្នក:</b> <code>${daily.points}</code> Pts\n` +
-    `⚡ <b>រង្វាន់បន្ទាប់:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
+    `🔥 <b>Streak បច្ចុប្បន្ន:</b> <code>${daily.streak_count}</code> / 7 ថ្ងៃ\n` +
+    `💎 <b>ពិន្ទុសរុប:</b> <code>${daily.points}</code> Pts\n` +
     `⏳ <b>ស្ថានភាព:</b> ${statusText}\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 

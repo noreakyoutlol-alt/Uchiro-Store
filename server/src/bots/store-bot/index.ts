@@ -38,6 +38,7 @@ import {
   fetchDailyLiveInfo,
 } from './handlers/daily';
 import {
+  buildMainMenuKeyboard,
   getMainMenuKeyboard,
   getLanguageSelectionKeyboard,
   createWebAppOrUrlButton,
@@ -48,6 +49,7 @@ export {
   TELEGRAM_EMOJIS,
   renderTgEmoji,
   enrichWithTgEmojis,
+  buildMainMenuKeyboard,
   getMainMenuKeyboard,
   getLanguageSelectionKeyboard,
   createWebAppOrUrlButton,

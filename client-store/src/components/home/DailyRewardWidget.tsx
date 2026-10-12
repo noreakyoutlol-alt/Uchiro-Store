@@ -1,299 +1,158 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Gift, Flame, CheckCircle, Sparkles, Loader2, Crown, Clock } from 'lucide-react';
 import { StoreAPI } from '../../services/api';
-import { useLanguage } from '../../context/LanguageContext';
-import { DailyRewardStatus, TelegramUser } from '../../types';
+import { TelegramUser } from '../../types';
 
-interface DailyRewardWidgetProps {
+export interface DailyRewardProps {
+  points?: number;
+  streak?: number;
+  canClaim?: boolean;
+  cooldownRemaining?: string; // e.g., "23:59:50"
+  onClaim?: () => Promise<void>;
   user?: TelegramUser | null;
   onRewardClaimed?: (newBalance: number) => void;
 }
 
-export const DailyRewardWidget: React.FC<DailyRewardWidgetProps> = ({ user, onRewardClaimed }) => {
-  const { t } = useLanguage();
-  const [status, setStatus] = useState<DailyRewardStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isClaiming, setIsClaiming] = useState(false);
+export const DailyRewardWidget: React.FC<DailyRewardProps> = ({
+  points: propPoints,
+  streak: propStreak,
+  canClaim: propCanClaim,
+  cooldownRemaining: propCooldownRemaining,
+  onClaim,
+  user,
+  onRewardClaimed,
+}) => {
+  const [internalStreak, setInternalStreak] = useState(propStreak ?? user?.streak_count ?? 0);
+  const [internalCanClaim, setInternalCanClaim] = useState<boolean>(propCanClaim ?? true);
   const [countdown, setCountdown] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
   const targetEndRef = useRef<number>(0);
 
-  const [claimFeedback, setClaimFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // If props are provided directly, sync them
+  useEffect(() => {
+    if (propStreak !== undefined) setInternalStreak(propStreak);
+    if (propCanClaim !== undefined) setInternalCanClaim(propCanClaim);
+  }, [propStreak, propCanClaim]);
 
-  // Hard-lock: check both prop user and API status timestamp
-  const isClaimedToday = Boolean(
-    (user?.last_daily_claim_at && (Date.now() - new Date(user.last_daily_claim_at).getTime() < 86400000)) ||
-    (status?.last_claimed_at && (Date.now() - new Date(status.last_claimed_at).getTime() < 86400000)) ||
-    (status && !status.can_claim) ||
-    countdown > 0
-  );
+  // Load status from API if no manual onClaim was passed
+  const loadStatus = async () => {
+    try {
+      const res = await StoreAPI.getDailyRewardStatus();
+      if (res && res.data) {
+        setInternalStreak(res.data.streak_count ?? 0);
+        setInternalCanClaim(Boolean(res.data.can_claim));
+        if (res.data.seconds_remaining && res.data.seconds_remaining > 0) {
+          setCountdown(res.data.seconds_remaining);
+          targetEndRef.current = Date.now() + res.data.seconds_remaining * 1000;
+        } else {
+          setCountdown(0);
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+  };
 
   useEffect(() => {
-    loadStatus();
-  }, []);
+    if (!onClaim) {
+      loadStatus();
+    }
+  }, [user?.telegram_id]);
 
-  // Bulletproof timestamp-based countdown timer:
-  // Never drifts when the tab is backgrounded or phone screen locked.
+  // Precise ticking timer for cooldown
   useEffect(() => {
     if (countdown <= 0) return;
 
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const remaining = Math.max(0, Math.ceil((targetEndRef.current - now) / 1000));
+    const timer = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((targetEndRef.current - Date.now()) / 1000));
       setCountdown(remaining);
-
       if (remaining <= 0) {
-        clearInterval(interval);
-        loadStatus();
+        clearInterval(timer);
+        setInternalCanClaim(true);
+        if (!onClaim) loadStatus();
       }
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [countdown > 0]);
+    return () => clearInterval(timer);
+  }, [countdown]);
 
-  const loadStatus = async () => {
-    try {
-      const data: DailyRewardStatus = await StoreAPI.getDailyRewardStatus();
-      setStatus(data);
-      if (data.seconds_remaining && data.seconds_remaining > 0) {
-        targetEndRef.current = Date.now() + data.seconds_remaining * 1000;
-        setCountdown(data.seconds_remaining);
-      } else {
-        setCountdown(0);
-      }
-    } catch {
-      setStatus({
-        can_claim: true,
-        current_streak: 1,
-        reward_points: 5,
-        last_claimed_at: null,
-        next_claim_at: null,
-        streak_days: [1, 2, 3, 4, 5, 6, 7].map((d) => ({
-          day: d,
-          points: d === 7 ? 20 : 5,
-          isClaimed: false,
-          isToday: d === 1,
-          isBonus: d === 7,
-        })),
-        total_check_ins: 0,
-        seconds_remaining: 0,
-      });
-      setCountdown(0);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleClaim = async () => {
-    if (isClaiming || isClaimedToday || !status?.can_claim || countdown > 0) return;
-    setIsClaiming(true);
-    setClaimFeedback(null);
-
-    try {
-      const res = await StoreAPI.claimDailyReward();
-
-      if (res && res.success) {
-        const remaining = res.seconds_remaining ?? (res as any).remainingSeconds ?? res.status?.seconds_remaining ?? 86400;
-        if (remaining > 0) {
-          targetEndRef.current = Date.now() + remaining * 1000;
-          setCountdown(remaining);
-        } else {
-          loadStatus();
-        }
-
-        setStatus((prev) =>
-          prev
-            ? {
-                ...prev,
-                can_claim: false,
-                current_streak: res.streak,
-                seconds_remaining: remaining,
-                streak_days: prev.streak_days?.map((d) =>
-                  d.day === res.streak ? { ...d, isClaimed: true } : d
-                ),
-              }
-            : null
-        );
-
-        const newPoints = res.points ?? res.newBalance;
-        if (typeof newPoints === 'number') {
-          window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: newPoints } }));
-          window.dispatchEvent(
-            new CustomEvent('uchiro_points_updated', {
-              detail: { points: newPoints },
-            })
-          );
-
-          if (onRewardClaimed) {
-            onRewardClaimed(newPoints);
-          }
-        }
-
-        setClaimFeedback({
-          type: 'success',
-          text: res.message || '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
-        });
-      } else {
-        const remaining = res?.seconds_remaining ?? (res as any)?.remainingSeconds ?? res?.status?.seconds_remaining ?? 0;
-        if (remaining > 0) {
-          targetEndRef.current = Date.now() + remaining * 1000;
-          setCountdown(remaining);
-        }
-        setStatus((prev) => (prev ? { ...prev, can_claim: false, seconds_remaining: remaining } : null));
-        setClaimFeedback({
-          type: 'error',
-          text: res?.message || 'អ្នកបានទទួលពិន្ទុសម្រាប់ថ្ងៃនេះរួចរាល់ហើយ',
-        });
-      }
-    } catch {
-      loadStatus();
-      setClaimFeedback({
-        type: 'error',
-        text: 'សូមព្យាយាមម្តងទៀត',
-      });
-    } finally {
-      setIsClaiming(false);
-    }
-  };
-
-  const formatCountdown = (totalSec: number) => {
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
+  const formatTimer = (totalSeconds: number): string => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  if (isLoading) return null;
+  const handleClaim = async () => {
+    if (loading) return;
+    setLoading(true);
 
-  const currentStreak = status?.current_streak || 1;
-  const streakDays =
-    status?.streak_days && status.streak_days.length > 0
-      ? status.streak_days
-      : [1, 2, 3, 4, 5, 6, 7].map((d) => ({
-          day: d,
-          points: d === 7 ? 20 : 5,
-          isClaimed: d < currentStreak,
-          isToday: d === currentStreak,
-          isBonus: d === 7,
-        }));
+    try {
+      if (onClaim) {
+        await onClaim();
+      } else {
+        const res = await StoreAPI.claimDailyReward();
+        if (res && res.success) {
+          setInternalCanClaim(false);
+          setInternalStreak(res.streak ?? internalStreak + 1);
+          const secs = res.seconds_remaining || 86400;
+          setCountdown(secs);
+          targetEndRef.current = Date.now() + secs * 1000;
+          if (onRewardClaimed && typeof res.points === 'number') {
+            onRewardClaimed(res.points);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Daily claim failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeStreak = propStreak ?? internalStreak;
+  const isClaimable = propCanClaim !== undefined ? propCanClaim : internalCanClaim && countdown <= 0;
+  const cooldownStr = propCooldownRemaining || (countdown > 0 ? formatTimer(countdown) : 'រួចរាល់');
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#161C2E] via-[#121626] to-[#1C172D] border border-[#FFD166]/25 p-2.5 sm:p-3 shadow-md">
-      <div className="absolute top-0 right-0 w-28 h-28 bg-[#FFD166]/10 rounded-full blur-xl pointer-events-none" />
-
-      {/* Top Bar: Title, Streak Badge & Claim Action (Compact Header) */}
-      <div className="relative z-10 flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2">
-          {/* Header icon w-7 h-7 */}
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FFD166] to-[#E63946] p-0.5 flex items-center justify-center shadow-md shadow-[#FFD166]/20 shrink-0">
-            <div className="w-full h-full bg-[#121626] rounded-[6px] flex items-center justify-center">
-              <Gift className="w-3.5 h-3.5 text-[#FFD166]" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                {t('daily_reward')}
-              </h3>
-              {/* Countdown pill text-[10px] px-2 py-0.5 */}
-              <span className="flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/30 text-[10px] font-bold text-orange-400">
-                <Flame className="w-2.5 h-2.5 text-orange-400" />
-                <span>Streak {currentStreak}</span>
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-300 font-medium">
-              ចូលយករាល់ថ្ងៃ • ថ្ងៃទី៧ +15 Pts ពិសេស!
-            </p>
-          </div>
+    <div className="w-full bg-[#121624] dark:bg-[#121620] border border-white/10 rounded-xl px-3 py-2 flex items-center justify-between shadow-sm my-2 max-h-12 h-11">
+      {/* Left side: Streak info with 7 progress dots */}
+      <div className="flex items-center gap-2">
+        <span className="text-base select-none">🔥</span>
+        <span className="text-xs font-semibold text-amber-400">
+          Streak {activeStreak} ថ្ងៃ
+        </span>
+        <div className="flex items-center gap-1 ml-1">
+          {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+            const currentMod = activeStreak % 7 || (activeStreak > 0 && activeStreak % 7 === 0 ? 7 : 0);
+            return (
+              <div
+                key={day}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                  day <= currentMod ? 'bg-amber-400 shadow-[0_0_4px_#f59e0b]' : 'bg-white/20'
+                }`}
+              />
+            );
+          })}
         </div>
-
-        {isClaimedToday ? (
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/90 border border-slate-700/80 text-slate-400 text-[11px] font-bold shrink-0 select-none cursor-default"
-          >
-            <span className="text-emerald-400">✓ បានយកថ្ងៃនេះរួចហើយ</span>
-            {countdown > 0 && (
-              <span className="tabular-nums tracking-wide text-slate-300 font-mono flex items-center gap-1 border-l border-slate-700 pl-1.5">
-                <Clock className="w-3 h-3 text-[#FFD166]" />
-                {formatCountdown(countdown)}
-              </span>
-            )}
-          </div>
-        ) : (
-          <button
-            onClick={handleClaim}
-            disabled={isClaiming || countdown > 0 || !status?.can_claim}
-            className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#FFD166] to-[#FFB703] hover:brightness-110 active:scale-95 text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#FFD166]/30 transition-all shrink-0 cursor-pointer disabled:opacity-50"
-          >
-            {isClaiming ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <Sparkles className="w-3 h-3" />
-            )}
-            <span>+{status?.reward_points || 5} Pts</span>
-          </button>
-        )}
       </div>
 
-      {/* Toast feedback: compact py-1.5 px-2 text-[11px] */}
-      {claimFeedback && (
-        <div
-          className={`mb-2 py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-between gap-1.5 ${
-            claimFeedback.type === 'success'
-              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-              : 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-          }`}
-        >
-          <span>{claimFeedback.text}</span>
+      {/* Right side: Claim button or Cooldown badge */}
+      <div>
+        {isClaimable ? (
           <button
             type="button"
-            onClick={() => setClaimFeedback(null)}
-            className="text-slate-400 hover:text-white text-xs px-1"
+            onClick={handleClaim}
+            disabled={loading}
+            className="h-7 px-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-bold text-xs rounded-lg active:scale-95 transition-all flex items-center gap-1 shadow-sm hover:brightness-105"
           >
-            ✕
+            {loading ? '...' : '🎁 +5 Pts'}
           </button>
-        </div>
-      )}
-
-      {/* 7-Day Streak Road: Pocket Friendly Grid */}
-      <div className="relative z-10 grid grid-cols-7 gap-1 sm:gap-1.5 pt-1">
-        {streakDays.map((d) => {
-          const isClaimed = d.isClaimed;
-          const isToday = d.isToday && status?.can_claim;
-          const isBonus = d.isBonus;
-
-          return (
-            <div
-              key={d.day}
-              className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-lg border transition-all text-center ${
-                isClaimed
-                  ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-400 shadow-sm'
-                  : isToday
-                  ? 'bg-[#FFD166]/15 border-[#FFD166] text-[#FFD166] shadow-sm shadow-[#FFD166]/20 animate-pulse'
-                  : isBonus
-                  ? 'bg-purple-950/30 border-purple-500/40 text-purple-300'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-300'
-              }`}
-            >
-              <span className="text-[9px] font-bold opacity-80 uppercase tracking-tighter">
-                D{d.day}
-              </span>
-
-              <div className="my-0.5">
-                {isClaimed ? (
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                ) : isBonus ? (
-                  <Crown className="w-3.5 h-3.5 text-[#FFD166]" />
-                ) : (
-                  <Sparkles className="w-3 h-3 text-slate-300" />
-                )}
-              </div>
-
-              <span className="text-[9px] font-black">
-                +{d.points}
-              </span>
-            </div>
-          );
-        })}
+        ) : (
+          <div className="h-7 px-2.5 bg-white/5 border border-white/10 text-emerald-400 font-mono text-[11px] rounded-lg flex items-center gap-1 select-none">
+            <span className="text-xs">✓</span>
+            <span>{cooldownStr}</span>
+          </div>
+        )}
       </div>
     </div>
   );

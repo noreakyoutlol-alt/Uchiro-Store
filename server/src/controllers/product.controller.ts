@@ -1,19 +1,37 @@
 import { Request, Response, NextFunction } from 'express';
 import { StoreService } from '../services/store.service';
 import { DataStore } from '../database/data-store';
+import { supabase, isSupabaseConfigured } from '../database/supabase';
 
 export class ProductController {
   /**
    * Get store product catalog.
-   * STORE INVENTORY & "SOLD OUT" DISPLAY POLICY:
-   * DO NOT HIDE sold-out products or Blox Fruits accounts from the store!
-   * When an account, Blox Fruit item, or single-unit inventory item is sold
-   * (status === 'consumed' || status === 'delivered' or stock === 0),
-   * keep the item fully visible in the store catalog.
+   * Connected 100% to Supabase tables.
    */
-  static getProducts(req: Request, res: Response, next: NextFunction): void {
+  static async getProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { category, search, filter, sort } = req.query;
+
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[Supabase Products Error]:', error);
+        }
+
+        const items = data && Array.isArray(data) ? data : [];
+        res.json({
+          success: true,
+          data: items,
+          total: items.length,
+        });
+        return;
+      }
+
       const products = StoreService.getShopProducts({
         categorySlug: category as string,
         search: search as string,
@@ -21,8 +39,6 @@ export class ProductController {
         sort: sort as string,
       });
 
-      // Ensure sold-out accounts / items are preserved with accurate stock & delivery status
-      // Return live count of unsold accounts. If 0, return stock = 0.
       const catalog = products.map((p) => {
         const liveStock = DataStore.getProductAvailableStock(p.id);
         const stock = typeof liveStock === 'number' ? liveStock : 0;
@@ -46,10 +62,34 @@ export class ProductController {
   }
 
   /**
-   * Home In-Stock Products endpoint
+   * Home In-Stock Products endpoint (Connected 100% to Supabase)
    */
-  static getInStockProducts(_req: Request, res: Response, next: NextFunction): void {
+  static async getInStockProducts(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('[Supabase Products Error]:', error);
+        }
+
+        const items =
+          data && Array.isArray(data)
+            ? data.filter((p: any) => (p.stock || p.stock_count || 0) > 0)
+            : [];
+
+        res.json({
+          success: true,
+          data: items,
+          total: items.length,
+        });
+        return;
+      }
+
       const products = StoreService.getHomeInStockProducts();
       res.json({
         success: true,
@@ -62,22 +102,32 @@ export class ProductController {
   }
 
   /**
-   * Product detail endpoint
+   * Product detail
    */
-  static getProductById(req: Request, res: Response, next: NextFunction): void {
+  static async getProductById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const product = StoreService.getProductById(req.params.id);
-      const liveStock = DataStore.getProductAvailableStock(product.id);
-      const stock = typeof liveStock === 'number' ? liveStock : 0;
+      const { id } = req.params;
+
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (!error && data) {
+          res.json({
+            success: true,
+            data,
+          });
+          return;
+        }
+      }
+
+      const product = StoreService.getProductById(id);
       res.json({
         success: true,
-        data: {
-          ...product,
-          stock,
-          stock_count: stock,
-          is_available: stock > 0,
-          status: stock === 0 ? 'delivered' : 'available',
-        },
+        data: product,
       });
     } catch (err) {
       next(err);

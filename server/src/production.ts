@@ -173,48 +173,17 @@ if (fs.existsSync(storeEmojiDir)) {
   app.use('/admin/emojis', express.static(storeEmojiDir, { maxAge: '7d', immutable: true }));
 }
 
-// 1. STEALTH ADMIN HANDLER
-app.use('/admin', (req, res, next) => {
-  if (req.path.startsWith('/emojis')) return next();
-  // If opened via normal browser: return 404 Not Found
-  if (!isTelegramMiniApp(req)) {
-    res.status(404);
-    const storeIndex = path.join(storeDist, 'index.html');
-    if (fs.existsSync(storeIndex)) return res.sendFile(storeIndex);
-    return res.send('404 Not Found');
+// 1. ADMIN STATIC FILES & SPA ROUTING
+app.use('/admin', express.static(adminDist));
+app.get('/admin/*', (req, res) => {
+  const adminIndex = path.join(adminDist, 'index.html');
+  if (fs.existsSync(adminIndex)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.sendFile(adminIndex);
   }
-  next();
+  return res.status(404).send('Admin SPA not found');
 });
-
-// Serve admin assets
-app.use(
-  '/admin',
-  express.static(adminDist, {
-    index: false,
-    redirect: false,
-    maxAge: '1y',
-    immutable: true,
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      }
-    },
-  })
-);
-
-// Admin Single Page App handler inside Telegram
-app.all(['/admin', '/admin/*'], (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/webhook') || req.path.startsWith('/admin/emojis')) {
-    return next();
-  }
-
-  // 1. PUBLIC WEB ACCESS: Cloak with 404
-  if (!isTelegramMiniApp(req)) {
-    res.status(404);
-    return res.send('404 Not Found');
-  }
-
-  // 2. TELEGRAM MINI APP ACCESS: Serve Admin Portal (NEVER falls back to Store SPA)
+app.get('/admin', (req, res) => {
   const adminIndex = path.join(adminDist, 'index.html');
   if (fs.existsSync(adminIndex)) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -223,13 +192,13 @@ app.all(['/admin', '/admin/*'], (req, res, next) => {
   return res.status(404).send('Admin SPA not found');
 });
 
-// 2. STORE SINGLE PAGE APP HANDLER
+// 2. STORE STATIC FILES & SPA ROUTING
 app.use(
   express.static(storeDist, {
-    index: false,
-    maxAge: '1y',
-    immutable: true,
     setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.webm')) {
+        res.setHeader('Content-Type', 'video/webm');
+      }
       if (filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       }
