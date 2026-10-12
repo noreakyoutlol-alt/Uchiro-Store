@@ -83,7 +83,7 @@ import { botsRouter, webhookRouter } from './routes/bots.routes';
 import { storeBot } from './bots/store-bot';
 import { adminBot } from './bots/admin-bot';
 import { PaymentWorker } from './workers/payment.worker';
-import { adminStaticGuard, ADMIN_404_HTML } from './middleware/admin-guard';
+import { registerStaticRoutes } from './static-routes';
 
 function formatMaskedToken(token: string): string {
   const trimmed = token.trim();
@@ -147,69 +147,12 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Resolve frontend static paths safely
-function findDistPath(subDir: string): string {
-  const candidates = [
-    path.resolve(process.cwd(), subDir, 'dist'),
-    path.resolve(__dirname, '..', '..', subDir, 'dist'),
-    path.resolve(__dirname, '..', subDir, 'dist'),
-    path.resolve(process.cwd(), 'dist', subDir),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  return candidates[0];
-}
-
-const clientStoreDist = findDistPath('client-store');
-const clientAdminDist = findDistPath('client-admin');
-
-// ============================================================================
-// ROUTE REGISTRATION ORDER (PREVENT SPA WILDCARD ROUTE COLLISION)
-// 1. Admin API (/api/admin/*)
-// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
-// 3. Store API (/api/*)
-// 4. Store Static & SPA (/* serving client-store/dist)
-// ============================================================================
-
 // 1. Admin API (/api/admin/*)
 app.use('/api', adminAuthRouter);
 app.use('/api/admin', requireAdminSession);
 app.use('/api/admin', adminRouter);
 
-// Explicit Static Route for Telegram Premium Emojis
-const emojiCandidateDirs = [
-  path.join(clientStoreDist, 'emojis'),
-  path.join(clientAdminDist, 'emojis'),
-  path.resolve(process.cwd(), 'client-store', 'public', 'emojis'),
-  path.resolve(process.cwd(), 'client-admin', 'public', 'emojis'),
-  path.resolve(__dirname, '..', '..', 'client-store', 'public', 'emojis'),
-];
-for (const dir of emojiCandidateDirs) {
-  if (fs.existsSync(dir)) {
-    console.log(`📁 [STATIC] Serving Emojis from: ${dir}`);
-    app.use('/emojis', express.static(dir, { maxAge: '7d', immutable: true }));
-    app.use('/admin/emojis', express.static(dir, { maxAge: '7d', immutable: true }));
-    break;
-  }
-}
-
-// 2. Admin Static & SPA (/admin/* guarded by strict 404 check)
-app.use('/admin', adminStaticGuard);
-if (fs.existsSync(clientAdminDist)) {
-  console.log(`📁 [STATIC] Serving Admin frontend from: ${clientAdminDist}`);
-  app.use('/admin', express.static(clientAdminDist, { index: false, redirect: false }));
-  app.get(['/admin', '/admin/*'], (req, res, next) => {
-    if (req.path.startsWith('/admin/emojis/')) return next();
-    res.sendFile(path.join(clientAdminDist, 'index.html'));
-  });
-} else {
-  app.get(['/admin', '/admin/*'], (_req, res) => {
-    res.status(404).send(ADMIN_404_HTML);
-  });
-}
-
-// 3. Store API (/api/*)
+// 2. Store API (/api/*) & Bot Webhooks
 app.post('/api/webhook/store-bot', webhookSecretGuard('STORE_WEBHOOK_SECRET'), storeBot.webhookCallback('/api/webhook/store-bot'));
 if (process.env.ADMIN_BOT_TOKEN && process.env.ADMIN_BOT_TOKEN.trim()) {
   app.post('/api/webhook/admin-bot', webhookSecretGuard('ADMIN_WEBHOOK_SECRET'), adminBot.webhookCallback('/api/webhook/admin-bot'));
@@ -228,17 +171,8 @@ app.use('/api/gacha', gachaRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/bots', botsRouter);
 
-// 4. Store Static & SPA (/* serving client-store/dist)
-if (fs.existsSync(clientStoreDist)) {
-  console.log(`📁 [STATIC] Serving Store frontend from: ${clientStoreDist}`);
-  app.use(express.static(clientStoreDist, { index: false }));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/') || req.path.startsWith('/emojis/') || req.path === '/health' || req.path === '/api/health') {
-      return next();
-    }
-    res.sendFile(path.join(clientStoreDist, 'index.html'));
-  });
-}
+// 3. Static & SPA Routes (including stealth 404 trap and secret admin slug)
+registerStaticRoutes(app);
 
 // Central Error Handler
 app.use(errorHandler);

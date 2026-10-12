@@ -24,7 +24,7 @@ import { adminBot } from './bots/admin-bot';
 import { PaymentWorker } from './workers/payment.worker';
 import { KHPayService } from './services/khpay.service';
 import { checkSupabaseHealth } from './database/supabase';
-import { adminStaticGuard, ADMIN_404_HTML } from './middleware/admin-guard';
+import { registerStaticRoutes } from './static-routes';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -112,123 +112,8 @@ app.use('/api/gacha', gachaRouter);
 app.use('/api/support', supportRouter);
 app.use('/api/bots', botsRouter);
 
-// Resolve frontend paths dynamically to guarantee Railway production reliability
-const adminDistCandidates = [
-  path.resolve(process.cwd(), 'client-admin/dist'),
-  path.resolve(process.cwd(), '../client-admin/dist'),
-  path.resolve(__dirname, '../../client-admin/dist'),
-  path.resolve(__dirname, '../../../client-admin/dist'),
-];
-const adminDist = adminDistCandidates.find(p => fs.existsSync(path.join(p, 'index.html'))) || adminDistCandidates[0];
-
-const storeDistCandidates = [
-  path.resolve(process.cwd(), 'client-store/dist'),
-  path.resolve(process.cwd(), '../client-store/dist'),
-  path.resolve(__dirname, '../../client-store/dist'),
-  path.resolve(__dirname, '../../../client-store/dist'),
-];
-const storeDist = storeDistCandidates.find(p => fs.existsSync(path.join(p, 'index.html'))) || storeDistCandidates[0];
-
-console.log(`[Railway Verify] Admin dist index.html exists: ${fs.existsSync(path.join(adminDist, 'index.html'))} at ${adminDist}`);
-console.log(`[Railway Verify] Store dist index.html exists: ${fs.existsSync(path.join(storeDist, 'index.html'))} at ${storeDist}`);
-
-// Helper: Detect Telegram Mini App Context
-export function isTelegramMiniApp(req: express.Request): boolean {
-  const rawUrl = req.originalUrl || req.url || '';
-  const query = (req.query || {}) as Record<string, any>;
-  const hasTgQuery =
-    Boolean(query.tgWebAppData) ||
-    Boolean(query.tgWebAppVersion) ||
-    Boolean(query.tgWebAppPlatform) ||
-    Boolean(query.initData) ||
-    rawUrl.includes('tgWebAppData') ||
-    rawUrl.includes('tgWebAppVersion') ||
-    rawUrl.includes('tgWebAppPlatform') ||
-    rawUrl.includes('initData');
-
-  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
-  const hasTgUA = userAgent.includes('telegram');
-  const hasTgHeader = Boolean(
-    req.headers['x-telegram-init-data'] ||
-    req.headers['x-telegram-bot-api-secret-token']
-  );
-
-  const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).toLowerCase();
-  const hasTgReferer =
-    referer.includes('tgwebappdata') ||
-    referer.includes('tgwebappversion') ||
-    referer.includes('tgwebappplatform') ||
-    referer.includes('telegram.org');
-
-  const hasAdminSession = Boolean(
-    req.headers.cookie?.includes('uchiro_admin_token') ||
-    req.headers.authorization?.startsWith('Bearer ') ||
-    query.admin_secret ||
-    query.adminKey ||
-    req.headers['x-admin-key']
-  );
-
-  return hasTgQuery || hasTgUA || hasTgHeader || hasTgReferer || hasAdminSession;
-}
-
-// Mount static emojis
-const storeEmojiCandidates = [
-  path.resolve(process.cwd(), 'client-store/public/emojis'),
-  path.resolve(process.cwd(), '../client-store/public/emojis'),
-  path.resolve(__dirname, '../../client-store/public/emojis'),
-  path.resolve(__dirname, '../../../client-store/public/emojis'),
-];
-const storeEmojiDir = storeEmojiCandidates.find(p => fs.existsSync(p)) || storeEmojiCandidates[0];
-if (fs.existsSync(storeEmojiDir)) {
-  app.use('/emojis', express.static(storeEmojiDir, { maxAge: '7d', immutable: true }));
-  app.use('/admin/emojis', express.static(storeEmojiDir, { maxAge: '7d', immutable: true }));
-}
-
-// 1. ADMIN STATIC FILES & SPA ROUTING
-app.use('/admin', express.static(adminDist));
-app.get('/admin/*', (req, res) => {
-  const adminIndex = path.join(adminDist, 'index.html');
-  if (fs.existsSync(adminIndex)) {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    return res.sendFile(adminIndex);
-  }
-  return res.status(404).send('Admin SPA not found');
-});
-app.get('/admin', (req, res) => {
-  const adminIndex = path.join(adminDist, 'index.html');
-  if (fs.existsSync(adminIndex)) {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    return res.sendFile(adminIndex);
-  }
-  return res.status(404).send('Admin SPA not found');
-});
-
-// 2. STORE STATIC FILES & SPA ROUTING
-app.use(
-  express.static(storeDist, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.webm')) {
-        res.setHeader('Content-Type', 'video/webm');
-      }
-      if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      }
-    },
-  })
-);
-
-// Store SPA Fallback
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/webhook') || req.path.startsWith('/admin')) {
-    return next();
-  }
-  const storeIndex = path.join(storeDist, 'index.html');
-  if (fs.existsSync(storeIndex)) {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    return res.sendFile(storeIndex);
-  }
-  return res.status(404).send('Store SPA not found');
-});
+// Static & SPA Routes (including stealth 404 trap and secret admin slug)
+registerStaticRoutes(app);
 
 // Central Error Handler
 app.use(errorHandler);
