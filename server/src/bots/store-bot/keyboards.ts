@@ -50,44 +50,39 @@ export function createWebAppOrUrlButton(text: string, targetUrl: string) {
  * ROW 5: RULES & HELP CENTER
  * ROW 6: DIRECT SUPPORT
  */
-export function buildMainMenuKeyboard(lang: string = 'km', customStoreUrl?: string) {
-  const storeUrl = customStoreUrl || process.env.STORE_URL || 'https://uchiro.store';
-  const isEn = lang === 'en';
-
+export function buildMainMenuKeyboard() {
+  const storeUrl = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app';
   return {
     inline_keyboard: [
-      // ROW 1: PRIMARY HERO BUTTON AT THE VERY TOP
+      // ROW 1: PRIMARY HERO BUTTON AT THE TOP
       [
-        {
-          text: isEn ? '🛍️ Open UCHIRO STORE' : '🛍️ បើកហាង UCHIRO STORE (Open Store)',
-          web_app: { url: storeUrl },
-        },
+        { text: '🛍️ Open Store (UCHIRO STORE)', web_app: { url: storeUrl } }
       ],
-      // ROW 2: IN-CHAT GAMING & DAILY REWARDS
+      // ROW 2: GAMING & REWARDS
       [
-        { text: isEn ? '🎰 Play Gacha' : '🎰 លេង Gacha', callback_data: 'cb_gacha_menu' },
-        { text: isEn ? '🎁 Daily Points' : '🎁 ពិន្ទុប្រចាំថ្ងៃ', callback_data: 'cb_daily_menu' },
+        { text: '🎰 Play Gacha', callback_data: 'cb_gacha_menu' },
+        { text: '🎁 Daily Reward', callback_data: 'cb_daily_menu' }
       ],
-      // ROW 3: INVENTORY VAULT & ORDER HISTORY
+      // ROW 3: VAULT & ORDERS
       [
-        { text: isEn ? '🎒 My Vault & Accounts' : '🎒 កាតាបឥវ៉ាន់ & Vault', callback_data: 'cb_vault_menu' },
-        { text: isEn ? '📜 Order History' : '📜 ប្រវត្តិបញ្ជាទិញ', callback_data: 'cb_orders_menu' },
+        { text: '🎒 My Vault & Accounts', callback_data: 'cb_vault_menu' },
+        { text: '📜 Order History', callback_data: 'cb_orders_menu' }
       ],
       // ROW 4: PROFILE & LANGUAGE
       [
-        { text: isEn ? '👤 My Profile' : '👤 ព័ត៌មានគណនី (Profile)', callback_data: 'cb_profile_menu' },
-        { text: isEn ? '🌐 Language / ភាសា' : '🌐 ភាសា / Language', callback_data: 'cb_lang_menu' },
+        { text: '👤 My Profile', callback_data: 'cb_profile_menu' },
+        { text: '🌐 Language', callback_data: 'cb_lang_menu' }
       ],
-      // ROW 5: RULES & HELP CENTER
+      // ROW 5: RULES & FAQ
       [
-        { text: isEn ? '📜 Store Rules' : '📜 ច្បាប់ទូទៅ (Rules)', callback_data: 'cb_main_rules' },
-        { text: isEn ? '❓ Help & FAQ' : '❓ ជំនួយ & FAQ (Help)', callback_data: 'cb_main_help' },
+        { text: '📜 Store Rules & Warranty', callback_data: 'cb_main_rules' },
+        { text: '❓ Help & FAQ', callback_data: 'cb_main_help' }
       ],
-      // ROW 6: DIRECT SUPPORT
+      // ROW 6: SUPPORT
       [
-        { text: isEn ? '💬 Contact Admin 24/7' : '💬 ឆាតទៅ Admin 24/7', url: 'https://t.me/UchiroSupport' },
-      ],
-    ],
+        { text: '💬 Contact Support 24/7', url: 'https://t.me/UchiroSupport' }
+      ]
+    ]
   };
 }
 

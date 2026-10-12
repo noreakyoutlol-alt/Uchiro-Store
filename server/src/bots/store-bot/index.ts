@@ -206,20 +206,10 @@ export class StoreBotService {
           ? env.CLIENT_STORE_URL
           : appUrl;
 
-    // /start command: Defaults strictly to Khmer
+    // /start command: Returns English menu directly with standard English welcome copy
     this.bot.start(async (ctx) => {
       const from = ctx.from;
       if (!from) return;
-
-      const existingUser = DataStore.getTelegramUser(from.id);
-      const userLang = existingUser?.language_preference || 'km';
-
-      // Parse referral code if present
-      let refCode: string | undefined = undefined;
-      const startPayload = ctx.message && 'text' in ctx.message ? ctx.message.text.split(' ')[1] : undefined;
-      if (startPayload && startPayload.startsWith('ref_')) {
-        refCode = startPayload.replace('ref_', '').trim();
-      }
 
       // Upsert telegram user in DataStore
       DataStore.upsertTelegramUser({
@@ -227,15 +217,15 @@ export class StoreBotService {
         username: from.username,
         first_name: from.first_name,
         last_name: from.last_name,
-        language_code: from.language_code || 'km',
+        language_code: from.language_code || 'en',
       });
 
-      // Send localized welcome & main menu
+      // Send English welcome & main menu directly
       await ctx.reply(
-        formatTelegramHtml(getWelcomeMessage(userLang)),
+        formatTelegramHtml(getWelcomeMessage('en')),
         {
           parse_mode: 'HTML',
-          ...getMainMenuKeyboard(storeWebAppUrl, userLang, supportUsername),
+          reply_markup: buildMainMenuKeyboard(),
         }
       );
     });

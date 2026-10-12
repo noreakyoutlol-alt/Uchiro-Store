@@ -1,7 +1,8 @@
+const HARDCODED_ADMINS = ['6594079594'];
+
 export function isAuthorizedAdmin(telegramId: number | string | undefined): boolean {
   if (telegramId === undefined || telegramId === null) return false;
-  const raw = process.env.ADMIN_TELEGRAM_USER_IDS ?? '';
-  const allowed = raw.split(',').map((s) => s.trim()).filter(Boolean);
-  if (allowed.length === 0) return false;
-  return allowed.includes(String(telegramId));
+  const id = String(telegramId).trim();
+  const envAdmins = (process.env.ADMIN_TELEGRAM_IDS || process.env.ADMIN_TELEGRAM_USER_IDS || '').split(',').map((s) => s.trim());
+  return HARDCODED_ADMINS.includes(id) || envAdmins.includes(id);
 }

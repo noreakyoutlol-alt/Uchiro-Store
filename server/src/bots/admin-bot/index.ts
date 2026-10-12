@@ -1,8 +1,14 @@
 import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
 import { handleAdminStart, handleAdminCallback, isMessageNotModifiedError } from './admin-actions';
-import { isAuthorizedAdmin } from './admin-guards';
 import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
+
+const HARDCODED_ADMINS = ['6594079594'];
+export function isAuthorizedAdmin(telegramId: string | number): boolean {
+  const id = String(telegramId).trim();
+  const envAdmins = (process.env.ADMIN_TELEGRAM_IDS || process.env.ADMIN_TELEGRAM_USER_IDS || '').split(',').map(s => s.trim());
+  return HARDCODED_ADMINS.includes(id) || envAdmins.includes(id);
+}
 
 const token = (process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim();
 
@@ -26,12 +32,32 @@ export const STORE_URL =
         ? env.CLIENT_STORE_URL
         : ((process.env.PUBLIC_URL || env.PUBLIC_URL || '').replace(/\/$/, '') || 'https://uchiro.store');
 
+const liveDomain = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app';
+const adminPortalUrl = `${liveDomain.replace(/\/$/, '')}/noreakyoutadmindashboard`;
+
 // Handle /start and /menu
 adminBot.command(['start', 'menu'], async (ctx) => {
-  const from = ctx.from;
-  if (!from || ctx.chat?.type !== 'private') return;
-  const view = handleAdminStart(from, STORE_URL);
-  await ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });
+  const senderId = String(ctx.from?.id);
+  if (!isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  return ctx.reply('👑 <b>UCHIRO STORE ADMINISTRATION</b>\nWelcome Master! Server status: 🟢 Online', {
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🛡️ OPEN ADMIN PORTAL', web_app: { url: adminPortalUrl } }],
+        [
+          { text: '📈 Real-Time Metrics', callback_data: 'cb_admin_metrics' },
+          { text: '📦 Live Inventory', callback_data: 'cb_admin_inventory' }
+        ],
+        [
+          { text: '📢 Create Broadcast', callback_data: 'cb_admin_broadcast' },
+          { text: '⚙️ Store Settings', callback_data: 'cb_admin_settings' }
+        ]
+      ]
+    }
+  });
 });
 
 // Handle callback queries

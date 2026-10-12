@@ -34,6 +34,7 @@ import { encrypt, decrypt } from '../security/encryption';
 import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
 import { env } from '../config/env';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 export type { DeliveredAccount };
 
@@ -2153,6 +2154,172 @@ export class DataStore {
     return this.users.get(telegramId) || null;
   }
 
+  static syncUserToMemory(row: any): void {
+    if (!row || !row.telegram_id) return;
+    const numId = Number(row.telegram_id);
+    if (!numId) return;
+
+    let user = this.users.get(numId);
+    if (!user) {
+      user = {
+        id: row.id || uuidv4(),
+        telegram_id: numId,
+        username: row.username || null,
+        first_name: row.first_name || 'Customer',
+        last_name: row.last_name || null,
+        photo_url: row.photo_url || null,
+        language_code: row.language_code || 'km',
+        language_preference: row.language_code || null,
+        is_bot: false,
+        points: row.points ?? 0,
+        reward_points: row.points ?? 0,
+        last_daily_claim_at: row.last_daily_claim_at || null,
+        created_at: row.created_at || new Date().toISOString(),
+        updated_at: row.updated_at || new Date().toISOString(),
+      };
+      this.users.set(numId, user);
+    } else {
+      user.points = row.points ?? user.points;
+      user.reward_points = row.points ?? user.reward_points;
+      user.last_daily_claim_at = row.last_daily_claim_at || user.last_daily_claim_at;
+    }
+
+    let profile = this.profiles.get(numId);
+    if (!profile) {
+      profile = {
+        id: row.id || uuidv4(),
+        telegram_id: numId,
+        points: row.points ?? 0,
+        loyalty_points: row.points ?? 0,
+        reward_points: row.points ?? 0,
+        gacha_tickets: (row.extra as any)?.gacha_tickets ?? 0,
+        total_spent: 0,
+        total_orders: 0,
+        gacha_spins_count: 0,
+        referral_code: `UCH${numId.toString(36).toUpperCase()}`,
+        referred_by: null,
+        last_daily_claim_at: row.last_daily_claim_at || null,
+        created_at: row.created_at || new Date().toISOString(),
+        updated_at: row.updated_at || new Date().toISOString(),
+      };
+      this.profiles.set(numId, profile);
+    } else {
+      profile.points = row.points ?? profile.points;
+      profile.loyalty_points = row.points ?? profile.loyalty_points;
+      profile.reward_points = row.points ?? profile.reward_points;
+      profile.last_daily_claim_at = row.last_daily_claim_at || profile.last_daily_claim_at;
+    }
+  }
+
+  static async getUserByTelegramId(telegramId: string | number): Promise<any> {
+    const tid = String(telegramId);
+    const numId = Number(telegramId) || 0;
+
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('telegram_id', tid)
+          .maybeSingle();
+
+        if (data) {
+          this.syncUserToMemory(data);
+          return data;
+        }
+
+        const newUserRow = {
+          telegram_id: tid,
+          points: 0,
+          streak_count: 0,
+          role: tid === '6594079594' ? 'admin' : 'customer',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: inserted } = await supabase
+          .from('users')
+          .insert(newUserRow)
+          .select('*')
+          .maybeSingle();
+
+        const resolved = inserted || newUserRow;
+        this.syncUserToMemory(resolved);
+        return resolved;
+      } catch (err: any) {
+        console.warn('[DataStore] getUserByTelegramId supabase error:', err?.message);
+      }
+    }
+
+    // Fallback if Supabase offline / test mode
+    let user = this.users.get(numId);
+    if (!user) {
+      const created = this.findOrCreateTelegramUser({
+        telegram_id: numId,
+        first_name: 'Customer',
+      });
+      user = created.user;
+    }
+    return user;
+  }
+
+  static async deductPoints(
+    telegramId: string | number,
+    amount: number
+  ): Promise<{ success: boolean; points: number; error?: string }> {
+    const tid = String(telegramId);
+    const numId = Number(telegramId) || 0;
+    const nowIso = new Date().toISOString();
+
+    const user = await this.getUserByTelegramId(telegramId);
+    const currentPoints = Number(user?.points ?? 0);
+
+    if (currentPoints < amount) {
+      return { success: false, points: currentPoints, error: 'INSUFFICIENT_POINTS' };
+    }
+
+    const newBalance = currentPoints - amount;
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('users')
+          .update({
+            points: newBalance,
+            updated_at: nowIso,
+          })
+          .eq('telegram_id', tid);
+
+        try {
+          await supabase.from('points_ledger').insert({
+            telegram_id: tid,
+            amount: -amount,
+            type: 'redemption',
+            description: `Redeemed ${amount} points`,
+            balance_after: newBalance,
+            created_at: nowIso,
+          });
+        } catch {}
+      } catch (err: any) {
+        console.error('[DataStore] deductPoints Supabase update error:', err?.message);
+      }
+    }
+
+    // Sync memory & disk
+    const memUser = this.users.get(numId);
+    if (memUser) {
+      memUser.points = newBalance;
+    }
+    const memProfile = this.profiles.get(numId);
+    if (memProfile) {
+      memProfile.points = newBalance;
+      memProfile.loyalty_points = newBalance;
+    }
+    this.saveToDisk();
+
+    return { success: true, points: newBalance };
+  }
+
   static async saveUser(user: TelegramUser): Promise<void> {
     if (user && typeof user.telegram_id === 'number') {
       this.users.set(user.telegram_id, user);
@@ -2513,6 +2680,38 @@ export class DataStore {
     const secondsRemaining = Math.ceil(cooldownMs / 1000);
     const nextClaimAt = new Date(now + cooldownMs).toISOString();
 
+    // Persist atomically to Supabase users and points_ledger tables
+    if (isSupabaseConfigured()) {
+      const nowIso = new Date(now).toISOString();
+      const tid = String(telegramId);
+      Promise.resolve(
+        supabase
+          .from('users')
+          .update({
+            points: user.points,
+            streak_count: newStreak,
+            last_daily_claim_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq('telegram_id', tid)
+      )
+        .then(() => {
+          return Promise.resolve(
+            supabase.from('points_ledger').insert({
+              telegram_id: tid,
+              amount: pointsAwarded,
+              type: 'daily_reward',
+              description: isBonus ? `+${pointsAwarded} Daily Reward & Streak Bonus` : `+${pointsAwarded} Daily Reward`,
+              balance_after: user.points,
+              created_at: nowIso,
+            })
+          );
+        })
+        .catch((err: any) => {
+          console.warn('[DataStore] Failed to persist daily claim to Supabase:', err?.message);
+        });
+    }
+
     this.saveToDisk();
     return {
       success: true,
@@ -2581,6 +2780,20 @@ export class DataStore {
 
     if (!deduct.success) {
       return { success: false, error: 'FAILED_TO_DEDUCT_POINTS' };
+    }
+
+    if (isSupabaseConfigured()) {
+      const nowIso = new Date().toISOString();
+      const tid = String(telegramId);
+      Promise.resolve(
+        supabase
+          .from('users')
+          .update({
+            points: profile.points,
+            updated_at: nowIso,
+          })
+          .eq('telegram_id', tid)
+      ).catch(() => {});
     }
 
     const coupon = this.createCoupon({
@@ -3339,7 +3552,6 @@ export class DataStore {
 }
 
 // ================= MODULE 1: SUPABASE PERSISTENCE =================
-import { supabase } from './supabase';
 
 export type OrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded';
 

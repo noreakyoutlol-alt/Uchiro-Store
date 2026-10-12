@@ -19,6 +19,7 @@ import { adminAuthRouter } from './routes/admin-auth.routes';
 import { webhookSecretGuard, registerBotWebhooks } from './bots/webhook-security';
 import { dailyClaimRouter } from './routes/daily-claim';
 import { botsRouter, webhookRouter } from './routes/bots.routes';
+import { userRouter } from './routes/user.routes';
 import { storeBot } from './bots/store-bot';
 import { adminBot } from './bots/admin-bot';
 import { PaymentWorker } from './workers/payment.worker';
@@ -124,6 +125,7 @@ if (process.env.ADMIN_BOT_TOKEN && process.env.ADMIN_BOT_TOKEN.trim()) {
   console.error('[webhook] ADMIN_BOT_TOKEN is missing, admin webhook not mounted');
 }
 app.use('/api/webhook', webhookRouter);
+app.use('/api/user', userRouter);
 app.use('/api/auth', authRouter);
 app.use('/api', dailyClaimRouter);
 app.use('/api/store', storeRouter);

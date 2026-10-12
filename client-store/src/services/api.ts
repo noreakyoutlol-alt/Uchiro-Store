@@ -374,6 +374,14 @@ export const StoreAPI = {
     return res.data?.data || res.data;
   },
 
+  getUserProfile: async (telegramId?: number | string) => {
+    const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+    const resolvedTgId = telegramId || tg?.initDataUnsafe?.user?.id;
+    const params = resolvedTgId ? { telegramId: String(resolvedTgId) } : {};
+    const res = await api.get('/user/profile', { params });
+    return res.data?.data || res.data;
+  },
+
   claimGachaPrize: async (claimId: string, robloxUsername?: string) => {
     const res = await api.post(`/gacha/claim/${claimId}`, { robloxUsername });
     return res.data.data;

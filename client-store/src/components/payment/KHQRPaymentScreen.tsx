@@ -120,14 +120,19 @@ export const KHQRPaymentScreen: React.FC<KHQRPaymentScreenProps> = ({
     try {
       let qrImageSource = '';
       if (qrRef.current) {
-        const svg = qrRef.current.querySelector('svg');
-        if (svg) {
-          const svgData = new XMLSerializer().serializeToString(svg);
-          qrImageSource = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        const canvas = qrRef.current.querySelector('canvas');
+        if (canvas) {
+          qrImageSource = canvas.toDataURL('image/png');
         } else {
-          const img = qrRef.current.querySelector('img');
-          if (img && img.src) {
-            qrImageSource = img.src;
+          const svg = qrRef.current.querySelector('svg');
+          if (svg) {
+            const svgData = new XMLSerializer().serializeToString(svg);
+            qrImageSource = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+          } else {
+            const img = qrRef.current.querySelector('img');
+            if (img && img.src) {
+              qrImageSource = img.src;
+            }
           }
         }
       }

@@ -156,13 +156,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   };
 
   const handleConfirmRedeem = async () => {
-    if (!confirmingTier || !profile || profile.points < confirmingTier.points || isRedeemingCoupon) return;
+    if (!confirmingTier || !profile || (profile.points || 0) < confirmingTier.points || isRedeemingCoupon) return;
     setIsRedeemingCoupon(true);
     try {
       const res = await StoreAPI.redeemPointsForCoupon(confirmingTier.points);
       if (res && res.code) {
         setRedeemedCouponCode(res.code);
         setConfirmingTier(null);
+        const newBalance = typeof res.newBalance === 'number' ? res.newBalance : Math.max(0, (profile.points || 0) - confirmingTier.points);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: newBalance } }));
+        }
         if (onRefreshProfile) onRefreshProfile();
         loadLedger();
         loadCoupons();
@@ -374,51 +378,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
           Earn points on purchases and daily check-ins. Redeem your points for instant discount coupons:
         </p>
 
-        {/* 3 Loyalty Coupon Redemption Options */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {/* 3 Loyalty Coupon Redemption Options — compact horizontal rows (~44px height) */}
+        <div className="space-y-2">
           {COUPON_TIERS.map((tier) => {
             const hasEnough = (profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0) >= tier.points;
             return (
-              <div
-                key={tier.points}
-                className={`p-3 rounded-2xl border transition-all flex flex-col justify-between ${
-                  hasEnough
-                    ? 'bg-white/5 border-white/10 hover:border-[#FFD166]/40'
-                    : 'bg-black/20 border-white/5 opacity-70'
-                }`}
-              >
-                <div className="space-y-1 mb-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      {tier.badge}
-                    </span>
-                    <span className="text-xs font-mono font-black text-[#FFD166]">
-                      {tier.points} PTS
-                    </span>
-                  </div>
-
-                  <div className="text-sm font-black text-white">
-                    ${tier.discount.toFixed(2)} OFF
-                  </div>
-
-                  <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                    <Tag className="w-3 h-3 text-slate-500" />
-                    <span>Min order ${tier.minOrder.toFixed(2)}</span>
-                  </div>
+              <div key={tier.points} className="flex items-center justify-between p-2.5 rounded-lg bg-[#141824] border border-white/10 mb-2">
+                <div>
+                  <div className="text-sm font-bold text-amber-400">${tier.discount.toFixed(2)} OFF</div>
+                  <div className="text-[10px] text-gray-400">Min order ${tier.minOrder.toFixed(2)} • {tier.points} Pts</div>
                 </div>
-
                 <button
                   type="button"
-                  onClick={() => setConfirmingTier(tier)}
                   disabled={!hasEnough || isRedeemingCoupon}
-                  className={`w-full py-2 px-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                    hasEnough
-                      ? 'bg-gradient-to-r from-[#FFD166] to-[#FFB703] text-black shadow-md shadow-[#FFD166]/10 hover:brightness-110 active:scale-98'
-                      : 'bg-white/5 text-slate-500 cursor-not-allowed'
-                  }`}
+                  onClick={() => setConfirmingTier(tier)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:bg-gray-700 text-black transition-colors"
                 >
-                  <Tag className="w-3.5 h-3.5" />
-                  <span>{hasEnough ? 'Redeem' : 'Need Points'}</span>
+                  {hasEnough ? 'Redeem' : 'Need Pts'}
                 </button>
               </div>
             );

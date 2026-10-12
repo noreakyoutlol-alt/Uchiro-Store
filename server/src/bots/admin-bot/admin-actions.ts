@@ -49,14 +49,14 @@ export async function handleAdminCallback(
   if (!from || !isAuthorizedAdmin(from.id)) return unauthorizedView();
   const back = row({ text: '« Back to menu', callback_data: 'admin:menu' });
 
-  if (data === 'admin:menu') {
+  if (data === 'admin:menu' || data === 'cb_admin_menu') {
     return handleAdminStart(from, storeUrl);
   }
 
-  if (data === 'admin:stats:today') {
+  if (data === 'admin:stats:today' || data === 'cb_admin_metrics' || data === 'admin_metrics') {
     const stats = await getTodayStats();
     const text =
-      `📊 <b>Today Stats</b> (UTC)\n\n` +
+      `📈 <b>Real-Time Metrics</b> (UTC)\n\n` +
       `• Orders: <b>${stats.todayOrders}</b>\n` +
       `• Revenue: <b>$${stats.todayRevenueUsd.toFixed(2)}</b>\n` +
       `• Pending fulfillment: <b>${stats.pendingFulfillment}</b>`;
@@ -64,7 +64,7 @@ export async function handleAdminCallback(
       text,
       replyMarkup: {
         inline_keyboard: [
-          row({ text: '🔄 Refresh', callback_data: 'admin:stats:today' }),
+          row({ text: '🔄 Refresh', callback_data: data }),
           back,
         ],
       },
@@ -88,19 +88,39 @@ export async function handleAdminCallback(
     };
   }
 
-  if (data === 'admin:stock:low') {
-    const items = await getLowStockItems(3);
+  if (data === 'admin:stock:low' || data === 'cb_admin_inventory' || data === 'admin_inventory') {
+    const items = await getLowStockItems(5);
     const lines = items.length === 0
       ? ['<i>All items well stocked</i>']
       : items.map((i) => `• ${i.name}: <b>${i.remaining}</b> left`);
-    const text = `⚠️ <b>Low Stock Items</b> (≤ 3)\n\n${lines.join('\n')}`;
+    const text = `📦 <b>Live Inventory Status</b>\n\n${lines.join('\n')}`;
     return {
       text,
       replyMarkup: {
         inline_keyboard: [
-          row({ text: '🔄 Refresh', callback_data: 'admin:stock:low' }),
+          row({ text: '🔄 Refresh', callback_data: data }),
           back,
         ],
+      },
+    };
+  }
+
+  if (data === 'cb_admin_broadcast' || data === 'admin_broadcast') {
+    const text = `📢 <b>Store Broadcast</b>\n\nTo broadcast announcements or stock arrivals to customers, use the Admin Portal or REST API <code>/api/admin/broadcast</code>.`;
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [back],
+      },
+    };
+  }
+
+  if (data === 'cb_admin_settings' || data === 'admin_settings') {
+    const text = `⚙️ <b>Store Settings</b>\n\nStore configuration and maintenance controls are managed securely inside the Admin Portal.`;
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [back],
       },
     };
   }
