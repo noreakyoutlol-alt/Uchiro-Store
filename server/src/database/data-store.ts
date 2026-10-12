@@ -34,7 +34,6 @@ import { encrypt, decrypt } from '../security/encryption';
 import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
 import { env } from '../config/env';
-import { supabase, isSupabaseConfigured } from './supabase';
 import { pgPool, isPostgresConfigured } from './postgres';
 
 export type { DeliveredAccount };
@@ -1390,7 +1389,9 @@ export class DataStore {
   }
 
   static getOrdersByCustomer(telegramId: number): Order[] {
-    return this.orders.filter((o) => o.telegram_id === telegramId);
+    return this.orders
+      .filter((o) => o.telegram_id === telegramId)
+      .map((o) => ({ ...o, total_price: o.total_price ?? o.total_amount }));
   }
 
   static getOrdersByTelegramId(telegramId: number): Order[] {
@@ -2154,6 +2155,70 @@ export class DataStore {
     });
   }
 
+  /**
+   * Sync user points, streak, and daily claim state from Railway PostgreSQL.
+   * Called from Mini App route handlers so the in-memory cache reflects the
+   * authoritative DB row before reads (fixes bot-claim → Mini App stale state).
+   */
+  static async syncUserFromPostgres(telegramId: number | string): Promise<void> {
+    const tid = String(telegramId);
+    const numId = Number(telegramId);
+    if (!numId || !isPostgresConfigured()) return;
+
+    try {
+      const { rows } = await pgPool.query(
+        'SELECT points, streak_count, last_daily_claim_at FROM users WHERE telegram_id = $1',
+        [tid]
+      );
+      if (rows.length === 0) return;
+
+      const row = rows[0];
+      const pts = Number(row.points || 0);
+      const streak = Number(row.streak_count || 0);
+      const lastClaim: string | null = row.last_daily_claim_at
+        ? new Date(row.last_daily_claim_at).toISOString()
+        : null;
+
+      const existingUser = this.users.get(numId);
+      if (existingUser) {
+        existingUser.points = pts;
+        existingUser.reward_points = pts;
+        existingUser.streak_count = streak;
+        existingUser.last_daily_claim_at = lastClaim;
+      }
+
+      const profile = this.profiles.get(numId);
+      if (profile) {
+        profile.points = pts;
+        profile.reward_points = pts;
+        profile.loyalty_points = pts;
+        profile.last_daily_claim_at = lastClaim;
+      }
+
+      if (lastClaim) {
+        this.dailyRewards.set(numId, {
+          streak: streak || 1,
+          lastClaimed: new Date(lastClaim).getTime(),
+        });
+      }
+    } catch (err: any) {
+      console.error('[Postgres Sync Error]:', err.message);
+    }
+  }
+
+  /** @deprecated Use syncUserFromPostgres */
+  static async syncUserFromSupabase(telegramId: number | string): Promise<{ user: TelegramUser; profile: Profile } | null> {
+    await this.syncUserFromPostgres(telegramId);
+    const numId = Number(telegramId);
+    const user = this.users.get(numId);
+    const profile = this.profiles.get(numId);
+    if (!user || !profile) {
+      const created = this.findOrCreateTelegramUser({ telegram_id: numId, first_name: 'Customer' });
+      return created;
+    }
+    return { user, profile };
+  }
+
   static getTelegramUser(telegramId: number): TelegramUser | null {
     return this.users.get(telegramId) || null;
   }
@@ -2255,43 +2320,7 @@ export class DataStore {
       }
     }
 
-    if (isSupabaseConfigured()) {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('telegram_id', tid)
-          .maybeSingle();
-
-        if (data) {
-          this.syncUserToMemory(data);
-          return data;
-        }
-
-        const newUserRow = {
-          telegram_id: tid,
-          points: 0,
-          streak_count: 0,
-          role: tid === '6594079594' ? 'admin' : 'customer',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        const { data: inserted } = await supabase
-          .from('users')
-          .insert(newUserRow)
-          .select('*')
-          .maybeSingle();
-
-        const resolved = inserted || newUserRow;
-        this.syncUserToMemory(resolved);
-        return resolved;
-      } catch (err: any) {
-        console.warn('[DataStore] getUserByTelegramId supabase error:', err?.message);
-      }
-    }
-
-    // Fallback if Supabase offline / test mode
+    // Fallback if postgres offline / test mode
     let user = this.users.get(numId);
     if (!user) {
       const created = this.findOrCreateTelegramUser({
@@ -2348,31 +2377,6 @@ export class DataStore {
         }
       } catch (err: any) {
         console.error('[DataStore] deductPoints PostgreSQL error:', err?.message);
-      }
-    }
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase
-          .from('users')
-          .update({
-            points: newBalance,
-            updated_at: nowIso,
-          })
-          .eq('telegram_id', tid);
-
-        try {
-          await supabase.from('points_ledger').insert({
-            telegram_id: tid,
-            amount: -amount,
-            type: 'redemption',
-            description: `Redeemed ${amount} points`,
-            balance_after: newBalance,
-            created_at: nowIso,
-          });
-        } catch {}
-      } catch (err: any) {
-        console.error('[DataStore] deductPoints Supabase update error:', err?.message);
       }
     }
 
@@ -2776,38 +2780,6 @@ export class DataStore {
       });
     }
 
-    // Persist atomically to Supabase users and points_ledger tables
-    if (isSupabaseConfigured()) {
-      const nowIso = new Date(now).toISOString();
-      const tid = String(telegramId);
-      Promise.resolve(
-        supabase
-          .from('users')
-          .update({
-            points: user.points,
-            streak_count: newStreak,
-            last_daily_claim_at: nowIso,
-            updated_at: nowIso,
-          })
-          .eq('telegram_id', tid)
-      )
-        .then(() => {
-          return Promise.resolve(
-            supabase.from('points_ledger').insert({
-              telegram_id: tid,
-              amount: pointsAwarded,
-              type: 'daily_reward',
-              description: isBonus ? `+${pointsAwarded} Daily Reward & Streak Bonus` : `+${pointsAwarded} Daily Reward`,
-              balance_after: user.points,
-              created_at: nowIso,
-            })
-          );
-        })
-        .catch((err: any) => {
-          console.warn('[DataStore] Failed to persist daily claim to Supabase:', err?.message);
-        });
-    }
-
     this.saveToDisk();
     return {
       success: true,
@@ -2877,20 +2849,6 @@ export class DataStore {
 
     if (!deduct.success) {
       return { success: false, error: 'FAILED_TO_DEDUCT_POINTS' };
-    }
-
-    if (isSupabaseConfigured()) {
-      const nowIso = new Date().toISOString();
-      const tid = String(telegramId);
-      Promise.resolve(
-        supabase
-          .from('users')
-          .update({
-            points: profile.points,
-            updated_at: nowIso,
-          })
-          .eq('telegram_id', tid)
-      ).catch(() => {});
     }
 
     const coupon = this.createCoupon({
@@ -3798,13 +3756,29 @@ function rowToOrder(row: OrderRow): StoredOrder {
 }
 
 export async function getUser(telegramId: string | number): Promise<StoredUser | null> {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('telegram_id', String(telegramId))
-    .maybeSingle();
-  if (error) throw new Error(`getUser failed: ${error.message}`);
-  return data ? rowToUser(data as UserRow) : null;
+  if (!isPostgresConfigured()) {
+    return null;
+  }
+  const tid = String(telegramId);
+
+  try {
+    const { rows } = await pgPool.query('SELECT * FROM users WHERE telegram_id = $1', [tid]);
+    if (rows.length === 0) {
+      // Auto-create new user (idempotent, same as Supabase behavior)
+      const userId = `user_${tid}`;
+      const { rows: inserted } = await pgPool.query(
+        `INSERT INTO users (id, telegram_id, role, points, streak_count, created_at, updated_at)
+         VALUES ($1, $2, 'customer', 0, 0, NOW(), NOW())
+         RETURNING *`,
+        [userId, tid]
+      );
+      return rowsToUser ? rowsToUser(inserted[0]) : inserted[0];
+    }
+    return rowsToUser ? rowsToUser(rows[0]) : rows[0];
+  } catch (err: any) {
+    console.error('[DataStore] getUser PostgreSQL error:', err?.message);
+    return null;
+  }
 }
 
 /**
@@ -3813,48 +3787,109 @@ export async function getUser(telegramId: string | number): Promise<StoredUser |
  * a stale object can never overwrite a balance.
  */
 export async function saveUser(input: SaveUserInput): Promise<StoredUser> {
+  if (!isPostgresConfigured()) {
+    throw new Error('PostgreSQL not configured');
+  }
+  const tid = String(input.telegramId);
+  const now = new Date().toISOString();
+
   const payload: Record<string, unknown> = {
-    telegram_id: String(input.telegramId),
-    updated_at: new Date().toISOString(),
+    telegram_id: tid,
+    updated_at: now,
   };
   if (input.username !== undefined) payload.username = input.username;
   if (input.firstName !== undefined) payload.first_name = input.firstName;
   if (input.extra !== undefined) payload.extra = input.extra;
 
-  const { data, error } = await supabase
-    .from('users')
-    .upsert(payload, { onConflict: 'telegram_id' })
-    .select('*')
-    .single();
-  if (error || !data) throw new Error(`saveUser failed: ${error?.message ?? 'no row returned'}`);
-  return rowToUser(data as UserRow);
+  const columns = Object.keys(payload).join(', ');
+  const placeholders = Object.keys(payload).map((_, i) => `$${i + 1}`).join(', ');
+  const values = Object.values(payload);
+
+  const sql = `
+    INSERT INTO users (telegram_id, username, first_name, extra, updated_at)
+    VALUES (${placeholders})
+    ON CONFLICT (telegram_id) DO UPDATE SET
+      username = EXCLUDED.username,
+      first_name = EXCLUDED.first_name,
+      extra = EXCLUDED.extra,
+      updated_at = EXCLUDED.updated_at
+    RETURNING *
+  `;
+
+  try {
+    const { rows } = await pgPool.query(sql, values);
+    if (rows.length === 0) throw new Error('No row returned from saveUser');
+    return rowsToUser ? rowsToUser(rows[0]) : rows[0];
+  } catch (err: any) {
+    console.error('[DataStore] saveUser PostgreSQL error:', err?.message);
+    throw err;
+  }
 }
 
 export async function claimDailyReward(telegramId: string | number): Promise<ClaimResult> {
-  const { data, error } = await supabase.rpc('claim_daily_reward', {
-    p_telegram_id: String(telegramId),
-  });
-  if (error || !data) throw new Error(`claimDailyReward failed: ${error?.message ?? 'empty result'}`);
+  const numId = Number(telegramId);
+  if (!numId) return { success: false, error: 'INVALID_TELEGRAM_ID' };
 
-  const raw = data as ClaimRpcSuccess | ClaimRpcCooldown;
-  if (raw.success) {
+  if (!isPostgresConfigured()) return { success: false, error: 'POSTGRES_OFFLINE' };
+
+  const tid = String(telegramId);
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  try {
+    // Direct PostgreSQL UPDATE with RETURNING
+    const { rows } = await pgPool.query(
+      `UPDATE users SET points = points + 5, streak_count = streak_count + 1, last_daily_claim_at = NOW() WHERE telegram_id = $1 RETURNING points, streak_count`,
+      [tid]
+    );
+
+    if (rows.length === 0) {
+      // User does not exist yet; insert then retry
+      const { rows: inserted } = await pgPool.query(
+        `INSERT INTO users (telegram_id, role, points, streak_count, last_daily_claim_at, created_at, updated_at)
+         VALUES ($1, 'customer', 5, 1, NOW(), NOW(), NOW())
+         RETURNING points, streak_count`,
+        [tid]
+      );
+      const row = inserted[0];
+      return {
+        success: true,
+        points: row.points,
+        pointsAwarded: 5,
+        newBalance: row.points,
+        streak: row.streak_count,
+        seconds_remaining: 0,
+        nextClaimAt: nowIso,
+        next_claim_at: nowIso,
+      };
+    }
+
+    const row = rows[0];
+    // Persist to points_ledger
+    try {
+      await pgPool.query(
+        `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
+         VALUES ($1, 5, 'daily_reward', $2, $3, NOW())`,
+        [tid, row.points, `+5 Daily Reward`]
+      );
+    } catch {
+      // Non-fatal: ledger persistence failure should not break the reward claim
+    }
+
     return {
       success: true,
-      points: raw.points,
-      pointsAwarded: raw.points_awarded,
-      streak: raw.streak,
-      nextClaimAt: raw.next_claim_at,
-      serverNow: raw.server_now,
+      points: row.points,
+      pointsAwarded: 5,
+      newBalance: row.points,
+      streak: row.streak_count,
+      seconds_remaining: 0,
+      nextClaimAt: nowIso,
+      next_claim_at: nowIso,
     };
+  } catch (err: any) {
+    console.error('[DataStore] claimDailyReward PostgreSQL error:', err.message);
+    return { success: false, error: 'DB_ERROR', remainingMs: 0, points: 0 };
   }
-  return {
-    success: false,
-    error: 'ALREADY_CLAIMED',
-    remainingMs: Number(raw.remaining_ms),
-    points: raw.points,
-    streak: raw.streak,
-    serverNow: raw.server_now,
-  };
 }
 
 export async function adjustPoints(
@@ -3862,15 +3897,45 @@ export async function adjustPoints(
   delta: number,
   reason: string,
 ): Promise<AdjustPointsResult> {
-  const { data, error } = await supabase.rpc('adjust_points', {
-    p_telegram_id: String(telegramId),
-    p_delta: Math.trunc(delta),
-    p_reason: reason,
-  });
-  if (error || !data) throw new Error(`adjustPoints failed: ${error?.message ?? 'empty result'}`);
-  const raw = data as AdjustRpcResult;
-  if (raw.success) return { success: true, points: raw.points };
-  return { success: false, error: 'INSUFFICIENT_POINTS', points: raw.points };
+  if (!isPostgresConfigured()) {
+    return { success: false, error: 'POSTGRES_OFFLINE' };
+  }
+  const numId = Number(telegramId);
+  if (!numId) return { success: false, error: 'INVALID_TELEGRAM_ID' };
+
+  const tid = String(telegramId);
+  const deltaAbs = Math.trunc(delta);
+
+  try {
+    // Upsert user if not exists, then adjust points atomically
+    const { rows } = await pgPool.query(
+      `WITH upsert AS (
+         UPDATE users SET points = points + $2 WHERE telegram_id = $1
+         RETURNING points
+       ),
+       inserted AS (
+         INSERT INTO users (telegram_id, role, points, streak_count, created_at, updated_at)
+         VALUES ($1, 'customer', $2, 0, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO NOTHING
+         RETURNING points
+       )
+     SELECT points FROM upsert
+     UNION ALL
+     SELECT points FROM inserted
+     LIMIT 1`,
+      [tid, deltaAbs]
+    );
+
+    if (rows.length === 0) {
+      return { success: false, error: 'DB_ERROR', points: 0 };
+    }
+
+    const newPoints = rows[0].points;
+    return { success: newPoints >= 0, points: newPoints, error: newPoints < 0 ? 'INSUFFICIENT_POINTS' : null };
+  } catch (err: any) {
+    console.error('[DataStore] adjustPoints PostgreSQL error:', err.message);
+    return { success: false, error: 'DB_ERROR', points: 0 };
+  }
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<StoredOrder> {
@@ -3912,13 +3977,21 @@ export async function getOrderByCode(orderCode: string): Promise<StoredOrder | n
 }
 
 export async function listOrdersByUser(telegramId: string | number): Promise<StoredOrder[]> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('telegram_id', String(telegramId))
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(`listOrdersByUser failed: ${error.message}`);
-  return ((data ?? []) as OrderRow[]).map(rowToOrder);
+  if (!isPostgresConfigured()) {
+    return [];
+  }
+  const tid = String(telegramId);
+
+  try {
+    const { rows } = await pgPool.query(
+      'SELECT * FROM orders WHERE telegram_id = $1 ORDER BY created_at DESC',
+      [tid]
+    );
+    return rows.map(rowToOrder);
+  } catch (err: any) {
+    console.error('[DataStore] listOrdersByUser PostgreSQL error:', err.message);
+    return [];
+  }
 }
 
 const ALLOWED_FROM: Record<OrderStatus, OrderStatus[]> = {
@@ -3939,14 +4012,17 @@ export async function transitionOrderStatus(
 ): Promise<StoredOrder | null> {
   const from = ALLOWED_FROM[to];
   if (from.length === 0) return null;
-  const { data, error } = await supabase
-    .from('orders')
-    .update({ status: to, updated_at: new Date().toISOString() })
-    .eq('payment_ref', paymentRef)
-    .in('status', from)
-    .select('*')
-    .maybeSingle();
-  if (error) throw new Error(`transitionOrderStatus failed: ${error.message}`);
-  return data ? rowToOrder(data as OrderRow) : null;
+  if (!isPostgresConfigured()) return null;
+
+  try {
+    const { rows } = await pgPool.query(
+      `UPDATE orders SET status = $1, updated_at = NOW() WHERE payment_ref = $2 AND status = ANY($3) RETURNING *`,
+      [to, paymentRef, from]
+    );
+    return rows.length > 0 ? rowToOrder(rows[0]) : null;
+  } catch (err: any) {
+    console.error('[DataStore] transitionOrderStatus PostgreSQL error:', err.message);
+    return null;
+  }
 }
 

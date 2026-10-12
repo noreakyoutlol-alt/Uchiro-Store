@@ -1,6 +1,5 @@
 import { Markup } from 'telegraf';
 import { DeliveredAccount } from '../../database/data-store';
-import { getLocale } from './locales';
 
 export function createWebAppOrUrlButton(text: string, targetUrl: string) {
   const rawPublicUrl = (process.env.PUBLIC_URL || '').trim();
@@ -42,130 +41,92 @@ export function createWebAppOrUrlButton(text: string, targetUrl: string) {
 }
 
 /**
- * 6-Row Main Menu In-Chat Keyboard with Hero Open Store at Row 1 (Module 1 Directive):
- * ROW 1: PRIMARY HERO BUTTON AT THE VERY TOP
- * ROW 2: IN-CHAT GAMING & DAILY REWARDS
- * ROW 3: INVENTORY VAULT & ORDER HISTORY
- * ROW 4: PROFILE & LANGUAGE
- * ROW 5: RULES & HELP CENTER
- * ROW 6: DIRECT SUPPORT
+ * 5-Row Main Menu In-Chat Keyboard (100% English):
+ * Row 1: 🎰 Play Gacha | 🎁 Daily Reward
+ * Row 2: 🎒 My Vault & Accounts | 📜 Order History
+ * Row 3: 👤 My Profile | 🌐 Language
+ * Row 4: 📜 Terms & Rules | ❓ Help & Support
+ * Row 5: 🛍️ Open Store (Mini App) | 💬 Contact Admin
  */
-export function buildMainMenuKeyboard() {
-  const storeUrl = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app';
-  return {
-    inline_keyboard: [
-      // ROW 1: PRIMARY HERO BUTTON AT THE TOP
-      [
-        { text: '🛍️ Open Store (UCHIRO STORE)', web_app: { url: storeUrl } }
-      ],
-      // ROW 2: GAMING & REWARDS
-      [
-        { text: '🎰 Play Gacha', callback_data: 'cb_gacha_menu' },
-        { text: '🎁 Daily Reward', callback_data: 'cb_daily_menu' }
-      ],
-      // ROW 3: VAULT & ORDERS
-      [
-        { text: '🎒 My Vault & Accounts', callback_data: 'cb_vault_menu' },
-        { text: '📜 Order History', callback_data: 'cb_orders_menu' }
-      ],
-      // ROW 4: PROFILE & LANGUAGE
-      [
-        { text: '👤 My Profile', callback_data: 'cb_profile_menu' },
-        { text: '🌐 Language', callback_data: 'cb_lang_menu' }
-      ],
-      // ROW 5: RULES & FAQ
-      [
-        { text: '📜 Store Rules & Warranty', callback_data: 'cb_main_rules' },
-        { text: '❓ Help & FAQ', callback_data: 'cb_main_help' }
-      ],
-      // ROW 6: SUPPORT
-      [
-        { text: '💬 Contact Support 24/7', url: 'https://t.me/UchiroSupport' }
-      ]
-    ]
-  };
+export function buildMainMenuKeyboard(storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app') {
+  const kb = Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🎰 Play Gacha', 'cb_gacha_menu'),
+      Markup.button.callback('🎁 Daily Reward', 'cb_daily_menu'),
+    ],
+    [
+      Markup.button.callback('🎒 My Vault & Accounts', 'cb_vault_menu'),
+      Markup.button.callback('📜 Order History', 'cb_orders_menu'),
+    ],
+    [
+      Markup.button.callback('👤 My Profile', 'cb_profile_menu'),
+      Markup.button.callback('🌐 Language', 'cb_lang_menu'),
+    ],
+    [
+      Markup.button.callback('📜 Terms & Rules', 'cb_rules_menu'),
+      Markup.button.callback('❓ Help & Support', 'cb_help_menu'),
+    ],
+    [
+      Markup.button.webApp('🛍️ Open Store (Mini App)', storeUrl),
+      Markup.button.url('💬 Contact Admin', 'https://t.me/UchiroSupport'),
+    ],
+  ]);
+  Object.assign(kb, kb.reply_markup);
+  return kb;
 }
 
-/**
- * 5-Row Main Menu In-Chat Keyboard (Legacy test compatibility):
- * Row 1: 🎰 លេង Gacha (cb_gacha_menu) | 🎁 ពិន្ទុប្រចាំថ្ងៃ (cb_daily_menu)
- * Row 2: 🎒 កាតាបឥវ៉ាន់ & Vault (cb_vault_menu) | 📜 ប្រវត្តិបញ្ជាទិញ (cb_orders_menu)
- * Row 3: 👤 ព័ត៌មានគណនី (Profile) (cb_profile_menu) | 🌐 ភាសា / Language (cb_lang_menu)
- * Row 4: 📜 ច្បាប់ទូទៅ (Rules) (cb_main_rules) | ❓ ជំនួយ & FAQ (Help) (cb_main_help)
- * Row 5: 🛍️ បើកហាង Mini App (ស្រេចចិត្ត) (WebApp) | 💬 ឆាតទៅ Admin 24/7 (Link)
- */
-export function getMainMenuKeyboard(storeUrl: string, lang: string = 'km', supportUsername: string = 'UchiroSupport') {
-  const loc = getLocale(lang);
+export function getMainMenuKeyboard(storeUrl: string, _lang: string = 'en', supportUsername: string = 'UchiroSupport') {
   const cleanSupport = supportUsername.replace(/^@/, '');
   const supportUrl = `https://t.me/${cleanSupport || 'UchiroSupport'}`;
 
-  return Markup.inlineKeyboard([
+  const kb = Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_gacha, 'cb_gacha_menu'),
-      Markup.button.callback(loc.btn_daily, 'cb_daily_menu'),
+      Markup.button.callback('🎰 Play Gacha', 'cb_gacha_menu'),
+      Markup.button.callback('🎁 Daily Reward', 'cb_daily_menu'),
     ],
     [
-      Markup.button.callback(loc.btn_vault, 'cb_vault_menu'),
-      Markup.button.callback(loc.btn_orders, 'cb_orders_menu'),
+      Markup.button.callback('🎒 My Vault & Accounts', 'cb_vault_menu'),
+      Markup.button.callback('📜 Order History', 'cb_orders_menu'),
     ],
     [
-      Markup.button.callback(loc.btn_profile, 'cb_profile_menu'),
-      Markup.button.callback(loc.btn_language, 'cb_lang_menu'),
+      Markup.button.callback('👤 My Profile', 'cb_profile_menu'),
+      Markup.button.callback('🌐 Language', 'cb_lang_menu'),
     ],
     [
-      Markup.button.callback(loc.btn_rules, 'cb_main_rules'),
-      Markup.button.callback(loc.btn_help, 'cb_main_help'),
+      Markup.button.callback('📜 Terms & Rules', 'cb_rules_menu'),
+      Markup.button.callback('❓ Help & Support', 'cb_help_menu'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_store, storeUrl),
-      Markup.button.url(loc.btn_support_admin, supportUrl),
+      createWebAppOrUrlButton('🛍️ Open Store (Mini App)', storeUrl),
+      Markup.button.url('💬 Contact Admin', supportUrl),
     ],
   ]);
+  Object.assign(kb, kb.reply_markup);
+  return kb;
 }
 
 /**
  * Language selection inline keyboard:
  * 🇰🇭 ភាសាខ្មែរ | 🇬🇧 English
- * 🔙 ត្រឡប់ទៅដើម (Back Home)
+ * 🔙 Back Home
  */
-export function getLanguageSelectionKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function getLanguageSelectionKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
       Markup.button.callback('🇰🇭 ភាសាខ្មែរ', 'set_lang:km'),
       Markup.button.callback('🇬🇧 English', 'set_lang:en'),
     ],
     [
-      Markup.button.callback(loc.btn_back_home, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
 /**
- * Profile Keyboard:
- * Row 1: 📜 ប្រវត្តិពិន្ទុ (Points Ledger) | 🎁 ប្តូរពិន្ទុយករង្វាន់
- * Row 2: 🎒 មើលកាតាបឥវ៉ាន់ & Accounts
- * Row 3: 📱 បើកក្នុង Mini App (ស្រេចចិត្ត) | 🔙 ត្រឡប់ទៅដើម
+ * Profile Keyboard (100% English)
  */
-export function buildProfileKeyboard(storeUrl?: string, lang: string = 'en') {
-  const isKm = lang === 'km';
+export function buildProfileKeyboard(storeUrl?: string, _lang: string = 'en') {
   const appUrl = storeUrl || 'https://uchiro.store';
-
-  if (isKm) {
-    return Markup.inlineKeyboard([
-      [
-        Markup.button.callback('📜 ប្រវត្តិពិន្ទុ', 'cb_points_ledger'),
-        Markup.button.callback('🎁 ប្តូរពិន្ទុ', 'cb_redeem_pts'),
-      ],
-      [
-        Markup.button.callback('🎒 មើលកាតាបឥវ៉ាន់ & Accounts', 'cb_vault_menu'),
-      ],
-      [
-        createWebAppOrUrlButton('📱 បើកក្នុង Mini App', appUrl),
-        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
-      ],
-    ]);
-  }
 
   return Markup.inlineKeyboard([
     [
@@ -205,27 +166,9 @@ export function buildRedeemPointsKeyboard(_lang: string = 'en') {
 }
 
 /**
- * Store Rules Keyboard:
- * Row 1: 📜 Store Warranty & Guarantee
- * Row 2: 🔙 Back Home
+ * Store Rules Keyboard (100% English)
  */
-export function buildMainRulesKeyboard(lang: string = 'en') {
-  const isKm = lang === 'km';
-  if (isKm) {
-    return Markup.inlineKeyboard([
-      [
-        Markup.button.callback('🎰 ច្បាប់ Gacha', 'cb_gacha_rules'),
-        Markup.button.callback('🎁 ច្បាប់ Daily', 'cb_daily_rules'),
-      ],
-      [
-        Markup.button.callback('🛡️ គោលការណ៍ធានា 14 ថ្ងៃ', 'cb_warranty_policy'),
-      ],
-      [
-        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
-      ],
-    ]);
-  }
-
+export function buildMainRulesKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
       Markup.button.callback('📜 Store Warranty & Guarantee', 'cb_rules_warranty'),
@@ -245,32 +188,11 @@ export function buildSubRulesKeyboard(_lang: string = 'en') {
 }
 
 /**
- * Help & FAQ Keyboard:
- * Row 1: 🔑 2FA Security Guide
- * Row 2: 💬 Chat with Support 24/7
- * Row 3: 🔙 Back Home
+ * Help & FAQ Keyboard (100% English)
  */
-export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport', lang: string = 'en') {
+export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport', _lang: string = 'en') {
   const cleanSupport = supportUsername.replace(/^@/, '');
   const supportUrl = supportUsername.startsWith('http') ? supportUsername : `https://t.me/${cleanSupport || 'UchiroSupport'}`;
-  const isKm = lang === 'km';
-
-  if (isKm) {
-    return Markup.inlineKeyboard([
-      [
-        Markup.button.callback('🔑 2FA Authenticator', 'cb_guide_2fa'),
-      ],
-      [
-        Markup.button.callback('💳 KHQR ការទូទាត់ប្រាក់', 'cb_guide_payment'),
-      ],
-      [
-        Markup.button.url('💬 ទាក់ទង Admin 24/7', supportUrl),
-      ],
-      [
-        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
-      ],
-    ]);
-  }
 
   return Markup.inlineKeyboard([
     [
@@ -300,33 +222,10 @@ export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', 
 }
 
 /**
- * Gacha Dashboard Keyboard:
- * 🎟️ Exchange Points (100 Pts) (cb_buy_ticket_pts)
- * 🏆 View All Prizes (cb_gacha_prizes)
- * ⚡ Win Rates % (Drop Rates) (cb_gacha_rates)
- * 🎰 Gacha Rules (cb_gacha_rules)
- * 📱 Play Mini App (Visual) (web_app link)
- * 🔙 Back Home (cb_main_menu)
+ * Gacha Dashboard Keyboard (100% English)
  */
-export function buildGachaKeyboard(storeUrl: string, lang: string = 'en') {
+export function buildGachaKeyboard(storeUrl: string, _lang: string = 'en') {
   const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
-  const isKm = lang === 'km';
-
-  if (isKm) {
-    return Markup.inlineKeyboard([
-      [
-        Markup.button.callback('🎟️ ប្តូរសំបុត្រ', 'cb_gacha_buy_ticket'),
-        Markup.button.callback('🏆 រង្វាន់ទាំងអស់', 'cb_gacha_prizes'),
-      ],
-      [
-        Markup.button.callback('⚡ អត្រាឈ្នះ', 'cb_gacha_odds'),
-      ],
-      [
-        createWebAppOrUrlButton('📱 លេងក្នុង Mini App', gachaWebUrl),
-        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
-      ],
-    ]);
-  }
 
   return Markup.inlineKeyboard([
     [
@@ -361,36 +260,20 @@ export function buildSubGachaKeyboard(storeUrl: string, _lang: string = 'en') {
 }
 
 /**
- * Daily Reward Streak Keyboard:
- * 🎁 Claim Daily Points (+5 Pts) (cb_claim_daily)
- * 📜 Streak Rules & Multipliers (cb_daily_rules)
- * 🔙 Back Home (cb_main_menu)
+ * Daily Reward Streak Keyboard (100% English)
  */
-export function buildDailyKeyboard(isClaimable: boolean = true, lang: string = 'en') {
-  const isKm = lang === 'km';
+export function buildDailyKeyboard(isClaimable: boolean = true, _lang: string = 'en') {
   const claimBtn = isClaimable
-    ? Markup.button.callback(
-        isKm ? '🎁 ទទួលពិន្ទុភ្លាមៗ (+5 Pts)' : '🎁 Claim Daily Points (+5 Pts)',
-        isKm ? 'cb_claim_daily_instant' : 'cb_claim_daily'
-      )
-    : Markup.button.callback(
-        isKm ? '⏳ Cooldown (រង់ចាំ)' : '⏳ Cooldown (Wait 24h)',
-        'cb_noop'
-      );
+    ? Markup.button.callback('🎁 Claim Daily Points (+5 Pts)', 'cb_claim_daily')
+    : Markup.button.callback('⏳ Cooldown (Wait 24h)', 'cb_noop');
 
   return Markup.inlineKeyboard([
     [claimBtn],
     [
-      Markup.button.callback(
-        isKm ? '📜 ច្បាប់ Streak & Multipliers' : '📜 Streak Rules & Multipliers',
-        'cb_daily_rules'
-      ),
+      Markup.button.callback('📜 Streak Rules & Multipliers', 'cb_daily_rules'),
     ],
     [
-      Markup.button.callback(
-        isKm ? '🔙 ត្រឡប់ទៅដើម' : '🔙 Back Home',
-        'cb_main_menu'
-      ),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
@@ -407,10 +290,7 @@ export function buildSubDailyShopKeyboard(_lang: string = 'en') {
 }
 
 /**
- * Vault & Accounts Menu Keyboard:
- * 🔑 Get Live 2FA Code (cb_vault_2fa)
- * 🎒 View Delivered Accounts (cb_vault_accounts)
- * 🔙 Back Home (cb_main_menu)
+ * Vault & Accounts Menu Keyboard (100% English)
  */
 export function buildVaultMenuKeyboard() {
   return Markup.inlineKeyboard([
@@ -427,10 +307,7 @@ export function buildVaultMenuKeyboard() {
 }
 
 /**
- * Orders Menu Keyboard:
- * 📜 Order History (cb_orders_recent)
- * 🔍 Track Order ID (cb_orders_track)
- * 🔙 Back Home (cb_main_menu)
+ * Orders Menu Keyboard (100% English)
  */
 export function buildOrdersMenuKeyboard() {
   return Markup.inlineKeyboard([
@@ -447,7 +324,7 @@ export function buildOrdersMenuKeyboard() {
 }
 
 /**
- * Vault List Keyboard
+ * Vault List Keyboard (100% English)
  */
 export function buildVaultListKeyboard(accounts: DeliveredAccount[], storeUrl: string, _lang: string = 'en') {
   const buttons: any[][] = accounts.map((acc) => [
@@ -466,7 +343,7 @@ export function buildVaultListKeyboard(accounts: DeliveredAccount[], storeUrl: s
 }
 
 /**
- * Empty Vault Keyboard
+ * Empty Vault Keyboard (100% English)
  */
 export function buildEmptyVaultKeyboard(storeUrl: string, _lang: string = 'en') {
   return Markup.inlineKeyboard([
@@ -476,10 +353,7 @@ export function buildEmptyVaultKeyboard(storeUrl: string, _lang: string = 'en') 
 }
 
 /**
- * Account Detail Keyboard
- * Row 1: 🔑 Request Live 2FA OTP (if two_factor_secret)
- * Row 2: 📱 Open in Mini App (1-Click Copy)
- * Row 3: 🔙 Back to Accounts | 🏠 Back Home
+ * Account Detail Keyboard (100% English)
  */
 export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: string, _lang: string = 'en') {
   const accountId = account.account_id;
@@ -508,9 +382,7 @@ export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: 
 }
 
 /**
- * Live 2FA Keyboard
- * Row 1: 🔄 Refresh 2FA Code
- * Row 2: 🔙 Back to Account | 🏠 Back Home
+ * Live 2FA Keyboard (100% English)
  */
 export function buildTwoFactorKeyboard(accountId: string, _lang: string = 'en') {
   return Markup.inlineKeyboard([

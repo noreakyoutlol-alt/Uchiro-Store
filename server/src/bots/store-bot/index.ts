@@ -340,7 +340,7 @@ export class StoreBotService {
     });
 
     // MODULE 2: STORE RULES & WARRANTIES
-    this.bot.action(['cb_main_rules', 'menu_rules'], async (ctx) => {
+    this.bot.action(['cb_main_rules', 'menu_rules', 'cb_rules_menu'], async (ctx) => {
       await handleMainRules(ctx);
     });
     this.bot.command('rules', async (ctx) => {
@@ -357,7 +357,7 @@ export class StoreBotService {
     });
 
     // MODULE 2: HELP & FAQ CENTER
-    this.bot.action(['cb_main_help', 'menu_help'], async (ctx) => {
+    this.bot.action(['cb_main_help', 'menu_help', 'cb_help_menu'], async (ctx) => {
       await handleMainHelp(ctx, supportUsername);
     });
     this.bot.command('help', async (ctx) => {

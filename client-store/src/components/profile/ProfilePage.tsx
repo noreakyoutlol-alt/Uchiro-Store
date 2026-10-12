@@ -57,17 +57,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
 
   useEffect(() => {
     const handleSync = (e: any) => {
-      if (typeof e.detail?.points === 'number') {
+      const syncPts = Number(e.detail?.points);
+      if (!isNaN(syncPts)) {
         setProfile((prev: any) => prev ? {
           ...prev,
-          points: e.detail.points,
-          loyalty_points: e.detail.points,
-          reward_points: e.detail.points
+          points: syncPts,
+          loyalty_points: syncPts,
+          reward_points: syncPts
+        } : prev);
+        setProfileStats((prev: any) => prev ? {
+          ...prev,
+          points: syncPts,
         } : prev);
       }
     };
     window.addEventListener('uchiro_points_sync', handleSync);
-    return () => window.removeEventListener('uchiro_points_sync', handleSync);
+    window.addEventListener('uchiro_points_updated', handleSync);
+    return () => {
+      window.removeEventListener('uchiro_points_sync', handleSync);
+      window.removeEventListener('uchiro_points_updated', handleSync);
+    };
   }, []);
 
   const [supportSubject, setSupportSubject] = useState('');
@@ -123,9 +132,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
 
   const loadProfileStats = async () => {
     try {
-      const data = await StoreAPI.getMeStats();
+      const res = await StoreAPI.getMeStats();
+      const data = res?.data || res;
       if (data) {
-        setProfileStats(data);
+        const pts = Number(data.points ?? data.reward_points ?? data.loyalty_points ?? 0);
+        const tix = Number(data.gacha_tickets ?? 0);
+        const ordersCount = Number(data.total_orders ?? 0);
+        const spent = Number(data.total_spent ?? 0);
+        setProfileStats({
+          points: pts,
+          gacha_tickets: tix,
+          total_orders: ordersCount,
+          total_spent: spent,
+        });
+        setProfile((prev) => prev ? {
+          ...prev,
+          points: pts,
+          reward_points: pts,
+          loyalty_points: pts,
+          gacha_tickets: tix,
+        } : prev);
       }
     } catch {
       // Ignore if not logged in or endpoint error
@@ -156,16 +182,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   };
 
   const handleConfirmRedeem = async () => {
-    if (!confirmingTier || !profile || (profile.points || 0) < confirmingTier.points || isRedeemingCoupon) return;
+    if (!confirmingTier || userPoints < confirmingTier.points || isRedeemingCoupon) return;
     setIsRedeemingCoupon(true);
     try {
       const res = await StoreAPI.redeemPointsForCoupon(confirmingTier.points);
       if (res && res.code) {
         setRedeemedCouponCode(res.code);
         setConfirmingTier(null);
-        const newBalance = typeof res.newBalance === 'number' ? res.newBalance : Math.max(0, (profile.points || 0) - confirmingTier.points);
+        const newBalance = typeof res.newBalance === 'number' ? res.newBalance : Math.max(0, userPoints - confirmingTier.points);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: newBalance } }));
+          window.dispatchEvent(new CustomEvent('uchiro_points_updated', { detail: { points: newBalance } }));
         }
         if (onRefreshProfile) onRefreshProfile();
         loadLedger();
@@ -219,10 +246,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
     0
   );
 
-  const userPoints = profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0;
-  const gachaTickets = profileStats !== null ? profileStats.gacha_tickets : (profile?.gacha_tickets ?? 0);
-  const totalOrdersCount = orders.length > 0 ? orders.length : (profileStats?.total_orders ?? 0);
-  const totalSpentAmount = profileStats !== null && profileStats.total_spent > 0 ? profileStats.total_spent : fallbackTotalSpent;
+  const userPoints = profileStats !== null ? Number(profileStats.points) : Number(profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0);
+  const gachaTickets = profileStats !== null ? Number(profileStats.gacha_tickets) : Number(profile?.gacha_tickets ?? 0);
+  const totalOrdersCount = orders.length > 0 ? orders.length : Number(profileStats?.total_orders ?? 0);
+  const totalSpentAmount = profileStats !== null && Number(profileStats.total_spent) > 0 ? Number(profileStats.total_spent) : fallbackTotalSpent;
 
   return (
     <div className="max-w-md w-full mx-auto p-2.5 sm:p-3 space-y-2.5 pb-20 animate-fadeIn">
@@ -274,7 +301,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             <div className="pt-0.5">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 font-mono font-black text-xs">
                 <span>💎</span>
-                <span>{(profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0).toLocaleString()} Pts</span>
+                <span>{userPoints.toLocaleString()} Pts</span>
               </span>
             </div>
           </div>
@@ -293,16 +320,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
           className="w-full py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
         >
           <Package className="w-3.5 h-3.5" />
-          <span>
-            {language === 'km' ? 'ប្រវត្តិបញ្ជាទិញ' : 'Order History'} ({orders.length})
-          </span>
+          <span>Order History ({orders.length})</span>
         </button>
 
         {/* 3 Concise Metrics Strip */}
         <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white/5 border border-white/5 text-center text-xs">
           <div>
             <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-              {language === 'km' ? 'ការបញ្ជាទិញ' : 'Orders'}
+              Orders
             </span>
             <span className="font-mono font-bold text-white text-xs">
               {totalOrdersCount}
@@ -310,7 +335,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
           </div>
           <div>
             <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-              {language === 'km' ? 'ចំណាយសរុប' : 'Total Spent'}
+              Total Spent
             </span>
             <span className="font-mono font-bold text-emerald-400 text-xs">
               ${Number(totalSpentAmount).toFixed(2)}
@@ -318,7 +343,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
           </div>
           <div>
             <span className="text-[10px] text-slate-400 uppercase font-semibold block">
-              {language === 'km' ? 'សំបុត្រកាឆា' : 'Tickets'}
+              Gacha Tickets
             </span>
             <span className="font-mono font-bold text-purple-400 text-xs flex items-center justify-center gap-1">
               <Ticket className="w-3 h-3" />
@@ -337,15 +362,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             <span className="text-base">🎒</span>
             <div className="text-left">
               <span className="block text-white leading-tight">
-                {language === 'km' ? 'កាតាបឥវ៉ាន់ & គណនីហ្គេម' : 'My Vault & Accounts'}
+                My Vault & Accounts
               </span>
               <span className="text-[10px] text-slate-400 font-normal">
-                {language === 'km' ? 'មើល Username, Password និងកូដ 2FA' : 'View Usernames, Passwords & 2FA'}
+                View Usernames, Passwords & 2FA
               </span>
             </div>
           </div>
           <span className="text-[11px] text-[#FFD166] flex items-center gap-1">
-            {language === 'km' ? 'បើកមើល →' : 'Open →'}
+            Open →
           </span>
         </button>
       </div>
@@ -369,7 +394,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             <span>UCHIRO REWARD POINTS</span>
           </div>
           <div className="text-4xl sm:text-5xl font-black text-[#FFD166] tracking-tight leading-none mt-1">
-            {profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0}
+            {userPoints}
           </div>
           <span className="text-xs text-slate-400 mt-1">Reward Points Total</span>
         </div>
@@ -381,7 +406,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
         {/* 3 Loyalty Coupon Redemption Options — compact horizontal rows (~44px height) */}
         <div className="space-y-2">
           {COUPON_TIERS.map((tier) => {
-            const hasEnough = (profile?.points ?? profile?.loyalty_points ?? user?.points ?? 0) >= tier.points;
+            const hasEnough = userPoints >= tier.points;
             return (
               <div key={tier.points} className="flex items-center justify-between p-2.5 rounded-lg bg-[#141824] border border-white/10 mb-2">
                 <div>
@@ -565,7 +590,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
               <div className="pt-2 border-t border-white/10 flex justify-between text-slate-300">
                 <span>Points After:</span>
                 <span className="font-mono font-bold text-emerald-400">
-                  {Math.max(0, (profile?.points || 0) - confirmingTier.points)} PTS
+                  {Math.max(0, userPoints - confirmingTier.points)} PTS
                 </span>
               </div>
             </div>

@@ -174,6 +174,26 @@ export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
           pointsAwarded = res.points_awarded;
           newStreak = res.streak;
           totalPoints = res.points;
+
+          // Immediately sync in-memory DataStore so Mini App reflects bot claim instantaneously
+          const u = DataStore.getTelegramUser(numId);
+          if (u) {
+            u.points = totalPoints;
+            u.reward_points = totalPoints;
+            u.streak_count = newStreak;
+            u.last_daily_claim_at = new Date().toISOString();
+          }
+          const p = DataStore.getProfile(numId);
+          if (p) {
+            p.points = totalPoints;
+            p.loyalty_points = totalPoints;
+            p.reward_points = totalPoints;
+            p.last_daily_claim_at = new Date().toISOString();
+          }
+          DataStore.dailyRewards.set(numId, {
+            streak: newStreak,
+            lastClaimed: Date.now(),
+          });
         } else {
           // Cooldown active
           const remSec = Math.ceil((Number(res.remaining_ms) || 0) / 1000);

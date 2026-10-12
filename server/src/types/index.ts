@@ -235,6 +235,7 @@ export interface Order {
   subtotal: number;
   discount_amount: number;
   total_amount: number;
+  total_price?: number;
   quantity?: number;
   coupon_id: string | null;
   roblox_username: string | null;

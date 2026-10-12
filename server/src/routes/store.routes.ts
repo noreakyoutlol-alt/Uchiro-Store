@@ -45,29 +45,38 @@ storeRouter.get('/coupons/my-coupons', requireTelegramAuth, (req: RequestWithAut
 });
 
 // Real Customer Profile Statistics (Verified paid orders & ledger balance)
-const getCustomerStatsHandler = (req: RequestWithAuth, res: any) => {
+export const getCustomerStatsHandler = async (req: RequestWithAuth, res: any) => {
   const tgId = req.user!.telegram_id;
+  await DataStore.syncUserFromPostgres(tgId);
   const realOrders = DataStore.getOrdersByCustomer(tgId);
   const verifiedOrders = realOrders.filter(
     (o) => o.status === 'paid' || o.status === 'delivered' || o.status === 'completed'
   );
   const totalOrders = verifiedOrders.length;
-  const totalSpent = verifiedOrders.reduce(
-    (sum, o) => sum + Number(o.total_amount || 0),
-    0
-  );
+  const totalSpent = verifiedOrders.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0);
   const realProfile = DataStore.getProfile(tgId);
-  const realPoints = realProfile ? realProfile.points : 0;
-  const realTickets = realProfile ? realProfile.gacha_tickets : 0;
+  const realUser = DataStore.getTelegramUser(tgId);
+  const realPoints = Number(realProfile?.points ?? realUser?.points ?? 0);
+  const realTickets = Number(realProfile?.gacha_tickets ?? realUser?.gacha_tickets ?? 0);
 
-  res.json({
+  return res.json({
     success: true,
     data: {
-      points: realPoints,
-      gacha_tickets: realTickets,
       total_orders: totalOrders,
       total_spent: Number(totalSpent.toFixed(2)),
-      profile: realProfile,
+      profile: {
+        ...(realProfile || {}),
+        points: realPoints,
+        reward_points: realPoints,
+        loyalty_points: realPoints,
+        gacha_tickets: realTickets,
+      },
+      points: realPoints,
+      reward_points: realPoints,
+      loyalty_points: realPoints,
+      gacha_tickets: realTickets,
+      streak_count: realUser?.streak_count || 1,
+      last_daily_claim_at: realUser?.last_daily_claim_at || null,
     },
   });
 };
@@ -196,7 +205,7 @@ export function resolveTelegramIdFromReq(req: RequestWithAuth): number | null {
   return null;
 }
 
-export const handleDailyRewardStatus = (req: RequestWithAuth, res: any) => {
+export const handleDailyRewardStatus = async (req: RequestWithAuth, res: any) => {
   const tgId = resolveTelegramIdFromReq(req);
   if (!tgId) {
     return res.json({
@@ -219,6 +228,7 @@ export const handleDailyRewardStatus = (req: RequestWithAuth, res: any) => {
     });
   }
 
+  await DataStore.syncUserFromPostgres(tgId);
   const status = DataStore.getDailyRewardStatus(tgId);
   return res.json({
     success: true,
@@ -226,7 +236,7 @@ export const handleDailyRewardStatus = (req: RequestWithAuth, res: any) => {
   });
 };
 
-export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
+export const handleDailyRewardClaim = async (req: RequestWithAuth, res: any) => {
   const resolved =
     req.user?.telegram_id ||
     req.body?.telegramId ||
@@ -241,13 +251,14 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
   }
   const tgId = Number(resolved);
 
+  await DataStore.syncUserFromPostgres(tgId);
   let user = DataStore.getTelegramUser(tgId);
   if (!user) {
     const created = DataStore.findOrCreateTelegramUser({
       telegram_id: tgId,
       first_name: req.body?.first_name || 'Customer',
       username: req.body?.username || null,
-      language_code: 'km',
+      language_code: 'en',
     });
     user = created.user;
   }
@@ -309,7 +320,7 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
     seconds_remaining: remSec,
     nextClaimAt,
     next_claim_at: nextClaimAt,
-    message: `🎉 ទទួលបាន +${result.pointsAwarded} ពិន្ទុជោគជ័យ!`,
+    message: `🎉 Successfully claimed +${result.pointsAwarded} points!`,
     data: {
       ...status,
       success: true,
@@ -320,7 +331,7 @@ export const handleDailyRewardClaim = (req: RequestWithAuth, res: any) => {
       seconds_remaining: remSec,
       nextClaimAt,
       next_claim_at: nextClaimAt,
-      message: `🎉 ទទួលបាន +${result.pointsAwarded} ពិន្ទុជោគជ័យ!`,
+      message: `🎉 Successfully claimed +${result.pointsAwarded} points!`,
     },
   });
 };

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AuthService } from '../services/auth.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
 import { getUserForClient } from '../services/user.service';
+import { getCustomerStatsHandler } from './store.routes';
 
 export const authRouter = Router();
 
@@ -59,3 +60,6 @@ authRouter.get('/me', requireTelegramAuth, async (req: RequestWithAuth, res, nex
     next(err);
   }
 });
+
+// Dedicated Stats Endpoint for Customer Mini App TopBar & Profile
+authRouter.get(['/me/stats', '/stats'], requireTelegramAuth, getCustomerStatsHandler);

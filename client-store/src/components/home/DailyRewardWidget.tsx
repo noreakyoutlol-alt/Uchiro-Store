@@ -37,14 +37,23 @@ export const DailyRewardWidget: React.FC<DailyRewardProps> = ({
   const loadStatus = async () => {
     try {
       const res = await StoreAPI.getDailyRewardStatus();
-      if (res && res.data) {
-        setInternalStreak(res.data.streak_count ?? 0);
-        setInternalCanClaim(Boolean(res.data.can_claim));
-        if (res.data.seconds_remaining && res.data.seconds_remaining > 0) {
-          setCountdown(res.data.seconds_remaining);
-          targetEndRef.current = Date.now() + res.data.seconds_remaining * 1000;
+      const statusData = res?.data || res;
+      if (statusData) {
+        const streakVal = Number(statusData.current_streak ?? statusData.streak_count ?? statusData.streak ?? 0);
+        const canClaimVal = Boolean(statusData.can_claim);
+        const secs = Number(statusData.seconds_remaining ?? statusData.remainingSeconds ?? 0);
+        setInternalStreak(streakVal);
+        setInternalCanClaim(canClaimVal);
+        if (secs > 0) {
+          setCountdown(secs);
+          targetEndRef.current = Date.now() + secs * 1000;
         } else {
           setCountdown(0);
+        }
+        const pts = Number(statusData.points ?? statusData.reward_points ?? statusData.newBalance ?? 0);
+        if (!isNaN(pts)) {
+          window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: pts } }));
+          window.dispatchEvent(new CustomEvent('uchiro_points_updated', { detail: { points: pts } }));
         }
       }
     } catch {
@@ -91,14 +100,19 @@ export const DailyRewardWidget: React.FC<DailyRewardProps> = ({
         await onClaim();
       } else {
         const res = await StoreAPI.claimDailyReward();
-        if (res && res.success) {
+        const data = res?.data || res;
+        if (data && (res.success || data.success)) {
           setInternalCanClaim(false);
-          setInternalStreak(res.streak ?? internalStreak + 1);
-          const secs = res.seconds_remaining || 86400;
+          const newStreakVal = Number(data.streak ?? internalStreak + 1);
+          setInternalStreak(newStreakVal);
+          const secs = Number(data.seconds_remaining || data.remainingSeconds || 86400);
           setCountdown(secs);
           targetEndRef.current = Date.now() + secs * 1000;
-          if (onRewardClaimed && typeof res.points === 'number') {
-            onRewardClaimed(res.points);
+          const awardedPoints = Number(data.points ?? data.newBalance ?? data.reward_points ?? 0);
+          if (!isNaN(awardedPoints)) {
+            window.dispatchEvent(new CustomEvent('uchiro_points_sync', { detail: { points: awardedPoints } }));
+            window.dispatchEvent(new CustomEvent('uchiro_points_updated', { detail: { points: awardedPoints } }));
+            if (onRewardClaimed) onRewardClaimed(awardedPoints);
           }
         }
       }
@@ -111,7 +125,7 @@ export const DailyRewardWidget: React.FC<DailyRewardProps> = ({
 
   const activeStreak = propStreak ?? internalStreak;
   const isClaimable = propCanClaim !== undefined ? propCanClaim : internalCanClaim && countdown <= 0;
-  const cooldownStr = propCooldownRemaining || (countdown > 0 ? formatTimer(countdown) : 'រួចរាល់');
+  const cooldownStr = propCooldownRemaining || (countdown > 0 ? formatTimer(countdown) : 'Ready');
 
   return (
     <div className="w-full bg-[#121624] dark:bg-[#121620] border border-white/10 rounded-xl px-3 py-2 flex items-center justify-between shadow-sm my-2 max-h-12 h-11">
@@ -119,7 +133,7 @@ export const DailyRewardWidget: React.FC<DailyRewardProps> = ({
       <div className="flex items-center gap-2">
         <span className="text-base select-none">🔥</span>
         <span className="text-xs font-semibold text-amber-400">
-          Streak {activeStreak} ថ្ងៃ
+          Streak {activeStreak} Days
         </span>
         <div className="flex items-center gap-1 ml-1">
           {[1, 2, 3, 4, 5, 6, 7].map((day) => {
