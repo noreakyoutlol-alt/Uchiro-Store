@@ -115,6 +115,45 @@ app.use('/api/bots', botsRouter);
 // Static & SPA Routes (including stealth 404 trap and secret admin slug)
 registerStaticRoutes(app);
 
+// Helper: Detect Telegram Mini App Context (re-exported for backwards compatibility)
+export function isTelegramMiniApp(req: express.Request): boolean {
+  const rawUrl = req.originalUrl || req.url || '';
+  const query = (req.query || {}) as Record<string, any>;
+  const hasTgQuery =
+    Boolean(query.tgWebAppData) ||
+    Boolean(query.tgWebAppVersion) ||
+    Boolean(query.tgWebAppPlatform) ||
+    Boolean(query.initData) ||
+    rawUrl.includes('tgWebAppData') ||
+    rawUrl.includes('tgWebAppVersion') ||
+    rawUrl.includes('tgWebAppPlatform') ||
+    rawUrl.includes('initData');
+
+  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+  const hasTgUA = userAgent.includes('telegram');
+  const hasTgHeader = Boolean(
+    req.headers['x-telegram-init-data'] ||
+    req.headers['x-telegram-bot-api-secret-token']
+  );
+
+  const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).toLowerCase();
+  const hasTgReferer =
+    referer.includes('tgwebappdata') ||
+    referer.includes('tgwebappversion') ||
+    referer.includes('tgwebappplatform') ||
+    referer.includes('telegram.org');
+
+  const hasAdminSession = Boolean(
+    req.headers.cookie?.includes('uchiro_admin_token') ||
+    req.headers.authorization?.startsWith('Bearer ') ||
+    query.admin_secret ||
+    query.adminKey ||
+    req.headers['x-admin-key']
+  );
+
+  return hasTgQuery || hasTgUA || hasTgHeader || hasTgReferer || hasAdminSession;
+}
+
 // Central Error Handler
 app.use(errorHandler);
 
@@ -138,10 +177,10 @@ if (process.env.NODE_ENV !== 'test') {
 
     // Initialize Telegram Bots
     if (env.NODE_ENV !== 'production') {
-      storeBot.startPolling().catch((err) => {
+      storeBot.startPolling().catch((err: any) => {
         console.warn('Store bot polling notice:', err.message);
       });
-      adminBot.startPolling().catch((err) => {
+      adminBot.startPolling().catch((err: any) => {
         console.warn('Admin bot polling notice:', err.message);
       });
     } else {
