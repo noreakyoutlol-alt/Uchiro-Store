@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
-import type { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 export interface VerifiedTelegramUser {
   id: string;
@@ -116,3 +116,17 @@ export function getTelegramUserId(res: Response): string {
   if (!user) throw new Error('telegramUser missing: requireTelegramUser was not applied');
   return user.id;
 }
+
+/** Same, with a custom maximum initData age (used by the daily claim so long-open Mini Apps keep working). */
+export function requireTelegramUserFor(maxAgeSeconds: number): RequestHandler {
+  return (req, res, next): void => {
+    const user = verifyTelegramInitData(extractInitData(req), getBotTokens(), maxAgeSeconds);
+    if (!user) {
+      res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
+      return;
+    }
+    res.locals.telegramUser = user;
+    next();
+  };
+}
+

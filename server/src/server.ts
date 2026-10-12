@@ -74,6 +74,8 @@ import { paymentRouter } from './routes/payment.routes';
 import { gachaRouter } from './routes/gacha.routes';
 import { supportRouter } from './routes/support.routes';
 import { adminRouter } from './routes/admin.routes';
+import { requireAdminSession } from './auth/admin-session';
+import { adminAuthRouter } from './routes/admin-auth.routes';
 import { vaultRouter } from './routes/vault.routes';
 import { dailyClaimRouter } from './routes/daily-claim';
 import { botsRouter, webhookRouter } from './routes/bots.routes';
@@ -170,6 +172,8 @@ const clientAdminDist = findDistPath('client-admin');
 // ============================================================================
 
 // 1. Admin API (/api/admin/*)
+app.use('/api', adminAuthRouter);
+app.use('/api/admin', requireAdminSession);
 app.use('/api/admin', adminRouter);
 
 // Explicit Static Route for Telegram Premium Emojis

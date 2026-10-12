@@ -14,6 +14,8 @@ import { paymentRouter } from './routes/payment.routes';
 import { gachaRouter } from './routes/gacha.routes';
 import { supportRouter } from './routes/support.routes';
 import { adminRouter } from './routes/admin.routes';
+import { requireAdminSession } from './auth/admin-session';
+import { adminAuthRouter } from './routes/admin-auth.routes';
 import { dailyClaimRouter } from './routes/daily-claim';
 import { botsRouter, webhookRouter } from './routes/bots.routes';
 import { storeBot } from './bots/store-bot';
@@ -87,6 +89,8 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api', apiRateLimiter);
 
 // 1. Admin API (/api/admin/*)
+app.use('/api', adminAuthRouter);
+app.use('/api/admin', requireAdminSession);
 app.use('/api/admin', adminRouter);
 
 // 2. Store API (/api/*)

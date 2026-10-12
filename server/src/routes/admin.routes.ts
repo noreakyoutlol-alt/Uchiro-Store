@@ -2,14 +2,25 @@ import { Router } from 'express';
 import { AdminService } from '../services/admin.service';
 import { OrderService } from '../services/order.service';
 import { BroadcastService } from '../services/broadcast.service';
-import { requireAdminAuth, RequestWithAuth } from '../middleware/auth';
+import { RequestWithAuth } from '../middleware/auth';
 import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
 
 export const adminRouter = Router();
 
-// Protect ALL admin routes with server-side admin validation
-adminRouter.use(requireAdminAuth);
+// Set req.admin from telegramUser for backwards-compatible route handlers
+adminRouter.use((req: RequestWithAuth, res, next) => {
+  const user = res.locals.telegramUser as { id: string; username: string | null } | undefined;
+  if (user) {
+    req.admin = {
+      telegram_id: Number(user.id),
+      user_id: user.id,
+      username: user.username,
+      role: 'admin',
+    };
+  }
+  next();
+});
 
 // Categories
 adminRouter.get('/categories', (_req, res) => {
