@@ -85,6 +85,7 @@ import { storeBot } from './bots/store-bot';
 import { adminBot } from './bots/admin-bot';
 import { PaymentWorker } from './workers/payment.worker';
 import { registerStaticRoutes } from './static-routes';
+import { initDatabase } from './database/postgres';
 
 function formatMaskedToken(token: string): string {
   const trimmed = token.trim();
@@ -209,6 +210,8 @@ const HOST = '0.0.0.0';
 const isTestEnv = env.NODE_ENV === 'test' || Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
 
 if (!isTestEnv) {
+  initDatabase().catch(err => console.error('[Postgres] Startup init failed:', err));
+
   server = app.listen(PORT, HOST, () => {
     console.log(`[API] Uchiro Store Backend running on http://0.0.0.0:${PORT}`);
     console.log(`====================================================`);

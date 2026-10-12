@@ -6,6 +6,7 @@ import {
   buildPointsLedgerKeyboard,
   buildRedeemPointsKeyboard,
 } from '../keyboards';
+import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { escapeHtml, isMessageNotModifiedError } from './orders';
 
 export interface UserProfileData {
@@ -123,15 +124,16 @@ export async function handleProfileMenu(ctx: Context, storeUrl: string): Promise
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildProfileKeyboard(storeUrl, userLang);
+  const formattedHtml = enrichWithTgEmojis(text);
 
   try {
     if (ctx.callbackQuery) {
-      await ctx.editMessageText(text, {
+      await ctx.editMessageText(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
     } else {
-      await ctx.reply(text, {
+      await ctx.reply(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
@@ -182,10 +184,10 @@ export async function handlePointsLedger(ctx: Context): Promise<void> {
     `💡 <i>ចំណាំ: អ្នកអាចទទួលបានពិន្ទុដោយឥតគិតថ្លៃតាមរយៈការ Claim ប្រចាំថ្ងៃ ឬការទិញទំនិញក្នុងហាង។</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildPointsLedgerKeyboard(userLang);
+  const keyboard = buildPointsLedgerKeyboard('en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
@@ -197,7 +199,7 @@ export async function handlePointsLedger(ctx: Context): Promise<void> {
 }
 
 /**
- * Handle Redeem Points (cb_redeem_pts)
+ * Handle Redeem Points (cb_redeem_pts / cb_redeem_menu)
  */
 export async function handleRedeemPoints(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
@@ -222,10 +224,10 @@ export async function handleRedeemPoints(ctx: Context): Promise<void> {
     `👇 ចុចប្តូរសំបុត្រ Gacha ភ្លាមៗ ឬចូលទៅកាន់កម្មវិធី Store ដើម្បីប្តូរប័ណ្ណបញ្ចុះតម្លៃ:\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildRedeemPointsKeyboard(userLang);
+  const keyboard = buildRedeemPointsKeyboard('en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });

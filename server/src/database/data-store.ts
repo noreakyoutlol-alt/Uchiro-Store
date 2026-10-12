@@ -35,6 +35,7 @@ import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
 import { env } from '../config/env';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { pgPool, isPostgresConfigured } from './postgres';
 
 export type { DeliveredAccount };
 
@@ -2215,6 +2216,42 @@ export class DataStore {
     const tid = String(telegramId);
     const numId = Number(telegramId) || 0;
 
+    // 1. Query users from PostgreSQL first
+    if (isPostgresConfigured()) {
+      try {
+        const res = await pgPool.query('SELECT * FROM users WHERE telegram_id = $1 LIMIT 1', [tid]);
+        if (res.rows.length > 0) {
+          const row = res.rows[0];
+          this.syncUserToMemory(row);
+          return row;
+        }
+
+        // If not found, insert a record and return it
+        const insertRes = await pgPool.query(
+          `INSERT INTO users (telegram_id, username, first_name, role, points, streak_count, gacha_tickets, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+           ON CONFLICT (telegram_id) DO UPDATE SET updated_at = NOW()
+           RETURNING *`,
+          [
+            tid,
+            tid === '6594079594' ? 'Noreakyout' : null,
+            tid === '6594079594' ? 'Noreakyout' : 'Customer',
+            tid === '6594079594' ? 'admin' : 'customer',
+            tid === '6594079594' ? 500 : 0,
+            tid === '6594079594' ? 1 : 0,
+            0,
+          ]
+        );
+        if (insertRes.rows.length > 0) {
+          const createdRow = insertRes.rows[0];
+          this.syncUserToMemory(createdRow);
+          return createdRow;
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] getUserByTelegramId postgres error:', err?.message);
+      }
+    }
+
     if (isSupabaseConfigured()) {
       try {
         const { data, error } = await supabase
@@ -2278,7 +2315,38 @@ export class DataStore {
       return { success: false, points: currentPoints, error: 'INSUFFICIENT_POINTS' };
     }
 
-    const newBalance = currentPoints - amount;
+    let newBalance = currentPoints - amount;
+
+    // Decrement directly in users.points inside PostgreSQL transaction
+    if (isPostgresConfigured()) {
+      try {
+        const client = await pgPool.connect();
+        try {
+          await client.query('BEGIN');
+          const userRes = await client.query('SELECT points FROM users WHERE telegram_id = $1 FOR UPDATE', [tid]);
+          if (userRes.rows.length === 0 || Number(userRes.rows[0].points) < amount) {
+            await client.query('ROLLBACK');
+            return { success: false, points: Number(userRes.rows[0]?.points ?? currentPoints), error: 'INSUFFICIENT_POINTS' };
+          }
+          const updatedBal = Number(userRes.rows[0].points) - amount;
+          await client.query('UPDATE users SET points = $1, updated_at = NOW() WHERE telegram_id = $2', [updatedBal, tid]);
+          await client.query(
+            `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
+             VALUES ($1, $2, 'redemption', $3, $4, NOW())`,
+            [tid, -amount, updatedBal, `Redeemed ${amount} points`]
+          );
+          await client.query('COMMIT');
+          newBalance = updatedBal;
+        } catch (txErr) {
+          await client.query('ROLLBACK');
+          throw txErr;
+        } finally {
+          client.release();
+        }
+      } catch (err: any) {
+        console.error('[DataStore] deductPoints PostgreSQL error:', err?.message);
+      }
+    }
 
     if (isSupabaseConfigured()) {
       try {
@@ -2588,6 +2656,7 @@ export class DataStore {
     success: boolean;
     points: number;
     pointsAwarded: number;
+    newTotalPoints?: number;
     newBalance: number;
     streak: number;
     seconds_remaining?: number;
@@ -2680,6 +2749,30 @@ export class DataStore {
     const secondsRemaining = Math.ceil(cooldownMs / 1000);
     const nextClaimAt = new Date(now + cooldownMs).toISOString();
 
+    // Persist to PostgreSQL users and points_ledger tables
+    if (isPostgresConfigured()) {
+      const tid = String(telegramId);
+      pgPool.query(
+        `UPDATE users
+         SET points = points + $1,
+             streak_count = streak_count + 1,
+             last_daily_claim_at = NOW(),
+             updated_at = NOW()
+         WHERE telegram_id = $2
+         RETURNING points, streak_count`,
+        [pointsAwarded, tid]
+      ).then(res => {
+        const bal = res.rows.length > 0 ? Number(res.rows[0].points) : user.points;
+        return pgPool.query(
+          `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
+           VALUES ($1, $2, 'daily_reward', $3, $4, NOW())`,
+          [tid, pointsAwarded, bal, isBonus ? `+${pointsAwarded} Daily Reward & Streak Bonus` : `+${pointsAwarded} Daily Reward`]
+        );
+      }).catch(err => {
+        console.warn('[DataStore] Failed to persist daily claim to PostgreSQL:', err?.message);
+      });
+    }
+
     // Persist atomically to Supabase users and points_ledger tables
     if (isSupabaseConfigured()) {
       const nowIso = new Date(now).toISOString();
@@ -2717,6 +2810,7 @@ export class DataStore {
       success: true,
       points: user.points,
       pointsAwarded,
+      newTotalPoints: user.points,
       newBalance: user.points,
       streak: newStreak,
       remainingMs: cooldownMs,

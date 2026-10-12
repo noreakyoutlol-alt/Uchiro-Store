@@ -4,6 +4,7 @@ import {
   buildMainRulesKeyboard,
   buildSubRulesKeyboard,
 } from '../keyboards';
+import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { isMessageNotModifiedError } from './orders';
 
 /**
@@ -37,12 +38,12 @@ export async function handleMainRules(ctx: Context): Promise<void> {
 
   try {
     if (ctx.callbackQuery) {
-      await ctx.editMessageText(text, {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
         parse_mode: 'HTML',
         ...keyboard,
       });
     } else {
-      await ctx.reply(text, {
+      await ctx.reply(enrichWithTgEmojis(text), {
         parse_mode: 'HTML',
         ...keyboard,
       });
@@ -76,10 +77,10 @@ export async function handleGachaRules(ctx: Context): Promise<void> {
     `• គណនី ឬ Code ដែលឈ្នះ នឹងត្រូវផ្ញើចូលទៅក្នុង <b>🎒 កាតាបឥវ៉ាន់ (Vault)</b> របស់អ្នកដោយស្វ័យប្រវត្តិក្នង 3 វិនាទី។\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubRulesKeyboard('km');
+  const keyboard = buildSubRulesKeyboard('en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
@@ -106,14 +107,14 @@ export async function handleDailyRules(ctx: Context): Promise<void> {
     `🔥 <b>រង្វាន់តាម Streak ជាប់គ្នា:</b>\n` +
     `• <b>ថ្ងៃទី ១ ដល់ ថ្ងៃទី ៦:</b> ទទួលបាន <code>+5 Pts</code> ក្នុងមួយថ្ងៃ\n` +
     `• <b>ថ្ងៃទី ៧ (រង្វាន់ធំ):</b> ទទួលបាន <code>+20 Pts</code> ពិសេស!\n\n` +
-    `⚠️ <b>លក្ខខណ្ឌ Reset Streak:</b>\n` +
-    `• ប្រសិនបើអ្នកអាក់ខានមិនបានចូល Claim លើសពី ៤៨ ម៉ោង ប្រព័ន្ធនឹង Reset Streak ត្រឡប់ទៅថ្ងៃទី ១ វិញដោយស្វ័យប្រវត្តិ។\n` +
+    `⚠️ <b>ការ Reset Streak:</b>\n` +
+    `• ប្រសិនបើខកខានលើសពី ៤៨ ម៉ោងមិនបាន Claim ពិន្ទុ Streak នឹងវិលមកថ្ងៃទី ១ ឡើងវិញ។\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubRulesKeyboard('km');
+  const keyboard = buildSubRulesKeyboard('en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
@@ -125,7 +126,7 @@ export async function handleDailyRules(ctx: Context): Promise<void> {
 }
 
 /**
- * Handle 14-Day Warranty Policy Details (cb_warranty_policy)
+ * Handle 14-Day Warranty Policy (cb_warranty_policy / cb_rules_warranty)
  */
 export async function handleWarrantyPolicy(ctx: Context): Promise<void> {
   try {
@@ -147,10 +148,10 @@ export async function handleWarrantyPolicy(ctx: Context): Promise<void> {
     `• ចែករំលែក Password ឬលេខកូដ 2FA ទៅកាន់អ្នកដទៃ\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubRulesKeyboard('km');
+  const keyboard = buildSubRulesKeyboard('en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });

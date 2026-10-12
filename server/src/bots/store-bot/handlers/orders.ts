@@ -7,7 +7,9 @@ import {
   buildEmptyVaultKeyboard,
   buildTwoFactorKeyboard,
   buildVaultListKeyboard,
+  buildOrdersMenuKeyboard,
 } from '../keyboards';
+import { enrichWithTgEmojis } from '../utils/emoji-registry';
 
 export function escapeHtml(str: string): string {
   if (!str) return '';
@@ -111,13 +113,13 @@ export async function handleVaultMenu(ctx: Context, storeUrl: string): Promise<v
 
     const keyboard = buildEmptyVaultKeyboard(storeUrl);
     try {
-      await ctx.editMessageText(text, {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
         parse_mode: 'HTML',
         ...keyboard,
       });
     } catch (err) {
       if (!isMessageNotModifiedError(err)) {
-        await ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+        await ctx.reply(enrichWithTgEmojis(text), { parse_mode: 'HTML', ...keyboard });
       }
     }
     return;
@@ -132,13 +134,13 @@ export async function handleVaultMenu(ctx: Context, storeUrl: string): Promise<v
   const keyboard = buildVaultListKeyboard(accounts, storeUrl);
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
   } catch (err) {
     if (!isMessageNotModifiedError(err)) {
-      await ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+      await ctx.reply(enrichWithTgEmojis(text), { parse_mode: 'HTML', ...keyboard });
     }
   }
 }
@@ -195,13 +197,13 @@ export async function handleViewAccount(
   const keyboard = buildAccountDetailKeyboard(account, storeUrl);
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
   } catch (err) {
     if (!isMessageNotModifiedError(err)) {
-      await ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+      await ctx.reply(enrichWithTgEmojis(text), { parse_mode: 'HTML', ...keyboard });
     }
   }
 }
@@ -248,7 +250,7 @@ export async function handleGen2fa(
   const keyboard = buildTwoFactorKeyboard(account.account_id);
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
@@ -256,5 +258,77 @@ export async function handleGen2fa(
     if (!isMessageNotModifiedError(err)) {
       // Ignored if unmodified
     }
+  }
+}
+
+/**
+ * Orders Menu:
+ * 📜 Order History (cb_orders_recent)
+ * 🔍 Track Order ID (cb_orders_track)
+ * 🔙 Back Home (cb_main_menu)
+ */
+export async function handleOrdersMenu(ctx: Context, _storeUrl: string): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `📜 <b>ប្រវត្តិបញ្ជាទិញ &amp; តាមដានទំនិញ (ORDERS &amp; HISTORY)</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `ស្វែងរក និងតាមដានរាល់ការកុម្ម៉ង់ទិញគណនី និងទំនិញរបស់អ្នក៖\n\n` +
+    `• <b>📜 Order History:</b> មើលប្រវត្តិ និងទិន្នន័យបញ្ជាទិញថ្មីៗ\n` +
+    `• <b>🔍 Track Order ID:</b> ស្វែងរកស្ថានភាពកុម្ម៉ង់តាមលេខកូដទំនិញ\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildOrdersMenuKeyboard();
+
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[Orders Menu] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle Track Order ID (cb_orders_track)
+ */
+export async function handleOrdersTrack(ctx: Context, _storeUrl: string): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `🔍 <b>តាមដានស្ថានភាពបញ្ជាទិញ (TRACK ORDER ID)</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `ដើម្បីស្វែងរកទំនិញរបស់អ្នក សូមវាយបញ្ចូលលេខកូដបញ្ជាទិញ (ឧទាហរណ៍៖ <code>ORD-123456</code>) ឬផ្ញើទៅកាន់ផ្នែក Support ដើម្បីឱ្យ Admin ជួយត្រួតពិនិត្យជូនភ្លាមៗ។\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildOrdersMenuKeyboard();
+
+  try {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  } catch {
+    await ctx.reply(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
   }
 }

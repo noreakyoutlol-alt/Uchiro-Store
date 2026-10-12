@@ -5,6 +5,7 @@ import {
   buildGachaKeyboard,
   buildSubGachaKeyboard,
 } from '../keyboards';
+import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { escapeHtml, isMessageNotModifiedError } from './orders';
 
 export interface GachaLiveInfo {
@@ -114,15 +115,16 @@ export async function handleGachaMenu(ctx: Context, storeUrl: string): Promise<v
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildGachaKeyboard(storeUrl, userLang);
+  const formattedHtml = enrichWithTgEmojis(text);
 
   try {
     if (ctx.callbackQuery) {
-      await ctx.editMessageText(text, {
+      await ctx.editMessageText(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
     } else {
-      await ctx.reply(text, {
+      await ctx.reply(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
@@ -254,10 +256,10 @@ export async function handleBuyGachaTicket(ctx: Context, storeUrl: string): Prom
     `• ⚡ អត្រាឈ្នះ Mythical: <b>${gacha.mythical_drop_rate}%</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildGachaKeyboard(storeUrl, 'km');
+  const keyboard = buildGachaKeyboard(storeUrl, 'en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
@@ -312,10 +314,10 @@ export async function handleGachaPrizes(ctx: Context, storeUrl: string): Promise
     `💡 <i>រង្វាន់គណនី និងកូដទាំងអស់នឹងត្រូវបញ្ជូនចូលទៅក្នុង 🎒 Vault របស់អ្នកភ្លាមៗ!</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubGachaKeyboard(storeUrl, 'km');
+  const keyboard = buildSubGachaKeyboard(storeUrl, 'en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
@@ -327,7 +329,7 @@ export async function handleGachaPrizes(ctx: Context, storeUrl: string): Promise
 }
 
 /**
- * Handle Gacha Drop Rates / Odds (cb_gacha_odds)
+ * Handle Gacha Drop Rates / Odds (cb_gacha_odds / cb_gacha_rates)
  */
 export async function handleGachaOdds(ctx: Context, storeUrl: string): Promise<void> {
   try {
@@ -350,10 +352,10 @@ export async function handleGachaOdds(ctx: Context, storeUrl: string): Promise<v
     `🔒 <i>ប្រព័ន្ធធានាសមភាព (Provably Fair RNG Engine) 100% គ្មានការបន្លំ។</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubGachaKeyboard(storeUrl, 'km');
+  const keyboard = buildSubGachaKeyboard(storeUrl, 'en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });

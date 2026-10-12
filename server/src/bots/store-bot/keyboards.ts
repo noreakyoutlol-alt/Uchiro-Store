@@ -147,205 +147,214 @@ export function getLanguageSelectionKeyboard(lang: string = 'km') {
  * Row 2: 🎒 មើលកាតាបឥវ៉ាន់ & Accounts
  * Row 3: 📱 បើកក្នុង Mini App (ស្រេចចិត្ត) | 🔙 ត្រឡប់ទៅដើម
  */
-export function buildProfileKeyboard(storeUrl: string, lang: string = 'km') {
-  const loc = getLocale(lang);
-  const profileWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=profile` : `${storeUrl}?tab=profile`;
-
+export function buildProfileKeyboard(storeUrl?: string, _lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_points_ledger, 'cb_points_ledger'),
-      Markup.button.callback(loc.btn_redeem_pts, 'cb_redeem_pts'),
+      Markup.button.callback('🎁 Redeem Points for Coupons', 'cb_redeem_menu'),
     ],
     [
-      Markup.button.callback(loc.btn_view_vault, 'cb_vault_menu'),
+      Markup.button.callback('📜 Points Ledger History', 'cb_points_ledger'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_profile_webapp, profileWebUrl),
-      Markup.button.callback(loc.btn_back_home, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
-export function buildPointsLedgerKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildPointsLedgerKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_redeem_pts, 'cb_redeem_pts'),
+      Markup.button.callback('🎁 Redeem Points for Coupons', 'cb_redeem_menu'),
     ],
     [
-      Markup.button.callback('🔙 ត្រឡប់ទៅ Profile', 'cb_profile_menu'),
-      Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
-export function buildRedeemPointsKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildRedeemPointsKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('🎟️ ប្តូរសំបុត្រ Gacha (-50 Pts)', 'cb_gacha_buy_ticket'),
+      Markup.button.callback('🎟️ Exchange Points (100 Pts)', 'cb_buy_ticket_pts'),
     ],
     [
-      Markup.button.callback('🔙 ត្រឡប់ទៅ Profile', 'cb_profile_menu'),
-      Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
 /**
  * Store Rules Keyboard:
- * Row 1: 🎰 ច្បាប់ Gacha លម្អិត | 🎁 ច្បាប់ Daily Streak
- * Row 2: 🔐 គោលការណ៍ធានា 14 ថ្ងៃ
- * Row 3: 🔙 ត្រឡប់ទៅដើម (Back Home)
+ * Row 1: 📜 Store Warranty & Guarantee
+ * Row 2: 🔙 Back Home
  */
-export function buildMainRulesKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildMainRulesKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_gacha_rules, 'cb_gacha_rules'),
-      Markup.button.callback(loc.btn_daily_rules, 'cb_daily_rules'),
+      Markup.button.callback('📜 Store Warranty & Guarantee', 'cb_rules_warranty'),
     ],
     [
-      Markup.button.callback(loc.btn_warranty_policy, 'cb_warranty_policy'),
-    ],
-    [
-      Markup.button.callback(loc.btn_back_home, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
-export function buildSubRulesKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildSubRulesKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_back_to_rules, 'cb_main_rules'),
-      Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
 /**
  * Help & FAQ Keyboard:
- * Row 1: 🔑 មគ្គុទ្ទេសក៍ប្រើ 2FA Authenticator
- * Row 2: 💳 របៀបទិញ និងបង់ប្រាក់ KHQR
- * Row 3: 💬 ទាក់ទង Admin ជំនួយផ្ទាល់ (Link)
- * Row 4: 🔙 ត្រឡប់ទៅដើម (Back Home)
+ * Row 1: 🔑 2FA Security Guide
+ * Row 2: 💬 Chat with Support 24/7
+ * Row 3: 🔙 Back Home
  */
-export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport', lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport', _lang: string = 'en') {
   const cleanSupport = supportUsername.replace(/^@/, '');
-  const supportUrl = `https://t.me/${cleanSupport || 'UchiroSupport'}`;
+  const supportUrl = supportUsername.startsWith('http') ? supportUsername : `https://t.me/${cleanSupport || 'UchiroSupport'}`;
 
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_guide_2fa, 'cb_guide_2fa'),
+      Markup.button.callback('🔑 2FA Security Guide', 'cb_help_2fa'),
     ],
     [
-      Markup.button.callback(loc.btn_guide_payment, 'cb_guide_payment'),
+      Markup.button.url('💬 Chat with Support 24/7', supportUrl),
     ],
     [
-      Markup.button.url(loc.btn_contact_admin, supportUrl),
-    ],
-    [
-      Markup.button.callback(loc.btn_back_home, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
-export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', _lang: string = 'en') {
   const cleanSupport = supportUsername.replace(/^@/, '');
-  const supportUrl = `https://t.me/${cleanSupport || 'UchiroSupport'}`;
+  const supportUrl = supportUsername.startsWith('http') ? supportUsername : `https://t.me/${cleanSupport || 'UchiroSupport'}`;
 
   return Markup.inlineKeyboard([
     [
-      Markup.button.url(loc.btn_support_admin, supportUrl),
+      Markup.button.url('💬 Chat with Support 24/7', supportUrl),
     ],
     [
-      Markup.button.callback(loc.btn_back_to_help, 'cb_main_help'),
-      Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
 /**
  * Gacha Dashboard Keyboard:
- * Row 1: 🎟️ ប្តូរសំបុត្រតាមពិន្ទុ (In-Bot) | 🏆 មើលរង្វាន់ទាំងអស់
- * Row 2: ⚡ អត្រាឈ្នះ % (Drop Rates) | 📜 ច្បាប់ & របៀបលេង
- * Row 3: 📱 បើកលេង Mini App (Visual Spin) | 🔙 ត្រឡប់ទៅដើម
+ * 🎟️ Exchange Points (100 Pts) (cb_buy_ticket_pts)
+ * 🏆 View All Prizes (cb_gacha_prizes)
+ * ⚡ Win Rates % (Drop Rates) (cb_gacha_rates)
+ * 🎰 Gacha Rules (cb_gacha_rules)
+ * 📱 Play Mini App (Visual) (web_app link)
+ * 🔙 Back Home (cb_main_menu)
  */
-export function buildGachaKeyboard(storeUrl: string, lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildGachaKeyboard(storeUrl: string, _lang: string = 'en') {
   const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
 
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_buy_ticket, 'cb_gacha_buy_ticket'),
-      Markup.button.callback(loc.btn_view_prizes, 'cb_gacha_prizes'),
+      Markup.button.callback('🎟️ Exchange Points (100 Pts)', 'cb_buy_ticket_pts'),
+      Markup.button.callback('🏆 View All Prizes', 'cb_gacha_prizes'),
     ],
     [
-      Markup.button.callback(loc.btn_drop_rates, 'cb_gacha_odds'),
-      Markup.button.callback(loc.btn_gacha_rules, 'cb_gacha_rules'),
+      Markup.button.callback('⚡ Win Rates % (Drop Rates)', 'cb_gacha_rates'),
+      Markup.button.callback('🎰 Gacha Rules', 'cb_gacha_rules'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_gacha_webapp, gachaWebUrl),
-      Markup.button.callback(loc.btn_back_home, 'cb_main_menu'),
+      createWebAppOrUrlButton('📱 Play Mini App (Visual)', gachaWebUrl),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
-export function buildSubGachaKeyboard(storeUrl: string, lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildSubGachaKeyboard(storeUrl: string, _lang: string = 'en') {
   const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
 
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_buy_ticket, 'cb_gacha_buy_ticket'),
+      Markup.button.callback('🎟️ Exchange Points (100 Pts)', 'cb_buy_ticket_pts'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_gacha_webapp, gachaWebUrl),
+      createWebAppOrUrlButton('📱 Play Mini App (Visual)', gachaWebUrl),
     ],
     [
-      Markup.button.callback(loc.btn_back_to_gacha, 'cb_gacha_menu'),
-      Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
 /**
  * Daily Reward Streak Keyboard:
- * Row 1: If claimable: 🎁 ទទួលពិន្ទុភ្លាមៗតាម Bot (Claim Now)
- *        If cooldown:  ⏳ កំពុងរង់ចាំ Cooldown... (cb_noop)
- * Row 2: 📜 ច្បាប់ពិន្ទុ (Rules) | 💎 ហាងប្តូរពិន្ទុ
- * Row 3: 🔙 ត្រឡប់ទៅដើម (Back Home)
+ * 🎁 Claim Daily Points (+5 Pts) (cb_claim_daily)
+ * 📜 Streak Rules & Multipliers (cb_daily_rules)
+ * 🔙 Back Home (cb_main_menu)
  */
-export function buildDailyKeyboard(isClaimable: boolean, lang: string = 'km') {
-  const loc = getLocale(lang);
-  const claimButton = isClaimable
-    ? Markup.button.callback(loc.btn_claim_daily_instant, 'cb_claim_daily_instant')
-    : Markup.button.callback(loc.btn_daily_cooldown, 'cb_noop');
-
+export function buildDailyKeyboard(_isClaimable: boolean = true, _lang: string = 'en') {
   return Markup.inlineKeyboard([
-    [claimButton],
     [
-      Markup.button.callback(loc.btn_daily_rules, 'cb_daily_rules'),
-      Markup.button.callback(loc.btn_daily_shop, 'cb_daily_shop'),
+      Markup.button.callback('🎁 Claim Daily Points (+5 Pts)', 'cb_claim_daily'),
     ],
     [
-      Markup.button.callback(loc.btn_back_home, 'cb_main_menu'),
+      Markup.button.callback('📜 Streak Rules & Multipliers', 'cb_daily_rules'),
+    ],
+    [
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
 
-export function buildSubDailyShopKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildSubDailyShopKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('🎟️ ប្តូរសំបុត្រ Gacha (-50 Pts)', 'cb_gacha_buy_ticket'),
+      Markup.button.callback('🎟️ Exchange Points (100 Pts)', 'cb_buy_ticket_pts'),
     ],
     [
-      Markup.button.callback(loc.btn_back_to_daily, 'cb_daily_menu'),
-      Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
+    ],
+  ]);
+}
+
+/**
+ * Vault & Accounts Menu Keyboard:
+ * 🔑 Get Live 2FA Code (cb_vault_2fa)
+ * 🎒 View Delivered Accounts (cb_vault_accounts)
+ * 🔙 Back Home (cb_main_menu)
+ */
+export function buildVaultMenuKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🔑 Get Live 2FA Code', 'cb_vault_2fa'),
+    ],
+    [
+      Markup.button.callback('🎒 View Delivered Accounts', 'cb_vault_accounts'),
+    ],
+    [
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
+    ],
+  ]);
+}
+
+/**
+ * Orders Menu Keyboard:
+ * 📜 Order History (cb_orders_recent)
+ * 🔍 Track Order ID (cb_orders_track)
+ * 🔙 Back Home (cb_main_menu)
+ */
+export function buildOrdersMenuKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('📜 Order History', 'cb_orders_recent'),
+    ],
+    [
+      Markup.button.callback('🔍 Track Order ID', 'cb_orders_track'),
+    ],
+    [
+      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
@@ -353,8 +362,7 @@ export function buildSubDailyShopKeyboard(lang: string = 'km') {
 /**
  * Vault List Keyboard
  */
-export function buildVaultListKeyboard(accounts: DeliveredAccount[], storeUrl: string, lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildVaultListKeyboard(accounts: DeliveredAccount[], storeUrl: string, _lang: string = 'en') {
   const buttons: any[][] = accounts.map((acc) => [
     Markup.button.callback(
       `🎮 [#${acc.order_code}] ${acc.game_title} (@${acc.username})`,
@@ -364,8 +372,8 @@ export function buildVaultListKeyboard(accounts: DeliveredAccount[], storeUrl: s
 
   const webAppVaultUrl = storeUrl.includes('?') ? `${storeUrl}&tab=vault` : `${storeUrl}?tab=vault`;
 
-  buttons.push([createWebAppOrUrlButton('📱 បើក Vault ក្នុង Mini App', webAppVaultUrl)]);
-  buttons.push([Markup.button.callback(loc.btn_back_home, 'cb_main_menu')]);
+  buttons.push([createWebAppOrUrlButton('📱 Open Vault in Mini App', webAppVaultUrl)]);
+  buttons.push([Markup.button.callback('🔙 Back Home', 'cb_main_menu')]);
 
   return Markup.inlineKeyboard(buttons);
 }
@@ -373,22 +381,20 @@ export function buildVaultListKeyboard(accounts: DeliveredAccount[], storeUrl: s
 /**
  * Empty Vault Keyboard
  */
-export function buildEmptyVaultKeyboard(storeUrl: string, lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildEmptyVaultKeyboard(storeUrl: string, _lang: string = 'en') {
   return Markup.inlineKeyboard([
-    [createWebAppOrUrlButton('🛍️ ចូលហាងទំនិញ (Open Store)', storeUrl)],
-    [Markup.button.callback(loc.btn_back_home, 'cb_main_menu')],
+    [createWebAppOrUrlButton('🛍️ Open Store', storeUrl)],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
 /**
  * Account Detail Keyboard
- * Row 1: 🔑 ស្នើសុំកូដ 2FA OTP ផ្ទាល់ (Live OTP) (if two_factor_secret)
- * Row 2: 📱 បើកក្នុង Mini App (1-Click Copy)
- * Row 3: 🔙 ត្រឡប់ទៅបញ្ជីគណនី | 🏠 ត្រឡប់ទៅដើម
+ * Row 1: 🔑 Request Live 2FA OTP (if two_factor_secret)
+ * Row 2: 📱 Open in Mini App (1-Click Copy)
+ * Row 3: 🔙 Back to Accounts | 🏠 Back Home
  */
-export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: string, lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: string, _lang: string = 'en') {
   const accountId = account.account_id;
   const webAppDetailUrl = storeUrl.includes('?')
     ? `${storeUrl}&tab=vault&orderId=${account.order_code}&accountId=${accountId}`
@@ -398,17 +404,17 @@ export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: 
 
   if (account.two_factor_secret) {
     rows.push([
-      Markup.button.callback(loc.btn_live_2fa, `cb_gen_2fa_${accountId}`),
+      Markup.button.callback('🔑 Request Live 2FA OTP', `cb_gen_2fa_${accountId}`),
     ]);
   }
 
   rows.push([
-    createWebAppOrUrlButton(loc.btn_open_vault_webapp, webAppDetailUrl),
+    createWebAppOrUrlButton('📱 Open in Mini App (1-Click Copy)', webAppDetailUrl),
   ]);
 
   rows.push([
-    Markup.button.callback(loc.btn_back_to_vault, 'cb_vault_menu'),
-    Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+    Markup.button.callback('🔙 Back to Accounts', 'cb_vault_menu'),
+    Markup.button.callback('🏠 Back Home', 'cb_main_menu'),
   ]);
 
   return Markup.inlineKeyboard(rows);
@@ -416,18 +422,17 @@ export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: 
 
 /**
  * Live 2FA Keyboard
- * Row 1: 🔄 ពិនិត្យកូដ 2FA ឡើងវិញ (Refresh)
- * Row 2: 🔙 ត្រឡប់ទៅគណនី | 🏠 ត្រឡប់ទៅដើម
+ * Row 1: 🔄 Refresh 2FA Code
+ * Row 2: 🔙 Back to Account | 🏠 Back Home
  */
-export function buildTwoFactorKeyboard(accountId: string, lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildTwoFactorKeyboard(accountId: string, _lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback(loc.btn_refresh_2fa, `cb_gen_2fa_${accountId}`),
+      Markup.button.callback('🔄 Refresh 2FA Code', `cb_gen_2fa_${accountId}`),
     ],
     [
-      Markup.button.callback('🔙 ត្រឡប់ទៅគណនី', `cb_view_acc_${accountId}`),
-      Markup.button.callback(loc.btn_back_home_short, 'cb_main_menu'),
+      Markup.button.callback('🔙 Back to Account', `cb_view_acc_${accountId}`),
+      Markup.button.callback('🏠 Back Home', 'cb_main_menu'),
     ],
   ]);
 }

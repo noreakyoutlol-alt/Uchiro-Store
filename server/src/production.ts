@@ -26,6 +26,7 @@ import { PaymentWorker } from './workers/payment.worker';
 import { KHPayService } from './services/khpay.service';
 import { checkSupabaseHealth } from './database/supabase';
 import { registerStaticRoutes } from './static-routes';
+import { initDatabase } from './database/postgres';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -184,6 +185,8 @@ app.use(errorHandler);
 // Start Single Unified Production Server
 let server: any = null;
 if (process.env.NODE_ENV !== 'test') {
+  initDatabase().catch(err => console.error('[Postgres] Startup init failed:', err));
+
   server = app.listen(PORT, HOST, () => {
     console.log(`[API] Uchiro Store Backend running on http://0.0.0.0:${PORT}`);
     console.log('====================================================');

@@ -47,9 +47,10 @@ export async function verifyPin(pin: string): Promise<boolean> {
     body: JSON.stringify({ pin }),
   });
   if (!res.ok) return false;
-  const body = (await res.json()) as { success: boolean; sessionToken?: string };
-  if (!body.success || !body.sessionToken) return false;
-  setAdminSessionToken(body.sessionToken);
+  const body = (await res.json()) as { success: boolean; sessionToken?: string; token?: string };
+  const token = body.sessionToken || body.token;
+  if (!body.success || !token) return false;
+  setAdminSessionToken(token);
   return true;
 }
 

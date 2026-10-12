@@ -5,6 +5,7 @@ import {
   buildDailyKeyboard,
   buildSubDailyShopKeyboard,
 } from '../keyboards';
+import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { isMessageNotModifiedError } from './orders';
 
 export interface DailyLiveInfo {
@@ -123,15 +124,16 @@ export async function handleDailyMenu(ctx: Context): Promise<void> {
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildDailyKeyboard(daily.is_claimable, userLang);
+  const formattedHtml = enrichWithTgEmojis(text);
 
   try {
     if (ctx.callbackQuery) {
-      await ctx.editMessageText(text, {
+      await ctx.editMessageText(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
     } else {
-      await ctx.reply(text, {
+      await ctx.reply(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
@@ -234,10 +236,10 @@ export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
     `⏳ <b>ស្ថានភាព:</b> ⏳ <b>នៅសល់ម៉ោង:</b> <code>${daily.cooldown_str}</code>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildDailyKeyboard(false, 'km');
+  const keyboard = buildDailyKeyboard(false, 'en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });
@@ -273,10 +275,10 @@ export async function handleDailyShop(ctx: Context): Promise<void> {
     `👇 ចុចប្តូរសំបុត្រ Gacha ភ្លាមៗ ឬបើក Mini App ដើម្បីទិញទំនិញបញ្ចុះតម្លៃ:\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubDailyShopKeyboard('km');
+  const keyboard = buildSubDailyShopKeyboard('en');
 
   try {
-    await ctx.editMessageText(text, {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
       ...keyboard,
     });

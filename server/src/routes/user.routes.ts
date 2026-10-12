@@ -70,6 +70,7 @@ userRouter.get(['/profile', '/me'], async (req: Request, res: Response) => {
     const user = await DataStore.getUserByTelegramId(telegramId);
     const numId = Number(telegramId) || 0;
     const profile = DataStore.getProfile(numId);
+    const userPoints = Number(user?.points ?? profile?.points ?? 0);
 
     res.json({
       success: true,
@@ -78,9 +79,9 @@ userRouter.get(['/profile', '/me'], async (req: Request, res: Response) => {
         telegram_id: String(user.telegram_id || telegramId),
         username: user.username || null,
         first_name: user.first_name || 'Customer',
-        points: user.points ?? profile?.points ?? 0,
-        loyalty_points: user.points ?? profile?.points ?? 0,
-        reward_points: user.points ?? profile?.points ?? 0,
+        points: userPoints,
+        loyalty_points: userPoints,
+        reward_points: userPoints,
         streak_count: user.streak_count ?? 0,
         role: user.role || (String(telegramId) === '6594079594' ? 'admin' : 'customer'),
         last_daily_claim_at: user.last_daily_claim_at || profile?.last_daily_claim_at || null,
