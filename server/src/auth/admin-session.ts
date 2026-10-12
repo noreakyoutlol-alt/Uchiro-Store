@@ -131,8 +131,17 @@ export function requireAdminSession(req: Request, res: Response, next: NextFunct
     }
     try {
       const decoded = jwt.verify(jwtToken, env.JWT_SECRET) as any;
-      if (decoded && (decoded.role === 'admin' || decoded.user_id?.startsWith('admin'))) {
-        res.locals.telegramUser = { id: String(decoded.telegram_id || 'admin'), username: decoded.username || 'admin' };
+      if (
+        decoded &&
+        (decoded.role === 'admin' ||
+          decoded.role === 'superadmin' ||
+          decoded.user_id?.startsWith('admin') ||
+          decoded.id?.startsWith('admin'))
+      ) {
+        res.locals.telegramUser = {
+          id: String(decoded.telegram_id || decoded.id || decoded.user_id || 'admin'),
+          username: decoded.username || 'admin',
+        };
         next();
         return;
       }

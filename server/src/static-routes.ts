@@ -61,6 +61,44 @@ function isGetOrHead(req: Request): boolean {
   return req.method === 'GET' || req.method === 'HEAD';
 }
 
+export function isTelegramMiniApp(req: Request): boolean {
+  const rawUrl = req.originalUrl || req.url || '';
+  const query = (req.query || {}) as Record<string, any>;
+  const hasTgQuery =
+    Boolean(query.tgWebAppData) ||
+    Boolean(query.tgWebAppVersion) ||
+    Boolean(query.tgWebAppPlatform) ||
+    Boolean(query.initData) ||
+    rawUrl.includes('tgWebAppData') ||
+    rawUrl.includes('tgWebAppVersion') ||
+    rawUrl.includes('tgWebAppPlatform') ||
+    rawUrl.includes('initData');
+
+  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+  const hasTgUA = userAgent.includes('telegram');
+  const hasTgHeader = Boolean(
+    req.headers['x-telegram-init-data'] ||
+    req.headers['x-telegram-bot-api-secret-token']
+  );
+
+  const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).toLowerCase();
+  const hasTgReferer =
+    referer.includes('tgwebappdata') ||
+    referer.includes('tgwebappversion') ||
+    referer.includes('tgwebappplatform') ||
+    referer.includes('telegram.org');
+
+  const hasAdminSession = Boolean(
+    req.headers.cookie?.includes('uchiro_admin_token') ||
+    req.headers.authorization?.startsWith('Bearer ') ||
+    query.admin_secret ||
+    query.adminKey ||
+    req.headers['x-admin-key']
+  );
+
+  return hasTgQuery || hasTgUA || hasTgHeader || hasTgReferer || hasAdminSession;
+}
+
 /**
  * Call AFTER every real /api router AND both bot webhooks are mounted.
  * Remove every older static / wildcard / '/admin' handler from production.ts and server.ts.
@@ -83,8 +121,22 @@ export function registerStaticRoutes(app: Express): void {
     res.status(404).json({ error: 'NOT_FOUND' });
   });
 
-  // 2. STEALTH TRAP: /admin and /admin/* always look like a genuine Express 404
+  // 2. STEALTH TRAP: /admin and /admin/* look like Express 404 for regular web,
+  // but serve Admin SPA for Telegram Mini App
   app.use('/admin', (req: Request, res: Response) => {
+    if (isGetOrHead(req) && isTelegramMiniApp(req)) {
+      if (path.extname(req.path)) {
+        res.status(404).end();
+        return;
+      }
+      if (!fs.existsSync(adminIndex)) {
+        res.status(404).type('text/plain').send('Admin bundle missing');
+        return;
+      }
+      setNoStore(res);
+      res.sendFile(adminIndex);
+      return;
+    }
     sendFake404(req, res);
   });
 

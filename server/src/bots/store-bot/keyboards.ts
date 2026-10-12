@@ -147,15 +147,36 @@ export function getLanguageSelectionKeyboard(lang: string = 'km') {
  * Row 2: 🎒 មើលកាតាបឥវ៉ាន់ & Accounts
  * Row 3: 📱 បើកក្នុង Mini App (ស្រេចចិត្ត) | 🔙 ត្រឡប់ទៅដើម
  */
-export function buildProfileKeyboard(storeUrl?: string, _lang: string = 'en') {
+export function buildProfileKeyboard(storeUrl?: string, lang: string = 'en') {
+  const isKm = lang === 'km';
+  const appUrl = storeUrl || 'https://uchiro.store';
+
+  if (isKm) {
+    return Markup.inlineKeyboard([
+      [
+        Markup.button.callback('📜 ប្រវត្តិពិន្ទុ', 'cb_points_ledger'),
+        Markup.button.callback('🎁 ប្តូរពិន្ទុ', 'cb_redeem_pts'),
+      ],
+      [
+        Markup.button.callback('🎒 មើលកាតាបឥវ៉ាន់ & Accounts', 'cb_vault_menu'),
+      ],
+      [
+        createWebAppOrUrlButton('📱 បើកក្នុង Mini App', appUrl),
+        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
+      ],
+    ]);
+  }
+
   return Markup.inlineKeyboard([
     [
       Markup.button.callback('🎁 Redeem Points for Coupons', 'cb_redeem_menu'),
-    ],
-    [
       Markup.button.callback('📜 Points Ledger History', 'cb_points_ledger'),
     ],
     [
+      Markup.button.callback('🎒 View Vault & Accounts', 'cb_vault_menu'),
+    ],
+    [
+      createWebAppOrUrlButton('📱 Open in Mini App', appUrl),
       Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
     ],
   ]);
@@ -188,7 +209,23 @@ export function buildRedeemPointsKeyboard(_lang: string = 'en') {
  * Row 1: 📜 Store Warranty & Guarantee
  * Row 2: 🔙 Back Home
  */
-export function buildMainRulesKeyboard(_lang: string = 'en') {
+export function buildMainRulesKeyboard(lang: string = 'en') {
+  const isKm = lang === 'km';
+  if (isKm) {
+    return Markup.inlineKeyboard([
+      [
+        Markup.button.callback('🎰 ច្បាប់ Gacha', 'cb_gacha_rules'),
+        Markup.button.callback('🎁 ច្បាប់ Daily', 'cb_daily_rules'),
+      ],
+      [
+        Markup.button.callback('🛡️ គោលការណ៍ធានា 14 ថ្ងៃ', 'cb_warranty_policy'),
+      ],
+      [
+        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
+      ],
+    ]);
+  }
+
   return Markup.inlineKeyboard([
     [
       Markup.button.callback('📜 Store Warranty & Guarantee', 'cb_rules_warranty'),
@@ -213,9 +250,27 @@ export function buildSubRulesKeyboard(_lang: string = 'en') {
  * Row 2: 💬 Chat with Support 24/7
  * Row 3: 🔙 Back Home
  */
-export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport', _lang: string = 'en') {
+export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport', lang: string = 'en') {
   const cleanSupport = supportUsername.replace(/^@/, '');
   const supportUrl = supportUsername.startsWith('http') ? supportUsername : `https://t.me/${cleanSupport || 'UchiroSupport'}`;
+  const isKm = lang === 'km';
+
+  if (isKm) {
+    return Markup.inlineKeyboard([
+      [
+        Markup.button.callback('🔑 2FA Authenticator', 'cb_guide_2fa'),
+      ],
+      [
+        Markup.button.callback('💳 KHQR ការទូទាត់ប្រាក់', 'cb_guide_payment'),
+      ],
+      [
+        Markup.button.url('💬 ទាក់ទង Admin 24/7', supportUrl),
+      ],
+      [
+        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
+      ],
+    ]);
+  }
 
   return Markup.inlineKeyboard([
     [
@@ -253,8 +308,25 @@ export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', 
  * 📱 Play Mini App (Visual) (web_app link)
  * 🔙 Back Home (cb_main_menu)
  */
-export function buildGachaKeyboard(storeUrl: string, _lang: string = 'en') {
+export function buildGachaKeyboard(storeUrl: string, lang: string = 'en') {
   const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
+  const isKm = lang === 'km';
+
+  if (isKm) {
+    return Markup.inlineKeyboard([
+      [
+        Markup.button.callback('🎟️ ប្តូរសំបុត្រ', 'cb_gacha_buy_ticket'),
+        Markup.button.callback('🏆 រង្វាន់ទាំងអស់', 'cb_gacha_prizes'),
+      ],
+      [
+        Markup.button.callback('⚡ អត្រាឈ្នះ', 'cb_gacha_odds'),
+      ],
+      [
+        createWebAppOrUrlButton('📱 លេងក្នុង Mini App', gachaWebUrl),
+        Markup.button.callback('🔙 ត្រឡប់ទៅដើម', 'cb_main_menu'),
+      ],
+    ]);
+  }
 
   return Markup.inlineKeyboard([
     [
@@ -294,16 +366,31 @@ export function buildSubGachaKeyboard(storeUrl: string, _lang: string = 'en') {
  * 📜 Streak Rules & Multipliers (cb_daily_rules)
  * 🔙 Back Home (cb_main_menu)
  */
-export function buildDailyKeyboard(_isClaimable: boolean = true, _lang: string = 'en') {
+export function buildDailyKeyboard(isClaimable: boolean = true, lang: string = 'en') {
+  const isKm = lang === 'km';
+  const claimBtn = isClaimable
+    ? Markup.button.callback(
+        isKm ? '🎁 ទទួលពិន្ទុភ្លាមៗ (+5 Pts)' : '🎁 Claim Daily Points (+5 Pts)',
+        isKm ? 'cb_claim_daily_instant' : 'cb_claim_daily'
+      )
+    : Markup.button.callback(
+        isKm ? '⏳ Cooldown (រង់ចាំ)' : '⏳ Cooldown (Wait 24h)',
+        'cb_noop'
+      );
+
   return Markup.inlineKeyboard([
+    [claimBtn],
     [
-      Markup.button.callback('🎁 Claim Daily Points (+5 Pts)', 'cb_claim_daily'),
+      Markup.button.callback(
+        isKm ? '📜 ច្បាប់ Streak & Multipliers' : '📜 Streak Rules & Multipliers',
+        'cb_daily_rules'
+      ),
     ],
     [
-      Markup.button.callback('📜 Streak Rules & Multipliers', 'cb_daily_rules'),
-    ],
-    [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
+      Markup.button.callback(
+        isKm ? '🔙 ត្រឡប់ទៅដើម' : '🔙 Back Home',
+        'cb_main_menu'
+      ),
     ],
   ]);
 }

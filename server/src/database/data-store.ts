@@ -153,11 +153,14 @@ const initialCategories: Category[] = [
   },
 ];
 
-// Seed Products (Purged - Connected 100% to Supabase tables)
-const initialProducts: Product[] = [];
+import { demoProducts, demoInventory } from './demo-seed-data';
 
-// Seed Inventory Items (Purged - Connected 100% to Supabase tables)
-const initialInventory: InventoryItem[] = [];
+// Seed Products (Purged in production - populated in tests or fallback)
+const isTestEnv = process.env.NODE_ENV === 'test' || env.NODE_ENV === 'test';
+const initialProducts: Product[] = isTestEnv ? JSON.parse(JSON.stringify(demoProducts)) : [];
+
+// Seed Inventory Items (Purged in production - populated in tests or fallback)
+const initialInventory: InventoryItem[] = isTestEnv ? JSON.parse(JSON.stringify(demoInventory)) : [];
 
 // Seed Coupons
 const initialCoupons: Coupon[] = [

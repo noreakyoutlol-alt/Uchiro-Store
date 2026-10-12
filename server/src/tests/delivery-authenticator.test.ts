@@ -122,6 +122,31 @@ describe('Delivery & Authenticator RFC 6238 Security Test Suite', () => {
         { expiresIn: '7d' }
       );
 
+      // Ensure test account product and inventory exist
+      const testProductId = '22222222-2222-2222-2222-222222222201';
+      DataStore.saveProduct({
+        id: testProductId,
+        title: 'Blox Fruits Max Level VIP Account',
+        slug: 'blox-fruits-max-vip-account',
+        category_id: '11111111-1111-1111-1111-111111111101',
+        description: 'Blox Fruits account',
+        price: 25.0,
+        stock: 10,
+        is_active: true,
+        is_draft: false,
+        product_type: 'account',
+        delivery_mode: 'auto_account',
+        images: [],
+      } as any);
+
+      DataStore.addInventoryItem({
+        product_id: testProductId,
+        account_username: 'BloxGod77',
+        raw_password: 'EncryptedSecretPass123!',
+        raw_2fa: 'JBSWY3DPEHPK3PXP',
+        notes: 'Max Level 2550 + Godhuman',
+      });
+
       // Get account product
       const productsRes = await request(app).get('/api/products/in-stock');
       const accountProduct = productsRes.body.data.find(

@@ -79,10 +79,22 @@ adminBot.on('message', async (ctx) => {
   if (ctx.chat?.type !== 'private') return;
   const from = ctx.from;
   if (!from || !isAuthorizedAdmin(from.id)) {
-    await ctx.reply('⛔ Access denied. You are not an authorized admin.');
+    try {
+      await ctx.reply('⛔ Access denied. You are not an authorized admin.');
+    } catch (err: any) {
+      console.warn(`⚠️ [ADMIN BOT] Reply notice:`, err.message);
+    }
     return;
   }
-  await ctx.reply('Use /menu to view available actions.');
+  try {
+    await ctx.reply('Use /menu to view available actions.');
+  } catch (err: any) {
+    console.warn(`⚠️ [ADMIN BOT] Reply notice:`, err.message);
+  }
+});
+
+adminBot.catch((err: any, ctx) => {
+  console.error(`[ADMIN BOT ERROR] for ${ctx.updateType}:`, err?.message || err);
 });
 
 // Helper / compatibility attachments

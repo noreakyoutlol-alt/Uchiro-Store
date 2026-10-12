@@ -97,34 +97,6 @@ app.use('/api/admin', requireAdminSession);
 app.use('/api/admin', adminRouter);
 
 // 2. Store API (/api/*)
-app.post(
-  '/api/webhook/store-bot',
-  webhookSecretGuard('STORE_WEBHOOK_SECRET'),
-  (req, res, next) => {
-    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
-      res.status(200).json({ ok: true, message: 'Empty or invalid update body ignored' });
-      return;
-    }
-    next();
-  },
-  storeBot.webhookCallback('/api/webhook/store-bot')
-);
-if (process.env.ADMIN_BOT_TOKEN && process.env.ADMIN_BOT_TOKEN.trim()) {
-  app.post(
-    '/api/webhook/admin-bot',
-    webhookSecretGuard('ADMIN_WEBHOOK_SECRET'),
-    (req, res, next) => {
-      if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
-        res.status(200).json({ ok: true, message: 'Empty or invalid update body ignored' });
-        return;
-      }
-      next();
-    },
-    adminBot.webhookCallback('/api/webhook/admin-bot')
-  );
-} else {
-  console.error('[webhook] ADMIN_BOT_TOKEN is missing, admin webhook not mounted');
-}
 app.use('/api/webhook', webhookRouter);
 app.use('/api/user', userRouter);
 app.use('/api/auth', authRouter);

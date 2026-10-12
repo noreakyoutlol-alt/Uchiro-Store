@@ -17,9 +17,15 @@ export async function handleStoreBotWebhook(req: Request, res: Response): Promis
     process.env.STORE_WEBHOOK_SECRET ||
     env.STORE_BOT_WEBHOOK_SECRET;
 
-  if (expectedStoreSecret && (!secret || secret !== expectedStoreSecret)) {
-    res.status(401).send('Unauthorized: Invalid or missing secret token');
-    return;
+  if (expectedStoreSecret) {
+    if (!secret) {
+      res.status(401).send('Unauthorized: Missing secret token');
+      return;
+    }
+    if (secret !== expectedStoreSecret) {
+      res.status(403).send('Forbidden: Invalid secret token');
+      return;
+    }
   }
 
   try {
@@ -49,9 +55,15 @@ export async function handleAdminBotWebhook(req: Request, res: Response): Promis
     process.env.ADMIN_WEBHOOK_SECRET ||
     env.ADMIN_BOT_WEBHOOK_SECRET;
 
-  if (expectedAdminSecret && (!secret || secret !== expectedAdminSecret)) {
-    res.status(401).send('Unauthorized: Invalid or missing secret token');
-    return;
+  if (expectedAdminSecret) {
+    if (!secret) {
+      res.status(401).send('Unauthorized: Missing secret token');
+      return;
+    }
+    if (secret !== expectedAdminSecret) {
+      res.status(403).send('Forbidden: Invalid secret token');
+      return;
+    }
   }
 
   try {

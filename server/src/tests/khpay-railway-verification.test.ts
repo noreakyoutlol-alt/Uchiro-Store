@@ -14,6 +14,7 @@ import { DataStore } from '../database/data-store';
 import { checkSupabaseHealth } from '../database/supabase';
 import { paymentRouter } from '../routes/payment.routes';
 import { botsRouter } from '../routes/bots.routes';
+import { errorHandler } from '../middleware/error-handler';
 import { env } from '../config/env';
 
 describe('KHPay & Railway Phase Complete Verification', () => {
@@ -34,6 +35,23 @@ describe('KHPay & Railway Phase Complete Verification', () => {
     app.use(express.json());
     app.use('/api/payments', paymentRouter);
     app.use('/api/bots', botsRouter);
+    app.use(errorHandler);
+
+    // Ensure test product exists
+    DataStore.saveProduct({
+      id: '22222222-2222-2222-2222-222222222201',
+      title: 'Blox Fruits Max Level VIP Account',
+      slug: 'blox-fruits-max-vip-account',
+      category_id: '11111111-1111-1111-1111-111111111101',
+      description: 'Blox Fruits account',
+      price: 25.0,
+      stock: 10,
+      is_active: true,
+      is_draft: false,
+      product_type: 'account',
+      delivery_mode: 'auto_account',
+      images: [],
+    } as any);
 
     // Replenish stock for reliable test runs
     for (let i = 0; i < 5; i++) {

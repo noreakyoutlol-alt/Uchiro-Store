@@ -17,7 +17,7 @@ export function webhookSecretGuard(envName: SecretEnvName): RequestHandler {
     const a = Buffer.from(expected);
     const b = Buffer.from(received);
     if (a.length !== b.length || !timingSafeEqual(a, b)) {
-      res.sendStatus(401);
+      res.sendStatus(403);
       return;
     }
     next();

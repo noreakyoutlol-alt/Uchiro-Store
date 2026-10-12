@@ -38,7 +38,7 @@ export class KHPayService {
     const baseUrl = env.KHPAY_BASE_URL || 'https://khpay.site/api/v1';
     const apiKey = env.KHPAY_API_KEY;
     const isProduction = env.NODE_ENV === 'production';
-    const isTestMode = !isProduction && env.KHPAY_TEST_MODE;
+    const isTestMode = !isProduction && Boolean(env.KHPAY_TEST_MODE);
     const hasRealCredentials = Boolean(
       apiKey && !apiKey.startsWith('khpay_test_api_key') && apiKey.trim().length > 0
     );
@@ -53,7 +53,7 @@ export class KHPayService {
     }
 
     // Check if real KHPay credentials are provided
-    if (hasRealCredentials) {
+    if (hasRealCredentials && !isTestMode) {
       try {
         const response = await axios.post(
           `${baseUrl}/qr/generate`,
