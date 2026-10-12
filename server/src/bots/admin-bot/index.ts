@@ -435,6 +435,18 @@ export class AdminBotService {
     }
   }
 
+  public webhookCallback(path: string) {
+    if (!this.bot) {
+      this.initBot();
+    }
+    if (this.bot) {
+      return this.bot.webhookCallback(path);
+    }
+    return (_req: any, res: any) => {
+      res.sendStatus(200);
+    };
+  }
+
   public async setWebhook(url: string, secret?: string): Promise<{ success: boolean; message?: string }> {
     if (!this.bot) {
       return { success: false, message: 'No bot token configured' };

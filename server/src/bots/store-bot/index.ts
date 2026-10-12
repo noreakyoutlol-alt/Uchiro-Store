@@ -619,6 +619,18 @@ export class StoreBotService {
     }
   }
 
+  public webhookCallback(path: string) {
+    if (!this.bot) {
+      this.initBot();
+    }
+    if (this.bot) {
+      return this.bot.webhookCallback(path);
+    }
+    return (_req: any, res: any) => {
+      res.sendStatus(200);
+    };
+  }
+
   public stop(): void {
     if (this.bot) {
       try {

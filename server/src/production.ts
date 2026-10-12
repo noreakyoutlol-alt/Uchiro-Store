@@ -16,6 +16,7 @@ import { supportRouter } from './routes/support.routes';
 import { adminRouter } from './routes/admin.routes';
 import { requireAdminSession } from './auth/admin-session';
 import { adminAuthRouter } from './routes/admin-auth.routes';
+import { webhookSecretGuard, registerBotWebhooks } from './bots/webhook-security';
 import { dailyClaimRouter } from './routes/daily-claim';
 import { botsRouter, webhookRouter } from './routes/bots.routes';
 import { storeBot } from './bots/store-bot';
@@ -94,6 +95,12 @@ app.use('/api/admin', requireAdminSession);
 app.use('/api/admin', adminRouter);
 
 // 2. Store API (/api/*)
+app.post('/api/webhook/store-bot', webhookSecretGuard('STORE_WEBHOOK_SECRET'), storeBot.webhookCallback('/api/webhook/store-bot'));
+if (process.env.ADMIN_BOT_TOKEN && process.env.ADMIN_BOT_TOKEN.trim()) {
+  app.post('/api/webhook/admin-bot', webhookSecretGuard('ADMIN_WEBHOOK_SECRET'), adminBot.webhookCallback('/api/webhook/admin-bot'));
+} else {
+  console.error('[webhook] ADMIN_BOT_TOKEN is missing, admin webhook not mounted');
+}
 app.use('/api/webhook', webhookRouter);
 app.use('/api/auth', authRouter);
 app.use('/api', dailyClaimRouter);
@@ -253,37 +260,10 @@ if (process.env.NODE_ENV !== 'test') {
         console.warn('Admin bot polling notice:', err.message);
       });
     } else {
-      const publicUrl = (process.env.PUBLIC_URL || env.PUBLIC_URL || '').trim();
-      if (publicUrl.startsWith('https://')) {
-        const cleanUrl = publicUrl.replace(/\/+$/, '');
-        console.log(`🤖 [PRODUCTION] Registering bot webhooks via ${cleanUrl}...`);
-        storeBot.setWebhook(
-          `${cleanUrl}/api/webhook/store-bot`,
-          env.STORE_BOT_WEBHOOK_SECRET
-        ).then((res: any) => {
-          if (res.success) {
-            console.log(`✅ [STORE BOT] Webhook registered at ${cleanUrl}/api/webhook/store-bot`);
-          } else {
-            console.warn(`⚠️ [STORE BOT] Webhook registration notice:`, res.message);
-          }
-        }).catch((err: any) => {
-          console.warn(`⚠️ [STORE BOT] Webhook registration error:`, err.message);
-        });
-
-        adminBot.setWebhook(
-          `${cleanUrl}/api/webhook/admin-bot`,
-          env.ADMIN_BOT_WEBHOOK_SECRET
-        ).then((res: any) => {
-          if (res.success) {
-            console.log(`✅ [ADMIN BOT] Webhook registered at ${cleanUrl}/api/webhook/admin-bot`);
-          } else {
-            console.warn(`⚠️ [ADMIN BOT] Webhook registration notice:`, res.message);
-          }
-        }).catch((err: any) => {
-          console.warn(`⚠️ [ADMIN BOT] Webhook registration error:`, err.message);
-        });
-      } else {
-        console.log('🤖 [PRODUCTION] Bots ready for webhook updates at /api/webhook/store-bot and /api/webhook/admin-bot');
+      if (process.env.NODE_ENV === 'production') {
+        registerBotWebhooks().catch((err: unknown) =>
+          console.error('[webhook] registration failed:', err instanceof Error ? err.message : 'unknown error'),
+        );
       }
     }
   });
