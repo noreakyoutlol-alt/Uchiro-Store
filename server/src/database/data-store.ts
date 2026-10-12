@@ -727,6 +727,7 @@ export class DataStore {
   private static gachaClaims: GachaClaim[] = [];
   private static orders: Order[] = [];
   private static payments: Payment[] = [];
+  private static recordedDeliveredAccounts: any[] = [];
   private static alertedStockThresholds: Map<string, Set<number>> = new Map();
   private static users: Map<number, TelegramUser> = new Map();
   private static profiles: Map<number, Profile> = new Map();
@@ -1812,7 +1813,8 @@ export class DataStore {
       ...prize,
       name: prize.title,
       image: prize.icon_url,
-    };
+      icon: (prize as any).icon || prize.icon_url,
+    } as any;
   }
 
   static getRecentWinners(limit: number = 10): any[] {
@@ -1877,6 +1879,28 @@ export class DataStore {
       currentPrize,
       nextPrize,
     };
+  }
+
+  public static getActiveGachaPool(): any {
+    const pools = this.getGachaPools();
+    if (pools && pools.length > 0) {
+      const active = pools.find((p) => p.is_active);
+      return active || pools[0];
+    }
+    const rawActive = this.gachaPools.find((p) => p.is_active);
+    return rawActive || this.gachaPools[0] || null;
+  }
+
+  public static getGachaPrizesByPoolId(poolId?: string): any[] {
+    const targetPoolId = poolId || this.getActiveGachaPool()?.id;
+    if (!targetPoolId) return [];
+    const pool = this.getGachaPoolById(targetPoolId);
+    if (pool && pool.prizes && pool.prizes.length > 0) {
+      return pool.prizes;
+    }
+    return this.gachaPrizes
+      .filter((pr) => pr.pool_id === targetPoolId)
+      .map((pr) => this.formatPrizePayload(pr));
   }
 
   static getGachaStatus(telegramId: number): {
@@ -2540,7 +2564,7 @@ export class DataStore {
       telegram_id: telegramId,
       amount: delta,
       balance_after: newBal,
-      type: delta >= 0 ? 'earn' : 'spend',
+      type: (delta >= 0 ? 'earn' : 'spend') as any,
       description: reason,
       reference_id: null,
       created_at: new Date().toISOString(),
@@ -3430,10 +3454,53 @@ export class DataStore {
   }
 
   // ================= STRUCTURED DELIVERED ACCOUNT RETRIEVAL =================
-  static getDeliveredAccountsByTelegramId(telegramId: number | string): DeliveredAccount[] {
+  public static recordDeliveredAccount(account: any): void {
+    if (!account) return;
+    const tid = account.customerTelegramId ?? account.telegramId ?? account.telegram_id;
+    const item: any = {
+      account_id: account.account_id || account.id || uuidv4(),
+      order_code: account.order_code || account.orderCode || 'ORD-RECORDED',
+      game_title: account.game_title || account.gameTitle || 'Gaming Account',
+      username: account.username || account.login || 'N/A',
+      password: account.password || '',
+      two_factor_secret: account.two_factor_secret || account.twoFactorSecret || account.two_factor,
+      backup_codes: Array.isArray(account.backup_codes)
+        ? account.backup_codes
+        : account.backup_codes
+        ? [account.backup_codes]
+        : [],
+      notes: account.notes || '',
+      delivered_at: account.delivered_at || account.deliveredAt || new Date().toISOString(),
+      telegram_id: tid,
+      customerTelegramId: tid,
+      customer_telegram_id: tid,
+    };
+    this.recordedDeliveredAccounts.push(item);
+  }
+
+  public static getDeliveredAccountsByTelegramId(telegramId: number | string): DeliveredAccount[] {
     const numericId = Number(telegramId);
+    const searchIdStr = String(telegramId);
+
+    const recordedMatches: DeliveredAccount[] = this.recordedDeliveredAccounts
+      .filter((acc) => {
+        const accTid = acc.customerTelegramId ?? acc.telegramId ?? acc.telegram_id ?? acc.customer_telegram_id;
+        return String(accTid) === searchIdStr || Number(accTid) === numericId;
+      })
+      .map((acc) => ({
+        account_id: acc.account_id,
+        order_code: acc.order_code,
+        game_title: acc.game_title,
+        username: acc.username,
+        password: acc.password,
+        two_factor_secret: acc.two_factor_secret,
+        backup_codes: acc.backup_codes,
+        notes: acc.notes,
+        delivered_at: acc.delivered_at,
+      }));
+
     const userOrders = this.orders.filter(
-      (o) => o.telegram_id === numericId || String(o.telegram_id) === String(telegramId)
+      (o) => o.telegram_id === numericId || String(o.telegram_id) === searchIdStr
     );
     const deliveredAccounts: DeliveredAccount[] = [];
 
@@ -3475,7 +3542,7 @@ export class DataStore {
       });
     }
 
-    return deliveredAccounts;
+    return [...recordedMatches, ...deliveredAccounts];
   }
 
   static getDeliveredAccountById(
@@ -3616,6 +3683,7 @@ export class DataStore {
     this.gachaPrizes = JSON.parse(JSON.stringify(initialGachaPrizes));
     this.orders = [];
     this.payments = [];
+    this.recordedDeliveredAccounts = [];
     this.gachaSpins = [];
     this.gachaClaims = [];
     this.pointLedger = [];

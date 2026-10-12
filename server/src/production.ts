@@ -287,26 +287,26 @@ if (process.env.NODE_ENV !== 'test') {
         storeBot.setWebhook(
           `${cleanUrl}/api/webhook/store-bot`,
           env.STORE_BOT_WEBHOOK_SECRET
-        ).then((res) => {
+        ).then((res: any) => {
           if (res.success) {
             console.log(`✅ [STORE BOT] Webhook registered at ${cleanUrl}/api/webhook/store-bot`);
           } else {
             console.warn(`⚠️ [STORE BOT] Webhook registration notice:`, res.message);
           }
-        }).catch((err) => {
+        }).catch((err: any) => {
           console.warn(`⚠️ [STORE BOT] Webhook registration error:`, err.message);
         });
 
         adminBot.setWebhook(
           `${cleanUrl}/api/webhook/admin-bot`,
           env.ADMIN_BOT_WEBHOOK_SECRET
-        ).then((res) => {
+        ).then((res: any) => {
           if (res.success) {
             console.log(`✅ [ADMIN BOT] Webhook registered at ${cleanUrl}/api/webhook/admin-bot`);
           } else {
             console.warn(`⚠️ [ADMIN BOT] Webhook registration notice:`, res.message);
           }
-        }).catch((err) => {
+        }).catch((err: any) => {
           console.warn(`⚠️ [ADMIN BOT] Webhook registration error:`, err.message);
         });
       } else {

@@ -63,14 +63,14 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
     const activePool = DataStore.getActiveGachaPool();
     if (activePool) {
       const poolPrizes = DataStore.getGachaPrizesByPoolId(activePool.id);
-      const mythicalPrize = poolPrizes.find((p) => p.rarity === 'mythical');
+      const mythicalPrize = poolPrizes.find((p: any) => p.rarity === 'mythical');
       if (mythicalPrize) {
         top_mythical_item = `${mythicalPrize.icon || '🔴'} ${mythicalPrize.name} (Jackpot)`;
         if (mythicalPrize.drop_rate) {
           mythical_drop_rate = mythicalPrize.drop_rate;
         }
       }
-      const legPrize = poolPrizes.find((p) => p.rarity === 'legendary');
+      const legPrize = poolPrizes.find((p: any) => p.rarity === 'legendary');
       if (legPrize) {
         top_legendary_item = `${legPrize.icon || '🟣'} ${legPrize.name}`;
       }
@@ -282,7 +282,7 @@ export async function handleGachaPrizes(ctx: Context, storeUrl: string): Promise
   let prizeList = '';
   if (poolPrizes.length > 0) {
     prizeList = poolPrizes
-      .map((p) => {
+      .map((p: any) => {
         const rarityBadge =
           p.rarity === 'mythical'
             ? '🔴 Mythical'

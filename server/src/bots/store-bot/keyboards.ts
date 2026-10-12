@@ -2,11 +2,43 @@ import { Markup } from 'telegraf';
 import { DeliveredAccount } from '../../database/data-store';
 import { getLocale } from './locales';
 
-export function createWebAppOrUrlButton(text: string, url: string) {
-  if (url && url.startsWith('https://')) {
-    return Markup.button.webApp(text, url);
+export function createWebAppOrUrlButton(text: string, targetUrl: string) {
+  const rawPublicUrl = (process.env.PUBLIC_URL || '').trim();
+  const appUrl = (rawPublicUrl.startsWith('https://') ? rawPublicUrl : 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+
+  // If the target URL already starts with https://
+  if (targetUrl && targetUrl.startsWith('https://')) {
+    // If it is a Telegram deep link (e.g. https://t.me/...), it must use url button, not webApp
+    if (targetUrl.startsWith('https://t.me/')) {
+      return Markup.button.url(text, targetUrl);
+    }
+    return Markup.button.webApp(text, targetUrl);
   }
-  return Markup.button.url(text, url || 'https://t.me');
+
+  // If targetUrl does not start with https:// (e.g. http://localhost:3000 or relative path), resolve path & query onto appUrl
+  let resolvedUrl = appUrl;
+  if (targetUrl) {
+    if (targetUrl.startsWith('/')) {
+      resolvedUrl = `${appUrl}${targetUrl}`;
+    } else {
+      try {
+        const parsed = new URL(targetUrl);
+        const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
+        if (pathAndQuery) {
+          resolvedUrl = `${appUrl}${pathAndQuery}`;
+        }
+      } catch {
+        resolvedUrl = appUrl;
+      }
+    }
+  }
+
+  // Guarantee strictly HTTPS URL (never http:// or localhost)
+  if (!resolvedUrl.startsWith('https://')) {
+    resolvedUrl = 'https://web-production-2d8bd.up.railway.app';
+  }
+
+  return Markup.button.webApp(text, resolvedUrl);
 }
 
 /**

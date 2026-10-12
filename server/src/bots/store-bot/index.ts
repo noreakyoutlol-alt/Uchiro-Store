@@ -439,7 +439,7 @@ export class StoreBotService {
     });
     this.bot.action(/^cb_gen_2fa_(.+)$/, async (ctx) => {
       const accountId = ctx.match[1];
-      await handleGen2fa(ctx, accountId);
+      await handleGen2fa(ctx, accountId, storeWebAppUrl);
     });
 
     // Fulfilled Order Interactive Callbacks
@@ -561,6 +561,41 @@ export class StoreBotService {
       } catch (err: any) {
         console.error('[STORE BOT] Error processing update:', err);
       }
+    }
+  }
+
+  public async getWebhookInfo(): Promise<any> {
+    if (!this.bot) {
+      return { configured: false, error: 'No bot token configured' };
+    }
+    try {
+      return await this.bot.telegram.getWebhookInfo();
+    } catch (err: any) {
+      return { configured: true, error: err.message };
+    }
+  }
+
+  public async setWebhook(url: string, secret?: string): Promise<any> {
+    if (!this.bot) {
+      return { success: false, message: 'No bot token configured' };
+    }
+    try {
+      await this.bot.telegram.setWebhook(url, secret ? { secret_token: secret } : undefined);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  public async deleteWebhook(): Promise<any> {
+    if (!this.bot) {
+      return { success: false, message: 'No bot token configured' };
+    }
+    try {
+      await this.bot.telegram.deleteWebhook();
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, message: err.message };
     }
   }
 
