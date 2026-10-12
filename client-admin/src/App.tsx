@@ -23,12 +23,15 @@ import {
   AuditLog,
 } from './types';
 import { AdminAPI } from './services/api';
+import { getAdminSessionToken, onUnauthorized } from './services/admin-auth';
+import { AdminLockScreen } from './components/AdminLockScreen';
 import { Loader2, AlertOctagon } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<AdminTab>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(true);
+  const [needsPin, setNeedsPin] = useState(!getAdminSessionToken());
   const [adminName, setAdminName] = useState('Admin');
 
   // Admin Data State
@@ -123,6 +126,11 @@ export const App: React.FC = () => {
     };
 
     initAdmin();
+
+    const cleanup = onUnauthorized(() => {
+      setNeedsPin(true);
+    });
+    return cleanup;
   }, []);
 
   if (isLoading) {
@@ -131,6 +139,17 @@ export const App: React.FC = () => {
         <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
         <span className="text-xs font-bold">Verifying Administrator Access...</span>
       </div>
+    );
+  }
+
+  if (needsPin) {
+    return (
+      <AdminLockScreen
+        onSuccess={() => {
+          setNeedsPin(false);
+          loadData();
+        }}
+      />
     );
   }
 

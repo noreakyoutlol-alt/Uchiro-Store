@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { adminAuthHeaders, notifyUnauthorized } from './admin-auth';
 import {
   DashboardStats,
   Order,
@@ -16,12 +17,26 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  const headers = adminAuthHeaders();
+  for (const [key, val] of Object.entries(headers)) {
+    config.headers[key] = val;
+  }
   const token = localStorage.getItem('uchiro_admin_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      notifyUnauthorized();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const AdminAPI = {
   // Auth
