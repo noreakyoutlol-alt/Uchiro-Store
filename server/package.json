@@ -12,7 +12,9 @@
     "start:bots": "node dist/run-bots.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --fileParallelism=false",
-    "test:sample-delivery": "ts-node src/scripts/test-sample-delivery.ts"
+    "test:sample-delivery": "ts-node src/scripts/test-sample-delivery.ts",
+    "get-admin-url": "ts-node scripts/get-admin-url.ts",
+    "set-admin-menu-button": "ts-node scripts/set-admin-menu-button.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
