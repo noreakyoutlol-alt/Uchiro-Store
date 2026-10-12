@@ -3,6 +3,7 @@ import request from 'supertest';
 import app, { isTelegramMiniApp } from '../production';
 import { getMainMenuKeyboard } from '../bots/store-bot/index';
 import { TELEGRAM_EMOJIS } from '../config/telegram-emojis';
+import { ADMIN_BASE_PATH } from '../config/admin-slug';
 
 describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () => {
   const originalEnv = { ...process.env };
@@ -110,9 +111,9 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
       }
     });
 
-    it('serves Admin SPA (never Store SPA) when launched inside Telegram Mini App', async () => {
+    it('serves Admin SPA (never Store SPA) when launched inside Telegram Mini App on the secret slug', async () => {
       const res = await request(app)
-        .get('/admin?tgWebAppData=query_id%3DAAH_xxxxxx%26user%3D%257B%2522id%2522%253A123456789%257D');
+        .get(`${ADMIN_BASE_PATH}?tgWebAppData=query_id%3DAAH_xxxxxx%26user%3D%257B%2522id%2522%253A123456789%257D`);
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/html');

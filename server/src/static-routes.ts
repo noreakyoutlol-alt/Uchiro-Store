@@ -35,7 +35,7 @@ function escapeHtml(value: string): string {
 function sendFake404(req: Request, res: Response): void {
   let pathname = '/admin';
   try {
-    pathname = new URL(req.originalUrl, 'http://localhost').pathname;
+    pathname = decodeURI(new URL(req.originalUrl, 'http://localhost').pathname);
   } catch {
     pathname = '/admin';
   }
@@ -99,7 +99,7 @@ export function registerStaticRoutes(app: Express): void {
   );
   app.use(
     ADMIN_BASE_PATH,
-    express.static(adminDist, { index: false, maxAge: '1h', setHeaders: setMediaHeaders }),
+    express.static(adminDist, { index: false, redirect: false, maxAge: '1h', setHeaders: setMediaHeaders }),
   );
   app.use(ADMIN_BASE_PATH, (req: Request, res: Response, next: NextFunction) => {
     if (!isGetOrHead(req)) return next();

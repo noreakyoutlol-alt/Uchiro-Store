@@ -6,7 +6,9 @@ type SecretEnvName = 'STORE_WEBHOOK_SECRET' | 'ADMIN_WEBHOOK_SECRET';
 /** Rejects any POST that does not carry the secret Telegram sends in X-Telegram-Bot-Api-Secret-Token. */
 export function webhookSecretGuard(envName: SecretEnvName): RequestHandler {
   return (req, res, next): void => {
-    const expected = process.env[envName];
+    const fallbackName =
+      envName === 'STORE_WEBHOOK_SECRET' ? 'STORE_BOT_WEBHOOK_SECRET' : 'ADMIN_BOT_WEBHOOK_SECRET';
+    const expected = process.env[envName] || process.env[fallbackName];
     const received = req.headers['x-telegram-bot-api-secret-token'];
     if (!expected || typeof received !== 'string') {
       res.sendStatus(401);

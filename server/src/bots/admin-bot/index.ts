@@ -115,17 +115,38 @@ export function getAdminBotUsername(): string {
 }
 
 export function createWebAppOrUrlButton(text: string, targetUrl: string) {
-  const publicUrl = (process.env.PUBLIC_URL || env.PUBLIC_URL || '').trim();
-  const isTargetHttps = targetUrl.startsWith('https://');
-  const isPublicHttps = publicUrl.startsWith('https://');
+  const rawPublicUrl = (process.env.PUBLIC_URL || '').trim();
+  const appUrl = (rawPublicUrl.startsWith('https://') ? rawPublicUrl : 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
 
-  if (isTargetHttps) {
+  if (targetUrl && targetUrl.startsWith('https://')) {
+    if (targetUrl.startsWith('https://t.me/')) {
+      return Markup.button.url(text, targetUrl);
+    }
     return Markup.button.webApp(text, targetUrl);
   }
-  if (isPublicHttps) {
-    return Markup.button.webApp(text, publicUrl);
+
+  let resolvedUrl = appUrl;
+  if (targetUrl) {
+    if (targetUrl.startsWith('/')) {
+      resolvedUrl = `${appUrl}${targetUrl}`;
+    } else {
+      try {
+        const parsed = new URL(targetUrl);
+        const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
+        if (pathAndQuery) {
+          resolvedUrl = `${appUrl}${pathAndQuery}`;
+        }
+      } catch {
+        resolvedUrl = appUrl;
+      }
+    }
   }
-  return Markup.button.url(text, targetUrl);
+
+  if (!resolvedUrl.startsWith('https://')) {
+    resolvedUrl = 'https://web-production-2d8bd.up.railway.app';
+  }
+
+  return Markup.button.webApp(text, resolvedUrl);
 }
 
 export function getAdminKeyboard(adminUrl: string) {

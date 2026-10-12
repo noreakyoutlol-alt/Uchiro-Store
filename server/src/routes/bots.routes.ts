@@ -12,8 +12,13 @@ export const webhookRouter = Router();
  */
 export async function handleStoreBotWebhook(req: Request, res: Response): Promise<void> {
   const secret = req.headers['x-telegram-bot-api-secret-token'];
-  if (env.STORE_BOT_WEBHOOK_SECRET && secret && secret !== env.STORE_BOT_WEBHOOK_SECRET) {
-    res.status(403).send('Forbidden: Invalid secret token');
+  const expectedStoreSecret =
+    process.env.STORE_BOT_WEBHOOK_SECRET ||
+    process.env.STORE_WEBHOOK_SECRET ||
+    env.STORE_BOT_WEBHOOK_SECRET;
+
+  if (expectedStoreSecret && (!secret || secret !== expectedStoreSecret)) {
+    res.status(401).send('Unauthorized: Invalid or missing secret token');
     return;
   }
 
@@ -39,8 +44,13 @@ export async function handleStoreBotWebhook(req: Request, res: Response): Promis
  */
 export async function handleAdminBotWebhook(req: Request, res: Response): Promise<void> {
   const secret = req.headers['x-telegram-bot-api-secret-token'];
-  if (env.ADMIN_BOT_WEBHOOK_SECRET && secret && secret !== env.ADMIN_BOT_WEBHOOK_SECRET) {
-    res.status(403).send('Forbidden: Invalid secret token');
+  const expectedAdminSecret =
+    process.env.ADMIN_BOT_WEBHOOK_SECRET ||
+    process.env.ADMIN_WEBHOOK_SECRET ||
+    env.ADMIN_BOT_WEBHOOK_SECRET;
+
+  if (expectedAdminSecret && (!secret || secret !== expectedAdminSecret)) {
+    res.status(401).send('Unauthorized: Invalid or missing secret token');
     return;
   }
 
