@@ -1,6 +1,6 @@
 import { Context } from 'telegraf';
 import { DataStore } from '../../../database/data-store';
-import { supabase, isSupabaseConfigured } from '../../../database/supabase';
+import { pgPool, isPostgresConfigured } from '../../../database/postgres';
 import {
   buildGachaKeyboard,
   buildSubGachaKeyboard,
@@ -23,40 +23,38 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
 
   let tickets = 0;
   let points = 0;
-  const ticket_price_pts = 50;
+  const ticket_price_pts = 100;
   let top_mythical_item = '🍎 Kitsune Fruit Permanent (Jackpot)';
   let top_legendary_item = '⚔️ Dark Blade (Yoru) Account';
   let mythical_drop_rate = 1.5;
 
-  // 1. Fetch user data from Supabase
-  if (isSupabaseConfigured()) {
+  // 1. Fetch user data from PostgreSQL if configured
+  if (isPostgresConfigured()) {
     try {
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('*')
-        .eq('telegram_id', tid)
-        .maybeSingle();
-
-      if (userRow) {
-        points = userRow.points ?? 0;
-        tickets = (userRow.extra as any)?.gacha_tickets ?? 0;
+      const { rows } = await pgPool.query(
+        'SELECT points, extra FROM users WHERE telegram_id = $1 LIMIT 1',
+        [tid]
+      );
+      if (rows.length > 0) {
+        points = Number(rows[0].points || 0);
+        const extra = typeof rows[0].extra === 'string' ? JSON.parse(rows[0].extra) : (rows[0].extra || {});
+        tickets = Number(extra.gacha_tickets || 0);
       }
-    } catch {
-      // Graceful fallback
+    } catch (err: any) {
+      console.warn('[fetchGachaLiveInfo] Postgres query warning:', err?.message);
     }
   }
 
-  // Fallback to DataStore
-  if (!points) {
-    const dsUser = DataStore.getTelegramUser(numId);
-    const dsProfile = DataStore.getProfile(numId);
-    if (dsUser) {
-      points = dsUser.points || points;
-    }
-    if (dsProfile) {
-      points = dsProfile.points || points;
-      tickets = dsProfile.gacha_tickets || tickets;
-    }
+  // 2. Fallback to / sync with DataStore
+  const dsUser = DataStore.getTelegramUser(numId);
+  const dsProfile = DataStore.getProfile(numId);
+  if (dsUser) {
+    if (!points) points = Number(dsUser.points || 0);
+    if (!tickets && dsUser.gacha_tickets) tickets = Number(dsUser.gacha_tickets);
+  }
+  if (dsProfile) {
+    if (!points) points = Number(dsProfile.points || 0);
+    if (dsProfile.gacha_tickets) tickets = Number(dsProfile.gacha_tickets);
   }
 
   // Fetch pool prizes from DataStore
@@ -64,17 +62,10 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
     const activePool = DataStore.getActiveGachaPool();
     if (activePool) {
       const poolPrizes = DataStore.getGachaPrizesByPoolId(activePool.id);
-      const mythicalPrize = poolPrizes.find((p: any) => p.rarity === 'mythical');
-      if (mythicalPrize) {
-        top_mythical_item = `${mythicalPrize.icon || '🔴'} ${mythicalPrize.name} (Jackpot)`;
-        if (mythicalPrize.drop_rate) {
-          mythical_drop_rate = mythicalPrize.drop_rate;
-        }
-      }
-      const legPrize = poolPrizes.find((p: any) => p.rarity === 'legendary');
-      if (legPrize) {
-        top_legendary_item = `${legPrize.icon || '🟣'} ${legPrize.name}`;
-      }
+      const mythical = poolPrizes.find((p: any) => p.rarity === 'mythical');
+      const legendary = poolPrizes.find((p: any) => p.rarity === 'legendary');
+      if (mythical) top_mythical_item = `${mythical.name} (Jackpot)`;
+      if (legendary) top_legendary_item = legendary.name;
     }
   } catch {}
 
@@ -89,9 +80,12 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
 }
 
 /**
- * Handle Live Gacha Dashboard (cb_gacha_menu / /gacha)
+ * Handle Gacha Dashboard (cb_gacha_menu / /gacha)
  */
-export async function handleGachaMenu(ctx: Context, storeUrl: string): Promise<void> {
+export async function handleGachaMenu(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
@@ -99,22 +93,23 @@ export async function handleGachaMenu(ctx: Context, storeUrl: string): Promise<v
     await ctx.answerCbQuery();
   } catch {}
 
+  await DataStore.syncUserFromPostgres(telegramId);
   const gacha = await fetchGachaLiveInfo(telegramId);
-  const userLang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const text =
-    `🎰 <b>UCHIRO MYTHICAL GACHA — ព័ត៌មានបច្ចុប្បន្នភាព</b>\n` +
+    `🎰 <b>UCHIRO MYTHICAL GACHA — LIVE OVERVIEW</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>សំបុត្ររបស់អ្នក:</b> <code>${gacha.tickets}</code> សំបុត្រ\n` +
-    `💎 <b>ពិន្ទុរបស់អ្នក:</b> <code>${gacha.points}</code> Pts\n` +
-    `💰 <b>តម្លៃសំបុត្របច្ចុប្បន្ន:</b> <code>${gacha.ticket_price_pts}</code> Pts / សំបុត្រ\n\n` +
-    `🏆 <b>រង្វាន់ធំក្នុង Pool:</b>\n` +
-    `• 🔴 ${escapeHtml(gacha.top_mythical_item)}\n` +
-    `• 🟣 ${escapeHtml(gacha.top_legendary_item)}\n` +
-    `• ⚡ អត្រាឈ្នះ Mythical: <b>${gacha.mythical_drop_rate}%</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    `🎫 <b>Your Tickets:</b> <code>${gacha.tickets} Tickets</code>\n` +
+    `💎 <b>Your Points:</b> <code>${gacha.points} Pts</code>\n` +
+    `💰 <b>Ticket Price:</b> <code>100 Pts / Ticket</code>\n\n` +
+    `🏆 <b>Jackpot Pool Prizes:</b>\n` +
+    `• 🔴 🍎 <b>Kitsune Fruit Permanent</b> (Jackpot)\n` +
+    `• 🟣 ⚔️ <b>Dark Blade (Yoru) Account</b>\n` +
+    `• ⚡ <b>Mythical Drop Rate:</b> <code>1.5%</code>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>Exchange points for tickets below or launch the Mini App to spin!</i>`;
 
-  const keyboard = buildGachaKeyboard(storeUrl, userLang);
+  const keyboard = buildGachaKeyboard(storeUrl);
   const formattedHtml = enrichWithTgEmojis(text);
 
   try {
@@ -137,126 +132,108 @@ export async function handleGachaMenu(ctx: Context, storeUrl: string): Promise<v
 }
 
 /**
- * Handle In-Bot Ticket Buy (cb_gacha_buy_ticket)
+ * Handle In-Bot Ticket Buy (cb_buy_ticket_pts / cb_gacha_buy_ticket)
  */
-export async function handleBuyGachaTicket(ctx: Context, storeUrl: string): Promise<void> {
+export async function handleBuyGachaTicket(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
   const tid = String(telegramId);
   const numId = Number(telegramId);
-  const TICKET_COST = 50;
+  const TICKET_COST = 100;
 
-  let currentPoints = 0;
-  let currentTickets = 0;
+  await DataStore.syncUserFromPostgres(numId);
+  const liveInfo = await fetchGachaLiveInfo(telegramId);
+  const currentPoints = liveInfo.points;
 
-  // Check Supabase first
-  if (isSupabaseConfigured()) {
-    try {
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('*')
-        .eq('telegram_id', tid)
-        .maybeSingle();
-
-      if (userRow) {
-        currentPoints = userRow.points ?? 0;
-        currentTickets = (userRow.extra as any)?.gacha_tickets ?? 0;
-      }
-    } catch {}
-  }
-
-  // Fallback check DataStore
-  if (!currentPoints) {
-    const dsUser = DataStore.getTelegramUser(numId);
-    const dsProfile = DataStore.getProfile(numId);
-    if (dsUser) currentPoints = dsUser.points || currentPoints;
-    if (dsProfile) {
-      currentPoints = dsProfile.points || currentPoints;
-      currentTickets = dsProfile.gacha_tickets || currentTickets;
-    }
-  }
-
+  // Insufficient Points Check
   if (currentPoints < TICKET_COST) {
     try {
       await ctx.answerCbQuery(
-        `⚠️ ពិន្ទុរបស់អ្នកមិនគ្រប់គ្រាន់ទេ (ត្រូវការ ${TICKET_COST} Pts, អ្នកមាន ${currentPoints} Pts)`,
+        `⚠️ You need at least 100 Points to buy 1 Ticket! (You have: ${currentPoints} Pts)`,
         { show_alert: true }
       );
     } catch {}
     return;
   }
 
-  // Deduct points and credit ticket in Supabase
-  let success = false;
-  let newBalance = currentPoints - TICKET_COST;
-  let newTickets = currentTickets + 1;
-
-  if (isSupabaseConfigured()) {
+  // Deduct 100 Points via DataStore.adjustPoints
+  const adjustRes = await DataStore.adjustPoints(telegramId, -TICKET_COST, 'GACHA_TICKET');
+  if (!adjustRes.success) {
     try {
-      const { data: rpcRes, error: rpcErr } = await supabase.rpc('adjust_points', {
-        p_telegram_id: tid,
-        p_delta: -TICKET_COST,
-        p_reason: 'in_bot_gacha_ticket_purchase',
-      });
-
-      if (!rpcErr && rpcRes && (rpcRes as any).success) {
-        newBalance = (rpcRes as any).points;
-        // Update tickets in user extra
-        await supabase
-          .from('users')
-          .update({
-            extra: { gacha_tickets: newTickets },
-            updated_at: new Date().toISOString(),
-          })
-          .eq('telegram_id', tid);
-        success = true;
-      }
-    } catch {
-      // Fallback to local
-    }
+      await ctx.answerCbQuery(
+        `⚠️ Failed to exchange ticket: ${adjustRes.error || 'INSUFFICIENT_POINTS'}`,
+        { show_alert: true }
+      );
+    } catch {}
+    return;
   }
 
-  // Update in DataStore
-  const dsProfile = DataStore.getProfile(numId);
-  if (dsProfile) {
-    dsProfile.points = Math.max(0, dsProfile.points - TICKET_COST);
-    dsProfile.gacha_tickets = (dsProfile.gacha_tickets || 0) + 1;
-    newBalance = dsProfile.points;
-    newTickets = dsProfile.gacha_tickets;
-    success = true;
-  }
+  const newBalance = adjustRes.points;
+
+  // Increment user's gacha_tickets by 1 in in-memory profile and user
+  let newTickets = liveInfo.tickets + 1;
   const dsUser = DataStore.getTelegramUser(numId);
   if (dsUser) {
     dsUser.points = newBalance;
+    dsUser.reward_points = newBalance;
+    dsUser.gacha_tickets = (dsUser.gacha_tickets || 0) + 1;
+    newTickets = dsUser.gacha_tickets;
+  }
+  const dsProfile = DataStore.getProfile(numId);
+  if (dsProfile) {
+    dsProfile.points = newBalance;
+    dsProfile.reward_points = newBalance;
+    dsProfile.loyalty_points = newBalance;
+    dsProfile.gacha_tickets = (dsProfile.gacha_tickets || 0) + 1;
+    newTickets = dsProfile.gacha_tickets;
   }
 
-  // Show Toast Confirmation Alert
+  // Persist updated tickets to extra in PostgreSQL if configured
+  if (isPostgresConfigured()) {
+    try {
+      await pgPool.query(
+        `UPDATE users
+         SET extra = jsonb_set(COALESCE(extra::jsonb, '{}'::jsonb), '{gacha_tickets}', $2::jsonb),
+             updated_at = NOW()
+         WHERE telegram_id = $1`,
+        [tid, JSON.stringify(newTickets)]
+      );
+    } catch (err: any) {
+      console.warn('[handleBuyGachaTicket] Postgres extra tickets save warning:', err?.message);
+    }
+  }
+
+  // Success Alert Popup
   try {
     await ctx.answerCbQuery(
-      `🎉 ប្តូរសំបុត្រ Gacha បានជោគជ័យ! (+1 សំបុត្រ, -${TICKET_COST} Pts)\nសំបុត្រសរុប: ${newTickets} សន្លឹក`,
+      `🎉 Successfully exchanged 100 Points for 1 Gacha Ticket! (Remaining: ${newBalance} Pts, Tickets: ${newTickets})`,
       { show_alert: true }
     );
   } catch {}
 
-  // Refresh Gacha Dashboard with new numbers
+  // Re-render Gacha Dashboard with updated numbers
   const gacha = await fetchGachaLiveInfo(telegramId);
   gacha.points = newBalance;
   gacha.tickets = newTickets;
 
   const text =
-    `🎰 <b>UCHIRO MYTHICAL GACHA — ព័ត៌មានបច្ចុប្បន្នភាព</b>\n` +
+    `🎰 <b>UCHIRO MYTHICAL GACHA — LIVE OVERVIEW</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>សំបុត្ររបស់អ្នក:</b> <code>${newTickets}</code> សំបុត្រ\n` +
-    `💎 <b>ពិន្ទុរបស់អ្នក:</b> <code>${newBalance}</code> Pts\n` +
-    `💰 <b>តម្លៃសំបុត្របច្ចុប្បន្ន:</b> <code>${gacha.ticket_price_pts}</code> Pts / សំបុត្រ\n\n` +
-    `🏆 <b>រង្វាន់ធំក្នុង Pool:</b>\n` +
-    `• 🔴 ${escapeHtml(gacha.top_mythical_item)}\n` +
-    `• 🟣 ${escapeHtml(gacha.top_legendary_item)}\n` +
-    `• ⚡ អត្រាឈ្នះ Mythical: <b>${gacha.mythical_drop_rate}%</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    `🎫 <b>Your Tickets:</b> <code>${newTickets} Tickets</code>\n` +
+    `💎 <b>Your Points:</b> <code>${newBalance} Pts</code>\n` +
+    `💰 <b>Ticket Price:</b> <code>100 Pts / Ticket</code>\n\n` +
+    `🏆 <b>Jackpot Pool Prizes:</b>\n` +
+    `• 🔴 🍎 <b>Kitsune Fruit Permanent</b> (Jackpot)\n` +
+    `• 🟣 ⚔️ <b>Dark Blade (Yoru) Account</b>\n` +
+    `• ⚡ <b>Mythical Drop Rate:</b> <code>1.5%</code>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>Exchange points for tickets below or launch the Mini App to spin!</i>`;
 
-  const keyboard = buildGachaKeyboard(storeUrl, 'en');
+  const keyboard = buildGachaKeyboard(storeUrl);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -273,7 +250,10 @@ export async function handleBuyGachaTicket(ctx: Context, storeUrl: string): Prom
 /**
  * Handle View All Gacha Prizes (cb_gacha_prizes)
  */
-export async function handleGachaPrizes(ctx: Context, storeUrl: string): Promise<void> {
+export async function handleGachaPrizes(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
   try {
     await ctx.answerCbQuery();
   } catch {}
@@ -295,26 +275,27 @@ export async function handleGachaPrizes(ctx: Context, storeUrl: string): Promise
             : p.rarity === 'rare'
             ? '🟢 Rare'
             : '⚪ Common';
-        return `• <b>[${rarityBadge}]</b> ${escapeHtml(p.name)} (${p.drop_rate}%)`;
+        return `• ${rarityBadge}: <b>${escapeHtml(p.name)}</b> (${p.drop_rate}%)`;
       })
       .join('\n');
   } else {
     prizeList =
-      `• 🔴 <b>[Mythical]</b> Kitsune Fruit Permanent (1.5%)\n` +
-      `• 🟣 <b>[Legendary]</b> Dark Blade (Yoru) Account (5.0%)\n` +
-      `• 🔵 <b>[Epic]</b> Buddha Perm + Leopard (15.0%)\n` +
-      `• 🟢 <b>[Rare]</b> Gamepass 2x Mastery Voucher (30.0%)\n` +
-      `• ⚪ <b>[Common]</b> 20 Points Cashback (48.5%)`;
+      `• 🔴 Mythical: <b>Kitsune Fruit Permanent</b> (1.5%)\n` +
+      `• 🟣 Legendary: <b>Dark Blade (Yoru) Account</b> (5.0%)\n` +
+      `• 🔵 Epic: <b>50% Discount Coupon</b> (15.0%)\n` +
+      `• 🟢 Rare: <b>2x Mastery & Money Gamepass</b> (30.0%)\n` +
+      `• ⚪ Common: <b>+25 Points Cashback</b> (48.5%)`;
   }
 
   const text =
-    `🏆 <b>បញ្ជីរង្វាន់ GACHA POOL បច្ចុប្បន្ន</b>\n` +
+    `🏆 <b>CURRENT GACHA POOL PRIZES</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    prizeList + `\n\n` +
-    `💡 <i>រង្វាន់គណនី និងកូដទាំងអស់នឹងត្រូវបញ្ជូនចូលទៅក្នុង 🎒 Vault របស់អ្នកភ្លាមៗ!</i>\n` +
+    prizeList +
+    `\n\n` +
+    `💡 <i>All won accounts and codes are instantly delivered to your 🎒 Vault!</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubGachaKeyboard(storeUrl, 'en');
+  const keyboard = buildSubGachaKeyboard(storeUrl);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -329,30 +310,33 @@ export async function handleGachaPrizes(ctx: Context, storeUrl: string): Promise
 }
 
 /**
- * Handle Gacha Drop Rates / Odds (cb_gacha_odds / cb_gacha_rates)
+ * Handle Gacha Drop Rates & Odds (cb_gacha_rates / cb_gacha_odds)
  */
-export async function handleGachaOdds(ctx: Context, storeUrl: string): Promise<void> {
+export async function handleGachaOdds(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
   try {
     await ctx.answerCbQuery();
   } catch {}
 
   const text =
-    `⚡ <b>អត្រាធ្លាក់រង្វាន់ GACHA (OFFICIAL DROP RATES)</b>\n` +
+    `⚡ <b>OFFICIAL GACHA DROP RATES &amp; FAIR PLAY</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `🔴 <b>MYTHICAL (Jackpot):</b> <code>1.50%</code>\n` +
-    `• ឱកាសឈ្នះ Account កម្រិតខ្ពស់ ឬ Perm Fruits កម្របំផុត\n\n` +
+    `• Chance to win high-tier Max Level Accounts or Permanent Fruits\n\n` +
     `🟣 <b>LEGENDARY:</b> <code>5.00%</code>\n` +
-    `• ឱកាសឈ្នះ Dark Blade, Godhuman Accounts\n\n` +
+    `• Chance to win Dark Blade, Godhuman Accounts\n\n` +
     `🔵 <b>EPIC:</b> <code>15.00%</code>\n` +
-    `• Vouchers បញ្ចុះតម្លៃ 50% ឬ Fruit codes\n\n` +
+    `• 50% Off Discount Vouchers & Fruit Codes\n\n` +
     `🟢 <b>RARE:</b> <code>30.00%</code>\n` +
-    `• Gamepass Codes, 2x Money & Mastery\n\n` +
+    `• Gamepass Codes, 2x Money & Mastery Boosts\n\n` +
     `⚪ <b>COMMON:</b> <code>48.50%</code>\n` +
-    `• Points រង្វាន់លួងចិត្ត (Cashback)\n\n` +
-    `🔒 <i>ប្រព័ន្ធធានាសមភាព (Provably Fair RNG Engine) 100% គ្មានការបន្លំ។</i>\n` +
+    `• Loyalty Points Cashback (+25 Pts)\n\n` +
+    `🔒 <i>Provably Fair RNG Engine 100% verified — no manipulation.</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubGachaKeyboard(storeUrl, 'en');
+  const keyboard = buildSubGachaKeyboard(storeUrl);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {

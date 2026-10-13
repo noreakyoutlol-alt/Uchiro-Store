@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { StoreService } from '../services/store.service';
 import { ProductController } from '../controllers/product.controller';
-import { DataStore } from '../database/data-store';
+import { DataStore, claimDailyReward } from '../database/data-store';
 import { RobloxService } from '../services/roblox.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
 
@@ -56,8 +56,6 @@ export const getCustomerStatsHandler = async (req: RequestWithAuth, res: any) =>
   const totalSpent = verifiedOrders.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0);
   const realProfile = DataStore.getProfile(tgId);
   const realUser = DataStore.getTelegramUser(tgId);
-  const realPoints = Number(realProfile?.points ?? realUser?.points ?? 0);
-  const realTickets = Number(realProfile?.gacha_tickets ?? realUser?.gacha_tickets ?? 0);
 
   return res.json({
     success: true,
@@ -66,16 +64,16 @@ export const getCustomerStatsHandler = async (req: RequestWithAuth, res: any) =>
       total_spent: Number(totalSpent.toFixed(2)),
       profile: {
         ...(realProfile || {}),
-        points: realPoints,
-        reward_points: realPoints,
-        loyalty_points: realPoints,
-        gacha_tickets: realTickets,
+        points: Number(realProfile?.points ?? realUser?.points ?? 0),
+        reward_points: Number(realProfile?.points ?? realUser?.points ?? 0),
+        loyalty_points: Number(realProfile?.points ?? realUser?.points ?? 0),
+        gacha_tickets: Number(realProfile?.gacha_tickets ?? realUser?.gacha_tickets ?? 0),
       },
-      points: realPoints,
-      reward_points: realPoints,
-      loyalty_points: realPoints,
-      gacha_tickets: realTickets,
-      streak_count: realUser?.streak_count || 1,
+      points: Number(realProfile?.points ?? realUser?.points ?? 0),
+      reward_points: Number(realProfile?.points ?? realUser?.points ?? 0),
+      loyalty_points: Number(realProfile?.points ?? realUser?.points ?? 0),
+      gacha_tickets: Number(realProfile?.gacha_tickets ?? realUser?.gacha_tickets ?? 0),
+      streak_count: Number(realUser?.streak_count || 1),
       last_daily_claim_at: realUser?.last_daily_claim_at || null,
     },
   });
@@ -252,86 +250,18 @@ export const handleDailyRewardClaim = async (req: RequestWithAuth, res: any) => 
   const tgId = Number(resolved);
 
   await DataStore.syncUserFromPostgres(tgId);
-  let user = DataStore.getTelegramUser(tgId);
-  if (!user) {
-    const created = DataStore.findOrCreateTelegramUser({
-      telegram_id: tgId,
-      first_name: req.body?.first_name || 'Customer',
-      username: req.body?.username || null,
-      language_code: 'en',
-    });
-    user = created.user;
-  }
-
-  const result = DataStore.claimDailyReward(tgId);
-  const status = DataStore.getDailyRewardStatus(tgId);
-  const profile = DataStore.getProfile(tgId);
-  const currentBalance = profile?.points ?? result.newBalance ?? user.points ?? 0;
-
-  if (!result.success) {
-    const remSec = result.seconds_remaining ?? (result as any).remainingSeconds ?? status.seconds_remaining ?? 0;
-    const remMs = (result as any).remainingMs ?? (remSec * 1000);
-    const nextClaimAt = (result as any).nextClaimAt || (result as any).next_claim_at || status.next_claim_at;
-    const isExplicitUserClaimDaily = req.path.endsWith('/claim-daily');
-
-    const errPayload = {
-      success: false,
-      error: isExplicitUserClaimDaily ? 'ALREADY_CLAIMED' : (result.error || 'ALREADY_CLAIMED_TODAY'),
-      message: 'You have already claimed your daily reward today.',
-      remainingMs: remMs,
-      remainingSeconds: remSec,
-      seconds_remaining: remSec,
-      points: currentBalance,
-      pointsAwarded: 0,
-      newBalance: currentBalance,
-      streak: result.streak,
-      nextClaimAt,
-      next_claim_at: nextClaimAt,
-      data: {
-        ...status,
-        success: false,
-        remainingMs: remMs,
-        remainingSeconds: remSec,
-        seconds_remaining: remSec,
-        points: currentBalance,
-        pointsAwarded: 0,
-        newBalance: currentBalance,
-        streak: result.streak,
-        nextClaimAt,
-        next_claim_at: nextClaimAt,
-      },
-    };
-
-    if (isExplicitUserClaimDaily) {
-      return res.status(400).json(errPayload);
-    }
-    return res.json(errPayload);
-  }
-
-  const nextClaimAt = (result as any).nextClaimAt || (result as any).next_claim_at || status.next_claim_at;
-  const remSec = status.seconds_remaining ?? 86400;
+  const claimRes = await claimDailyReward(tgId);
 
   return res.json({
     success: true,
-    points: result.newBalance,
-    pointsAwarded: result.pointsAwarded,
-    newBalance: result.newBalance,
-    streak: result.streak,
-    seconds_remaining: remSec,
-    nextClaimAt,
-    next_claim_at: nextClaimAt,
-    message: `🎉 Successfully claimed +${result.pointsAwarded} points!`,
+    points: Number(claimRes.points),
+    streak: Number(claimRes.streak),
+    seconds_remaining: 86400,
     data: {
-      ...status,
       success: true,
-      points: result.newBalance,
-      pointsAwarded: result.pointsAwarded,
-      newBalance: result.newBalance,
-      streak: result.streak,
-      seconds_remaining: remSec,
-      nextClaimAt,
-      next_claim_at: nextClaimAt,
-      message: `🎉 Successfully claimed +${result.pointsAwarded} points!`,
+      points: Number(claimRes.points),
+      streak: Number(claimRes.streak),
+      seconds_remaining: 86400,
     },
   });
 };

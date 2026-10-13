@@ -14,6 +14,8 @@ export interface TelegramUser {
   points?: number;
   reward_points?: number;
   last_daily_claim_at?: string | null;
+  streak_count?: number;
+  gacha_tickets?: number;
 }
 
 export interface Profile {
@@ -23,6 +25,7 @@ export interface Profile {
   loyalty_points?: number;
   reward_points?: number;
   last_daily_claim_at?: string | null;
+  streak_count?: number;
   gacha_tickets: number;
   total_spent: number;
   total_orders: number;

@@ -2179,19 +2179,22 @@ export class DataStore {
         ? new Date(row.last_daily_claim_at).toISOString()
         : null;
 
-      const existingUser = this.users.get(numId);
-      if (existingUser) {
-        existingUser.points = pts;
-        existingUser.reward_points = pts;
-        existingUser.streak_count = streak;
-        existingUser.last_daily_claim_at = lastClaim;
+      let existingUser = this.users.get(numId);
+      if (!existingUser) {
+        const created = this.findOrCreateTelegramUser({ telegram_id: numId, first_name: 'Customer' });
+        existingUser = created.user;
       }
+      existingUser.points = pts;
+      existingUser.reward_points = pts;
+      existingUser.streak_count = streak;
+      existingUser.last_daily_claim_at = lastClaim;
 
-      const profile = this.profiles.get(numId);
+      let profile = this.profiles.get(numId);
       if (profile) {
         profile.points = pts;
         profile.reward_points = pts;
         profile.loyalty_points = pts;
+        profile.streak_count = streak;
         profile.last_daily_claim_at = lastClaim;
       }
 
@@ -2199,11 +2202,20 @@ export class DataStore {
         this.dailyRewards.set(numId, {
           streak: streak || 1,
           lastClaimed: new Date(lastClaim).getTime(),
+          totalPoints: pts,
         });
       }
     } catch (err: any) {
       console.error('[Postgres Sync Error]:', err.message);
     }
+  }
+
+  static async adjustPoints(
+    telegramId: string | number,
+    delta: number,
+    reason: string
+  ): Promise<AdjustPointsResult> {
+    return adjustPoints(telegramId, delta, reason);
   }
 
   /** @deprecated Use syncUserFromPostgres */
@@ -3633,23 +3645,26 @@ export type ClaimResult =
   | {
       success: true;
       points: number;
-      pointsAwarded: number;
       streak: number;
-      nextClaimAt: string;
-      serverNow: string;
+      seconds_remaining?: number;
+      pointsAwarded?: number;
+      newBalance?: number;
+      nextClaimAt?: string;
+      serverNow?: string;
     }
   | {
       success: false;
-      error: 'ALREADY_CLAIMED';
-      remainingMs: number;
-      points: number;
-      streak: number;
-      serverNow: string;
+      error?: string;
+      remainingMs?: number;
+      points?: number;
+      streak?: number;
+      serverNow?: string;
+      seconds_remaining?: number;
     };
 
 export type AdjustPointsResult =
   | { success: true; points: number }
-  | { success: false; error: 'INSUFFICIENT_POINTS'; points: number };
+  | { success: false; error: string; points: number };
 
 export interface StoredOrder {
   id: string;
@@ -3772,9 +3787,9 @@ export async function getUser(telegramId: string | number): Promise<StoredUser |
          RETURNING *`,
         [userId, tid]
       );
-      return rowsToUser ? rowsToUser(inserted[0]) : inserted[0];
+      return inserted.length > 0 ? rowToUser(inserted[0]) : null;
     }
-    return rowsToUser ? rowsToUser(rows[0]) : rows[0];
+    return rowToUser(rows[0]);
   } catch (err: any) {
     console.error('[DataStore] getUser PostgreSQL error:', err?.message);
     return null;
@@ -3819,7 +3834,7 @@ export async function saveUser(input: SaveUserInput): Promise<StoredUser> {
   try {
     const { rows } = await pgPool.query(sql, values);
     if (rows.length === 0) throw new Error('No row returned from saveUser');
-    return rowsToUser ? rowsToUser(rows[0]) : rows[0];
+    return rowToUser(rows[0]);
   } catch (err: any) {
     console.error('[DataStore] saveUser PostgreSQL error:', err?.message);
     throw err;
@@ -3828,68 +3843,89 @@ export async function saveUser(input: SaveUserInput): Promise<StoredUser> {
 
 export async function claimDailyReward(telegramId: string | number): Promise<ClaimResult> {
   const numId = Number(telegramId);
-  if (!numId) return { success: false, error: 'INVALID_TELEGRAM_ID' };
-
-  if (!isPostgresConfigured()) return { success: false, error: 'POSTGRES_OFFLINE' };
+  if (!numId) {
+    return { success: false, error: 'INVALID_TELEGRAM_ID', remainingMs: 0, points: 0, streak: 0, serverNow: new Date().toISOString() };
+  }
 
   const tid = String(telegramId);
-  const now = new Date();
-  const nowIso = now.toISOString();
 
-  try {
-    // Direct PostgreSQL UPDATE with RETURNING
-    const { rows } = await pgPool.query(
-      `UPDATE users SET points = points + 5, streak_count = streak_count + 1, last_daily_claim_at = NOW() WHERE telegram_id = $1 RETURNING points, streak_count`,
-      [tid]
-    );
-
-    if (rows.length === 0) {
-      // User does not exist yet; insert then retry
-      const { rows: inserted } = await pgPool.query(
+  if (isPostgresConfigured()) {
+    try {
+      const { rows } = await pgPool.query(
         `INSERT INTO users (telegram_id, role, points, streak_count, last_daily_claim_at, created_at, updated_at)
          VALUES ($1, 'customer', 5, 1, NOW(), NOW(), NOW())
+         ON CONFLICT (telegram_id) DO UPDATE
+         SET points = users.points + 5,
+             streak_count = users.streak_count + 1,
+             last_daily_claim_at = NOW(),
+             updated_at = NOW()
          RETURNING points, streak_count`,
         [tid]
       );
-      const row = inserted[0];
+
+      const row = rows[0];
+      const pts = Number(row.points || 0);
+      const streak = Number(row.streak_count || 1);
+
+      // Also insert a record into points_ledger
+      try {
+        await pgPool.query(
+          `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
+           VALUES ($1, 5, 'daily_reward', $2, '+5 Daily Reward Claim', NOW())`,
+          [tid, pts]
+        );
+      } catch (err: any) {
+        console.warn('[DataStore] points_ledger write warning:', err?.message);
+      }
+
+      // Sync in-memory state
+      let existingUser = DataStore.getTelegramUser(numId);
+      if (!existingUser) {
+        const created = DataStore.findOrCreateTelegramUser({ telegram_id: numId, first_name: 'Customer' });
+        existingUser = created.user;
+      }
+      existingUser.points = pts;
+      existingUser.reward_points = pts;
+      existingUser.streak_count = streak;
+      existingUser.last_daily_claim_at = new Date().toISOString();
+
+      let profile = DataStore.getProfile(numId);
+      if (profile) {
+        profile.points = pts;
+        profile.reward_points = pts;
+        profile.loyalty_points = pts;
+        profile.streak_count = streak;
+        profile.last_daily_claim_at = existingUser.last_daily_claim_at;
+      }
+
       return {
         success: true,
-        points: row.points,
+        points: pts,
+        streak,
+        seconds_remaining: 86400,
         pointsAwarded: 5,
-        newBalance: row.points,
-        streak: row.streak_count,
-        seconds_remaining: 0,
-        nextClaimAt: nowIso,
-        next_claim_at: nowIso,
+        newBalance: pts,
+        nextClaimAt: new Date(Date.now() + 86400000).toISOString(),
+        serverNow: new Date().toISOString(),
       };
+    } catch (err: any) {
+      console.error('[DataStore] claimDailyReward PostgreSQL error:', err.message);
+      return { success: false, error: 'DB_ERROR', remainingMs: 0, points: 0, streak: 0, serverNow: new Date().toISOString() };
     }
-
-    const row = rows[0];
-    // Persist to points_ledger
-    try {
-      await pgPool.query(
-        `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
-         VALUES ($1, 5, 'daily_reward', $2, $3, NOW())`,
-        [tid, row.points, `+5 Daily Reward`]
-      );
-    } catch {
-      // Non-fatal: ledger persistence failure should not break the reward claim
-    }
-
-    return {
-      success: true,
-      points: row.points,
-      pointsAwarded: 5,
-      newBalance: row.points,
-      streak: row.streak_count,
-      seconds_remaining: 0,
-      nextClaimAt: nowIso,
-      next_claim_at: nowIso,
-    };
-  } catch (err: any) {
-    console.error('[DataStore] claimDailyReward PostgreSQL error:', err.message);
-    return { success: false, error: 'DB_ERROR', remainingMs: 0, points: 0 };
   }
+
+  // In-memory fallback
+  const dsRes = DataStore.claimDailyReward(numId);
+  return {
+    success: true,
+    points: Number(dsRes.points),
+    streak: Number(dsRes.streak),
+    seconds_remaining: 86400,
+    pointsAwarded: 5,
+    newBalance: Number(dsRes.points),
+    nextClaimAt: new Date(Date.now() + 86400000).toISOString(),
+    serverNow: new Date().toISOString(),
+  };
 }
 
 export async function adjustPoints(
@@ -3897,83 +3933,149 @@ export async function adjustPoints(
   delta: number,
   reason: string,
 ): Promise<AdjustPointsResult> {
-  if (!isPostgresConfigured()) {
-    return { success: false, error: 'POSTGRES_OFFLINE' };
-  }
   const numId = Number(telegramId);
-  if (!numId) return { success: false, error: 'INVALID_TELEGRAM_ID' };
+  if (!numId) return { success: false, error: 'INVALID_TELEGRAM_ID', points: 0 };
 
   const tid = String(telegramId);
-  const deltaAbs = Math.trunc(delta);
+  const deltaNum = Math.trunc(delta);
 
-  try {
-    // Upsert user if not exists, then adjust points atomically
-    const { rows } = await pgPool.query(
-      `WITH upsert AS (
-         UPDATE users SET points = points + $2 WHERE telegram_id = $1
-         RETURNING points
-       ),
-       inserted AS (
-         INSERT INTO users (telegram_id, role, points, streak_count, created_at, updated_at)
-         VALUES ($1, 'customer', $2, 0, NOW(), NOW())
-         ON CONFLICT (telegram_id) DO NOTHING
-         RETURNING points
-       )
-     SELECT points FROM upsert
-     UNION ALL
-     SELECT points FROM inserted
-     LIMIT 1`,
-      [tid, deltaAbs]
-    );
+  if (isPostgresConfigured()) {
+    try {
+      await pgPool.query(
+        `INSERT INTO users (telegram_id, role, points, streak_count, created_at, updated_at)
+         VALUES ($1, 'customer', 0, 0, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO NOTHING`,
+        [tid]
+      );
 
-    if (rows.length === 0) {
+      if (deltaNum < 0) {
+        const { rows: checkRows } = await pgPool.query(
+          `SELECT points FROM users WHERE telegram_id = $1`,
+          [tid]
+        );
+        const currentPts = Number(checkRows[0]?.points || 0);
+        if (currentPts + deltaNum < 0) {
+          return { success: false, error: 'INSUFFICIENT_POINTS', points: currentPts };
+        }
+      }
+
+      const { rows } = await pgPool.query(
+        `UPDATE users SET points = points + $2, updated_at = NOW() WHERE telegram_id = $1 RETURNING points`,
+        [tid, deltaNum]
+      );
+
+      if (rows.length === 0) {
+        return { success: false, error: 'USER_NOT_FOUND', points: 0 };
+      }
+
+      const newBalance = Number(rows[0].points);
+
+      try {
+        await pgPool.query(
+          `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [tid, deltaNum, deltaNum < 0 ? 'deduction' : 'addition', newBalance, reason]
+        );
+      } catch (err: any) {
+        console.warn('[DataStore] points_ledger write warning:', err?.message);
+      }
+
+      const existingUser = DataStore.getTelegramUser(numId);
+      if (existingUser) {
+        existingUser.points = newBalance;
+        existingUser.reward_points = newBalance;
+      }
+      const profile = DataStore.getProfile(numId);
+      if (profile) {
+        profile.points = newBalance;
+        profile.reward_points = newBalance;
+        profile.loyalty_points = newBalance;
+      }
+
+      return { success: true, points: newBalance };
+    } catch (err: any) {
+      console.error('[DataStore] adjustPoints PostgreSQL error:', err?.message);
       return { success: false, error: 'DB_ERROR', points: 0 };
     }
-
-    const newPoints = rows[0].points;
-    return { success: newPoints >= 0, points: newPoints, error: newPoints < 0 ? 'INSUFFICIENT_POINTS' : null };
-  } catch (err: any) {
-    console.error('[DataStore] adjustPoints PostgreSQL error:', err.message);
-    return { success: false, error: 'DB_ERROR', points: 0 };
   }
+
+  const dsUser = DataStore.getTelegramUser(numId);
+  const dsProfile = DataStore.getProfile(numId);
+  const curPts = dsProfile?.points ?? dsUser?.points ?? 0;
+  if (curPts + deltaNum < 0) {
+    return { success: false, error: 'INSUFFICIENT_POINTS', points: curPts };
+  }
+  const newPts = curPts + deltaNum;
+  if (dsUser) {
+    dsUser.points = newPts;
+    dsUser.reward_points = newPts;
+  }
+  if (dsProfile) {
+    dsProfile.points = newPts;
+    dsProfile.reward_points = newPts;
+    dsProfile.loyalty_points = newPts;
+  }
+  return { success: true, points: newPts };
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<StoredOrder> {
   const telegramId =
     input.telegramId === undefined || input.telegramId === null ? null : String(input.telegramId);
 
-  if (telegramId !== null) {
-    const { error: userError } = await supabase
-      .from('users')
-      .upsert({ telegram_id: telegramId }, { onConflict: 'telegram_id', ignoreDuplicates: true });
-    if (userError) throw new Error(`createOrder (ensure user) failed: ${userError.message}`);
+  if (isPostgresConfigured()) {
+    if (telegramId !== null) {
+      await pgPool.query(
+        `INSERT INTO users (telegram_id, role, points, streak_count, created_at, updated_at)
+         VALUES ($1, 'customer', 0, 0, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO NOTHING`,
+        [telegramId]
+      );
+    }
+
+    const { rows } = await pgPool.query(
+      `INSERT INTO orders (order_code, telegram_id, items, total_amount, currency, payment_provider, payment_ref, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+       RETURNING *`,
+      [
+        input.orderCode,
+        telegramId,
+        JSON.stringify(input.items || []),
+        input.totalAmount,
+        input.currency ?? 'USD',
+        input.paymentProvider ?? 'khpay',
+        input.paymentRef ?? null,
+      ]
+    );
+    if (!rows || rows.length === 0) throw new Error('createOrder failed: no row returned');
+    return rowToOrder(rows[0] as OrderRow);
   }
 
-  const { data, error } = await supabase
-    .from('orders')
-    .insert({
-      order_code: input.orderCode,
-      telegram_id: telegramId,
-      items: input.items,
-      total_amount: input.totalAmount,
-      currency: input.currency ?? 'USD',
-      payment_provider: input.paymentProvider ?? 'khpay',
-      payment_ref: input.paymentRef ?? null,
-    })
-    .select('*')
-    .single();
-  if (error || !data) throw new Error(`createOrder failed: ${error?.message ?? 'no row returned'}`);
-  return rowToOrder(data as OrderRow);
+  const orderId = uuidv4();
+  const now = new Date().toISOString();
+  return {
+    id: orderId,
+    orderCode: input.orderCode,
+    telegramId,
+    items: input.items,
+    totalAmount: input.totalAmount,
+    currency: input.currency ?? 'USD',
+    status: 'completed' as any,
+    paymentProvider: input.paymentProvider ?? 'khpay',
+    paymentRef: input.paymentRef ?? null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export async function getOrderByCode(orderCode: string): Promise<StoredOrder | null> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('order_code', orderCode)
-    .maybeSingle();
-  if (error) throw new Error(`getOrderByCode failed: ${error.message}`);
-  return data ? rowToOrder(data as OrderRow) : null;
+  if (isPostgresConfigured()) {
+    const { rows } = await pgPool.query(
+      `SELECT * FROM orders WHERE order_code = $1 LIMIT 1`,
+      [orderCode]
+    );
+    return rows.length > 0 ? rowToOrder(rows[0] as OrderRow) : null;
+  }
+  return null;
 }
 
 export async function listOrdersByUser(telegramId: string | number): Promise<StoredOrder[]> {

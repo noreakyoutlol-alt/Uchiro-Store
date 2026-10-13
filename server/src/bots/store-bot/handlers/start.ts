@@ -18,6 +18,6 @@ export async function handleStart(ctx: Context) {
   const welcomeText = getWelcomeMessage('en');
   return ctx.reply(formatTelegramHtml(welcomeText), {
     parse_mode: 'HTML',
-    reply_markup: buildMainMenuKeyboard(),
+    reply_markup: (buildMainMenuKeyboard() as any).reply_markup,
   });
 }

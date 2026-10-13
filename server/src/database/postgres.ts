@@ -1,16 +1,17 @@
 import { Pool } from 'pg';
 
-const connectionString = process.env.DATABASE_URL;
-const isRailwayInternal = Boolean(connectionString?.includes('railway.internal'));
+const connectionString = process.env.DATABASE_URL || '';
+const isInternal = connectionString.includes('railway.internal') || connectionString.includes('localhost');
 
 export const pgPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: isRailwayInternal ? false : (connectionString ? { rejectUnauthorized: false } : undefined),
+  connectionString,
+  ssl: isInternal ? false : { rejectUnauthorized: false },
+  connectionTimeoutMillis: 4000,
+  idleTimeoutMillis: 10000,
+  max: 20,
 });
 
-export function isPostgresConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '');
-}
+export const isPostgresConfigured = (): boolean => Boolean(process.env.DATABASE_URL);
 
 export async function initDatabase(): Promise<void> {
   if (!isPostgresConfigured()) {

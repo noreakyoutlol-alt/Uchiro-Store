@@ -1,6 +1,6 @@
 import { Context } from 'telegraf';
-import { DataStore } from '../../../database/data-store';
-import { supabase, isSupabaseConfigured } from '../../../database/supabase';
+import { DataStore, claimDailyReward } from '../../../database/data-store';
+import { pgPool, isPostgresConfigured } from '../../../database/postgres';
 import {
   buildDailyKeyboard,
   buildSubDailyShopKeyboard,
@@ -34,38 +34,37 @@ export async function fetchDailyLiveInfo(telegramId: number | string): Promise<D
   let points = 0;
   let last_claimed_at: string | null = null;
 
-  // 1. Fetch from Supabase
-  if (isSupabaseConfigured()) {
+  // 1. Fetch from PostgreSQL if configured
+  if (isPostgresConfigured()) {
     try {
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('*')
-        .eq('telegram_id', tid)
-        .maybeSingle();
-
-      if (userRow) {
-        streak_count = userRow.streak_count ?? 0;
-        points = userRow.points ?? 0;
-        last_claimed_at = userRow.last_daily_claim_at;
+      const { rows } = await pgPool.query(
+        'SELECT points, streak_count, last_daily_claim_at FROM users WHERE telegram_id = $1 LIMIT 1',
+        [tid]
+      );
+      if (rows.length > 0) {
+        points = Number(rows[0].points || 0);
+        streak_count = Number(rows[0].streak_count || 0);
+        last_claimed_at = rows[0].last_daily_claim_at
+          ? new Date(rows[0].last_daily_claim_at).toISOString()
+          : null;
       }
-    } catch {}
+    } catch (err: any) {
+      console.warn('[fetchDailyLiveInfo] Postgres query warning:', err?.message);
+    }
   }
 
-  // Fallback to DataStore
+  // 2. Fallback / merge with DataStore
   if (!last_claimed_at && !points) {
     const dsUser = DataStore.getTelegramUser(numId);
     const dsProfile = DataStore.getProfile(numId);
     if (dsUser) {
-      points = dsUser.points || points;
+      points = Number(dsUser.points || 0);
       last_claimed_at = dsUser.last_daily_claim_at || null;
-    }
-    if (dsProfile) {
-      points = dsProfile.points || points;
-    }
-    const rewardRecord = DataStore.getDailyRewardStatus(numId);
-    if (rewardRecord) {
-      streak_count = rewardRecord.current_streak || streak_count;
-      if (rewardRecord.last_claimed_at) last_claimed_at = rewardRecord.last_claimed_at;
+      streak_count = Number(dsUser.streak_count || 1);
+    } else if (dsProfile) {
+      points = Number(dsProfile.points || 0);
+      last_claimed_at = dsProfile.last_daily_claim_at || null;
+      streak_count = Number(dsProfile.streak_count || 1);
     }
   }
 
@@ -74,18 +73,17 @@ export async function fetchDailyLiveInfo(telegramId: number | string): Promise<D
   let cooldown_str = '00:00:00';
 
   if (last_claimed_at) {
-    const lastClaimTime = new Date(last_claimed_at).getTime();
-    if (now - lastClaimTime < cooldownMs) {
+    const lastClaimMs = new Date(last_claimed_at).getTime();
+    const elapsed = now - lastClaimMs;
+    if (elapsed < cooldownMs) {
       is_claimable = false;
-      const remainingMs = cooldownMs - (now - lastClaimTime);
-      seconds_remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+      seconds_remaining = Math.ceil((cooldownMs - elapsed) / 1000);
       cooldown_str = formatCooldownSeconds(seconds_remaining);
     }
   }
 
-  // Next reward points
-  const nextStreak = is_claimable ? ((streak_count % 7) + 1) : (streak_count || 1);
-  const next_pts = nextStreak === 7 ? 20 : 5;
+  const next_streak = is_claimable ? (streak_count % 7) + 1 : streak_count;
+  const next_pts = next_streak === 7 ? 20 : 5;
 
   return {
     streak_count,
@@ -98,7 +96,7 @@ export async function fetchDailyLiveInfo(telegramId: number | string): Promise<D
 }
 
 /**
- * Handle Live Daily Points Dashboard (cb_daily_menu / /daily)
+ * Handle Daily Reward Dashboard (cb_daily_menu / /daily)
  */
 export async function handleDailyMenu(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
@@ -108,22 +106,24 @@ export async function handleDailyMenu(ctx: Context): Promise<void> {
     await ctx.answerCbQuery();
   } catch {}
 
+  await DataStore.syncUserFromPostgres(telegramId);
   const daily = await fetchDailyLiveInfo(telegramId);
-  const userLang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const statusText = daily.is_claimable
-    ? '✅ អាចទទួលពិន្ទុបានឥឡូវនេះ!'
-    : `⏳ នៅសល់ម៉ោង: <code>${daily.cooldown_str}</code>`;
+    ? '✅ <b>Ready to Claim (+5 Pts)</b>'
+    : `⏳ <b>Cooldown Remaining:</b> <code>${daily.cooldown_str}</code>`;
 
   const text =
-    `🎁 <b>ប្រព័ន្ធពិន្ទុប្រចាំថ្ងៃ (DAILY STREAK)</b>\n` +
+    `🎁 <b>DAILY REWARD &amp; STREAK DASHBOARD</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔥 <b>Streak បច្ចុប្បន្ន:</b> <code>${daily.streak_count}</code> / 7 ថ្ងៃ\n` +
-    `💎 <b>ពិន្ទុសរុប:</b> <code>${daily.points}</code> Pts\n` +
-    `⏳ <b>ស្ថានភាព:</b> ${statusText}\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    `🔥 <b>Current Streak:</b> <code>${daily.streak_count}</code> / 7 Days\n` +
+    `💎 <b>Total Points:</b> <code>${daily.points}</code> Pts\n` +
+    `⚡ <b>Next Reward:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
+    `⏳ <b>Status:</b> ${statusText}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>Check in every 24 hours to keep your streak multiplier active!</i>`;
 
-  const keyboard = buildDailyKeyboard(daily.is_claimable, userLang);
+  const keyboard = buildDailyKeyboard(daily.is_claimable);
   const formattedHtml = enrichWithTgEmojis(text);
 
   try {
@@ -146,97 +146,37 @@ export async function handleDailyMenu(ctx: Context): Promise<void> {
 }
 
 /**
- * Handle Atomic In-Bot Daily Claim (cb_claim_daily_instant)
+ * Handle Atomic In-Bot Daily Claim (cb_claim_daily / cb_claim_daily_instant)
  */
 export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
-  const tid = String(telegramId);
   const numId = Number(telegramId);
 
-  let success = false;
-  let pointsAwarded = 5;
-  let newStreak = 1;
-  let totalPoints = 0;
+  await DataStore.syncUserFromPostgres(numId);
+  const res = await claimDailyReward(numId);
 
-  // 1. Try Supabase Atomic RPC
-  if (isSupabaseConfigured()) {
+  if (!res.success) {
+    const remSec = res.seconds_remaining || (res as any).remainingMs ? Math.ceil(((res as any).remainingMs || 0) / 1000) : 0;
     try {
-      const { data, error } = await supabase.rpc('claim_daily_reward', {
-        p_telegram_id: tid,
-      });
-
-      if (!error && data) {
-        const res = data as any;
-        if (res.success) {
-          success = true;
-          pointsAwarded = res.points_awarded;
-          newStreak = res.streak;
-          totalPoints = res.points;
-
-          // Immediately sync in-memory DataStore so Mini App reflects bot claim instantaneously
-          const u = DataStore.getTelegramUser(numId);
-          if (u) {
-            u.points = totalPoints;
-            u.reward_points = totalPoints;
-            u.streak_count = newStreak;
-            u.last_daily_claim_at = new Date().toISOString();
-          }
-          const p = DataStore.getProfile(numId);
-          if (p) {
-            p.points = totalPoints;
-            p.loyalty_points = totalPoints;
-            p.reward_points = totalPoints;
-            p.last_daily_claim_at = new Date().toISOString();
-          }
-          DataStore.dailyRewards.set(numId, {
-            streak: newStreak,
-            lastClaimed: Date.now(),
-          });
-        } else {
-          // Cooldown active
-          const remSec = Math.ceil((Number(res.remaining_ms) || 0) / 1000);
-          try {
-            await ctx.answerCbQuery(
-              `⏳ អ្នកបានទទួលពិន្ទុរួចហើយ! សូមរង់ចាំ: ${formatCooldownSeconds(remSec)}`,
-              { show_alert: true }
-            );
-          } catch {}
-          await handleDailyMenu(ctx);
-          return;
-        }
-      }
-    } catch {
-      // Fallback
-    }
+      await ctx.answerCbQuery(
+        `⏳ You have already claimed today! Please wait: ${formatCooldownSeconds(remSec)}`,
+        { show_alert: true }
+      );
+    } catch {}
+    await handleDailyMenu(ctx);
+    return;
   }
 
-  // 2. Fallback to DataStore atomic claim
-  if (!success) {
-    const dsResult = DataStore.claimDailyReward(numId);
-    if (dsResult.success) {
-      success = true;
-      pointsAwarded = dsResult.pointsAwarded || 5;
-      newStreak = dsResult.streak || 1;
-      totalPoints = dsResult.points || 0;
-    } else {
-      const remSec = dsResult.seconds_remaining || 0;
-      try {
-        await ctx.answerCbQuery(
-          `⏳ អ្នកបានទទួលពិន្ទុរួចហើយ! សូមរង់ចាំ: ${formatCooldownSeconds(remSec)}`,
-          { show_alert: true }
-        );
-      } catch {}
-      await handleDailyMenu(ctx);
-      return;
-    }
-  }
+  const pointsAwarded = res.pointsAwarded || 5;
+  const newStreak = res.streak || 1;
+  const totalPoints = res.points || 0;
 
   // Alert Popup
   try {
     await ctx.answerCbQuery(
-      `🎉 ទទួលបាន +${pointsAwarded} Pts ជោគជ័យ!\n🔥 Streak: ${newStreak}/7 ថ្ងៃ (ពិន្ទុសរុប: ${totalPoints} Pts)`,
+      `🎉 Successfully claimed +${pointsAwarded} Pts!\n🔥 Streak: ${newStreak}/7 Days (Total: ${totalPoints} Pts)`,
       { show_alert: true }
     );
   } catch {}
@@ -248,15 +188,16 @@ export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
   daily.points = totalPoints;
 
   const text =
-    `🎁 <b>ពិន្ទុប្រចាំថ្ងៃ (DAILY REWARD STREAK)</b>\n` +
+    `🎁 <b>DAILY REWARD &amp; STREAK DASHBOARD</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔥 <b>Streak បច្ចុប្បន្ន:</b> <code>${daily.streak_count}</code> / 7 ថ្ងៃជាប់គ្នា\n` +
-    `💎 <b>ពិន្ទុសរុបរបស់អ្នក:</b> <code>${daily.points}</code> Pts\n` +
-    `⚡ <b>រង្វាន់បន្ទាប់:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
-    `⏳ <b>ស្ថានភាព:</b> ⏳ <b>នៅសល់ម៉ោង:</b> <code>${daily.cooldown_str}</code>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    `🔥 <b>Current Streak:</b> <code>${daily.streak_count}</code> / 7 Days\n` +
+    `💎 <b>Total Points:</b> <code>${daily.points}</code> Pts\n` +
+    `⚡ <b>Next Reward:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
+    `⏳ <b>Status:</b> ⏳ <b>Cooldown Remaining:</b> <code>${daily.cooldown_str}</code>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>Check in every 24 hours to keep your streak multiplier active!</i>`;
 
-  const keyboard = buildDailyKeyboard(false, 'en');
+  const keyboard = buildDailyKeyboard(false);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -281,18 +222,19 @@ export async function handleDailyShop(ctx: Context): Promise<void> {
     await ctx.answerCbQuery();
   } catch {}
 
+  await DataStore.syncUserFromPostgres(telegramId);
   const daily = await fetchDailyLiveInfo(telegramId);
 
   const text =
-    `💎 <b>ហាងប្តូរពិន្ទុរង្វាន់ (POINTS REWARDS SHOP)</b>\n` +
+    `💎 <b>POINTS REWARDS SHOP</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🪙 <b>ពិន្ទុសន្សំបច្ចុប្បន្ន:</b> <code>${daily.points}</code> Pts\n\n` +
-    `<b>ទំនិញដែលអាចប្តូរបាន:</b>\n` +
-    `🎟️ <b>សំបុត្រ Gacha Spin:</b> <code>50 Pts</code> (បង្វិលយករង្វាន់ Mythical)\n` +
-    `🏷️ <b>Coupon $0.50 Off:</b> <code>100 Pts</code> (ប្រើបានគ្រប់ហ្គេម)\n` +
-    `🏷️ <b>Coupon $1.20 Off:</b> <code>200 Pts</code> (ប្រើបានគ្រប់ហ្គេម)\n` +
-    `🏷️ <b>Coupon $3.50 Off:</b> <code>500 Pts</code> (ប្រើបានគ្រប់ហ្គេម)\n\n` +
-    `👇 ចុចប្តូរសំបុត្រ Gacha ភ្លាមៗ ឬបើក Mini App ដើម្បីទិញទំនិញបញ្ចុះតម្លៃ:\n` +
+    `🪙 <b>Current Balance:</b> <code>${daily.points}</code> Pts\n\n` +
+    `<b>Available Items:</b>\n` +
+    `🎟️ <b>Gacha Ticket:</b> <code>100 Pts</code> (1 Spin for Mythical Prizes)\n` +
+    `🏷️ <b>Coupon $0.50 Off:</b> <code>100 Pts</code> (Valid on all games)\n` +
+    `🏷️ <b>Coupon $1.20 Off:</b> <code>200 Pts</code> (Valid on all games)\n` +
+    `🏷️ <b>Coupon $3.50 Off:</b> <code>500 Pts</code> (Valid on all games)\n\n` +
+    `<i>Exchange points for tickets below or launch the Mini App to redeem coupons!</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildSubDailyShopKeyboard('en');

@@ -225,7 +225,7 @@ export class StoreBotService {
         formatTelegramHtml(getWelcomeMessage('en')),
         {
           parse_mode: 'HTML',
-          reply_markup: buildMainMenuKeyboard(),
+          reply_markup: (buildMainMenuKeyboard() as any).reply_markup,
         }
       );
     });

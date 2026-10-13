@@ -672,7 +672,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             ) : (
               <Moon className="w-4 h-4 text-purple-400" />
             )}
-            <span>Theme / ស្បែក</span>
+            <span>Theme</span>
           </div>
           <div className="flex gap-1">
             <button

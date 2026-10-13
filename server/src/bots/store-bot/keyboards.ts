@@ -107,13 +107,13 @@ export function getMainMenuKeyboard(storeUrl: string, _lang: string = 'en', supp
 
 /**
  * Language selection inline keyboard:
- * 🇰🇭 ភាសាខ្មែរ | 🇬🇧 English
+ * 🇰🇭 Khmer | 🇬🇧 English
  * 🔙 Back Home
  */
 export function getLanguageSelectionKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('🇰🇭 ភាសាខ្មែរ', 'set_lang:km'),
+      Markup.button.callback('🇰🇭 Khmer', 'set_lang:km'),
       Markup.button.callback('🇬🇧 English', 'set_lang:en'),
     ],
     [
@@ -125,21 +125,12 @@ export function getLanguageSelectionKeyboard(_lang: string = 'en') {
 /**
  * Profile Keyboard (100% English)
  */
-export function buildProfileKeyboard(storeUrl?: string, _lang: string = 'en') {
-  const appUrl = storeUrl || 'https://uchiro.store';
-
+export function buildProfileKeyboard(storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app', _lang: string = 'en') {
   return Markup.inlineKeyboard([
-    [
-      Markup.button.callback('🎁 Redeem Points for Coupons', 'cb_redeem_menu'),
-      Markup.button.callback('📜 Points Ledger History', 'cb_points_ledger'),
-    ],
-    [
-      Markup.button.callback('🎒 View Vault & Accounts', 'cb_vault_menu'),
-    ],
-    [
-      createWebAppOrUrlButton('📱 Open in Mini App', appUrl),
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
-    ],
+    [Markup.button.callback('🎁 Redeem Points', 'cb_redeem_menu')],
+    [Markup.button.callback('📜 Points History', 'cb_points_ledger')],
+    [Markup.button.webApp('🛍️ Open Store Profile', storeUrl)],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
@@ -170,19 +161,19 @@ export function buildRedeemPointsKeyboard(_lang: string = 'en') {
  */
 export function buildMainRulesKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
-    [
-      Markup.button.callback('📜 Store Warranty & Guarantee', 'cb_rules_warranty'),
-    ],
-    [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
-    ],
+    [Markup.button.callback('📜 Store Warranty & Guarantee', 'cb_rules_warranty')],
+    [Markup.button.callback('🎰 Gacha Fair Play Rules', 'cb_rules_gacha')],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
 export function buildSubRulesKeyboard(_lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
+      Markup.button.callback('🔙 Back to Rules', 'cb_rules_menu'),
+    ],
+    [
+      Markup.button.callback('🏠 Back Home', 'cb_main_menu'),
     ],
   ]);
 }
@@ -195,15 +186,9 @@ export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport',
   const supportUrl = supportUsername.startsWith('http') ? supportUsername : `https://t.me/${cleanSupport || 'UchiroSupport'}`;
 
   return Markup.inlineKeyboard([
-    [
-      Markup.button.callback('🔑 2FA Security Guide', 'cb_help_2fa'),
-    ],
-    [
-      Markup.button.url('💬 Chat with Support 24/7', supportUrl),
-    ],
-    [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
-    ],
+    [Markup.button.callback('🔑 2FA Security Guide', 'cb_help_2fa')],
+    [Markup.button.url('💬 Chat with Support 24/7', supportUrl)],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
@@ -216,7 +201,7 @@ export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', 
       Markup.button.url('💬 Chat with Support 24/7', supportUrl),
     ],
     [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
+      Markup.button.callback('🔙 Back to Help', 'cb_help_menu'),
     ],
   ]);
 }
@@ -224,34 +209,26 @@ export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', 
 /**
  * Gacha Dashboard Keyboard (100% English)
  */
-export function buildGachaKeyboard(storeUrl: string, _lang: string = 'en') {
-  const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
-
+export function buildGachaKeyboard(storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app', _lang: string = 'en') {
   return Markup.inlineKeyboard([
+    [Markup.button.callback('🎟️ Exchange Points (100 Pts)', 'cb_buy_ticket_pts')],
     [
-      Markup.button.callback('🎟️ Exchange Points (100 Pts)', 'cb_buy_ticket_pts'),
-      Markup.button.callback('🏆 View All Prizes', 'cb_gacha_prizes'),
+      Markup.button.callback('🏆 View Prizes', 'cb_gacha_prizes'),
+      Markup.button.callback('⚡ Win Rates %', 'cb_gacha_rates'),
     ],
-    [
-      Markup.button.callback('⚡ Win Rates % (Drop Rates)', 'cb_gacha_rates'),
-      Markup.button.callback('🎰 Gacha Rules', 'cb_gacha_rules'),
-    ],
-    [
-      createWebAppOrUrlButton('📱 Play Mini App (Visual)', gachaWebUrl),
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
-    ],
+    [Markup.button.callback('🎰 Gacha Rules', 'cb_gacha_rules')],
+    [Markup.button.webApp('📱 Play Mini App (Visual)', storeUrl)],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
-export function buildSubGachaKeyboard(storeUrl: string, _lang: string = 'en') {
-  const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
-
+export function buildSubGachaKeyboard(storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app', _lang: string = 'en') {
   return Markup.inlineKeyboard([
     [
       Markup.button.callback('🎟️ Exchange Points (100 Pts)', 'cb_buy_ticket_pts'),
     ],
     [
-      createWebAppOrUrlButton('📱 Play Mini App (Visual)', gachaWebUrl),
+      createWebAppOrUrlButton('📱 Play Mini App (Visual)', storeUrl),
     ],
     [
       Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
@@ -269,12 +246,8 @@ export function buildDailyKeyboard(isClaimable: boolean = true, _lang: string = 
 
   return Markup.inlineKeyboard([
     [claimBtn],
-    [
-      Markup.button.callback('📜 Streak Rules & Multipliers', 'cb_daily_rules'),
-    ],
-    [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
-    ],
+    [Markup.button.callback('📜 Streak Rules & Multipliers', 'cb_daily_rules')],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
@@ -292,17 +265,12 @@ export function buildSubDailyShopKeyboard(_lang: string = 'en') {
 /**
  * Vault & Accounts Menu Keyboard (100% English)
  */
-export function buildVaultMenuKeyboard() {
+export function buildVaultMenuKeyboard(storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app') {
   return Markup.inlineKeyboard([
-    [
-      Markup.button.callback('🔑 Get Live 2FA Code', 'cb_vault_2fa'),
-    ],
-    [
-      Markup.button.callback('🎒 View Delivered Accounts', 'cb_vault_accounts'),
-    ],
-    [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
-    ],
+    [Markup.button.callback('🔑 Get Live 2FA Code', 'cb_vault_2fa')],
+    [Markup.button.callback('🎒 View Delivered Accounts', 'cb_vault_accounts')],
+    [Markup.button.webApp('🛍️ Open Store', storeUrl)],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
@@ -311,15 +279,9 @@ export function buildVaultMenuKeyboard() {
  */
 export function buildOrdersMenuKeyboard() {
   return Markup.inlineKeyboard([
-    [
-      Markup.button.callback('📜 Order History', 'cb_orders_recent'),
-    ],
-    [
-      Markup.button.callback('🔍 Track Order ID', 'cb_orders_track'),
-    ],
-    [
-      Markup.button.callback('🔙 Back Home', 'cb_main_menu'),
-    ],
+    [Markup.button.callback('📜 Order History', 'cb_orders_recent')],
+    [Markup.button.callback('🔍 Track Order ID', 'cb_orders_track')],
+    [Markup.button.callback('🔙 Back Home', 'cb_main_menu')],
   ]);
 }
 
