@@ -1,4 +1,7 @@
-import { Pool } from 'pg';
+import pg, { Pool } from 'pg';
+
+pg.types.setTypeParser(20, Number);
+pg.types.setTypeParser(1700, parseFloat);
 
 const connectionString = process.env.DATABASE_URL || '';
 const isInternal = connectionString.includes('railway.internal') || connectionString.includes('localhost');
@@ -69,10 +72,6 @@ export async function initDatabase(): Promise<void> {
           is_active BOOLEAN DEFAULT true NOT NULL,
           created_at TIMESTAMPTZ DEFAULT NOW()
         );
-
-        INSERT INTO users (telegram_id, username, role, points, streak_count)
-        VALUES ('6594079594', 'Noreakyout', 'admin', 500, 1)
-        ON CONFLICT (telegram_id) DO UPDATE SET role = 'admin';
       `);
       console.log('[Postgres] Schema verified and initialized successfully');
     } finally {

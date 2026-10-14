@@ -2,6 +2,7 @@ import {
   getUser as storeGetUser,
   saveUser as storeSaveUser,
   claimDailyReward as storeClaimDailyReward,
+  getUserSnapshot,
   SaveUserInput,
   StoredUser,
   ClaimResult,
@@ -31,12 +32,12 @@ export interface ClientUser {
 
 /** Shape the store UI needs for the daily bar. `server_now` lets the client fix its clock skew. */
 export async function getUserForClient(telegramId: string | number): Promise<ClientUser> {
-  const user = await storeGetUser(telegramId);
+  const snap = await getUserSnapshot(telegramId);
   return {
     telegram_id: String(telegramId),
-    points: user?.points ?? 0,
-    streak_count: user?.streakCount ?? 0,
-    last_daily_claim_at: user?.lastDailyClaimAt ?? null,
+    points: snap.points,
+    streak_count: snap.streak,
+    last_daily_claim_at: snap.lastDailyClaimAt,
     server_now: new Date().toISOString(),
   };
 }

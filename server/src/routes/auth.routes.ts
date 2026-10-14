@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
 import { getUserForClient } from '../services/user.service';
 import { getCustomerStatsHandler } from './store.routes';
+import { getUserSnapshot } from '../database/data-store';
 
 export const authRouter = Router();
 
@@ -11,6 +12,21 @@ authRouter.post('/telegram', async (req, res, next) => {
   try {
     const { initData } = req.body;
     const session = await AuthService.authenticateCustomer(initData || '');
+    if (session?.user?.telegram_id) {
+      const snap = await getUserSnapshot(session.user.telegram_id);
+      session.user.points = snap.points;
+      session.user.reward_points = snap.points;
+      session.user.streak_count = snap.streak;
+      session.user.last_daily_claim_at = snap.lastDailyClaimAt;
+      if (session.profile) {
+        session.profile.points = snap.points;
+        session.profile.reward_points = snap.points;
+        session.profile.loyalty_points = snap.points;
+        session.profile.streak_count = snap.streak;
+        session.profile.gacha_tickets = snap.gachaTickets;
+        session.profile.last_daily_claim_at = snap.lastDailyClaimAt;
+      }
+    }
     res.json({
       success: true,
       data: session,
@@ -37,22 +53,39 @@ authRouter.post('/admin', async (req, res, next) => {
 // Customer Profile
 authRouter.get('/me', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
   try {
-    const me = await AuthService.getMe(req.user!.telegram_id);
-    const clientUser = await getUserForClient(req.user!.telegram_id);
+    const tgId = req.user!.telegram_id;
+    const snap = await getUserSnapshot(tgId);
+    const me = await AuthService.getMe(tgId);
     res.json({
       success: true,
       data: {
         ...me,
-        points: clientUser.points,
-        streak_count: clientUser.streak_count,
-        last_daily_claim_at: clientUser.last_daily_claim_at,
-        server_now: clientUser.server_now,
+        points: snap.points,
+        reward_points: snap.points,
+        loyalty_points: snap.points,
+        gacha_tickets: snap.gachaTickets,
+        streak_count: snap.streak,
+        last_daily_claim_at: snap.lastDailyClaimAt,
+        next_claim_at: snap.nextClaimAt,
+        total_orders: snap.ordersCount,
+        total_spent: snap.totalSpent,
+        server_now: new Date().toISOString(),
         user: {
           ...me.user,
-          points: clientUser.points,
-          streak_count: clientUser.streak_count,
-          last_daily_claim_at: clientUser.last_daily_claim_at,
-          server_now: clientUser.server_now,
+          points: snap.points,
+          reward_points: snap.points,
+          streak_count: snap.streak,
+          last_daily_claim_at: snap.lastDailyClaimAt,
+          server_now: new Date().toISOString(),
+        },
+        profile: {
+          ...me.profile,
+          points: snap.points,
+          reward_points: snap.points,
+          loyalty_points: snap.points,
+          gacha_tickets: snap.gachaTickets,
+          streak_count: snap.streak,
+          last_daily_claim_at: snap.lastDailyClaimAt,
         },
       },
     });

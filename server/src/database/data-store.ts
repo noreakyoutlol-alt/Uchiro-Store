@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import pg from 'pg';
 import {
   Category,
   Product,
@@ -1656,6 +1657,7 @@ export class DataStore {
     // Deduct points atomically via point ledger
     profile.gacha_tickets = (profile.gacha_tickets || 0) + quantity;
     profile.updated_at = new Date().toISOString();
+    persistTicketsDelta(telegramId, quantity).catch(() => {});
 
     // Ledger transaction
     this.addPointTransaction(
@@ -1770,12 +1772,13 @@ export class DataStore {
     }
 
     // 6. Atomically consume 1 ticket & apply 1-hour cooldown
-    profile.gacha_tickets -= 1;
+    profile.gacha_tickets = Math.max(0, (profile.gacha_tickets || 0) - 1);
     profile.gacha_spins_count = (profile.gacha_spins_count || 0) + 1;
     profile.last_gacha_roll_at = new Date(now).toISOString();
     const cooldownMs = (this.storeSettings.gacha_cooldown_seconds || 3600) * 1000;
     profile.next_gacha_roll_at = new Date(now + cooldownMs).toISOString();
     profile.updated_at = new Date().toISOString();
+    persistTicketsDelta(telegramId, -1).catch(() => {});
 
     // 7. Decrement prize stock if limited & Auto-Promote Draft Prize if stock reaches 0
     if (chosenPrize.stock > 0) {
@@ -2165,16 +2168,33 @@ export class DataStore {
     const numId = Number(telegramId);
     if (!numId || !isPostgresConfigured()) return;
 
-    try {
-      const { rows } = await pgPool.query(
-        'SELECT points, streak_count, last_daily_claim_at FROM users WHERE telegram_id = $1',
-        [tid]
-      );
-      if (rows.length === 0) return;
+    await awaitPendingUserWrites(tid);
 
-      const row = rows[0];
+    try {
+      await ensureUserSchema();
+      let row: any = null;
+      try {
+        const { rows } = await pgPool.query(
+          'SELECT points, streak_count, gacha_tickets, last_daily_claim_at FROM users WHERE telegram_id = $1',
+          [tid]
+        );
+        if (rows.length > 0) row = rows[0];
+      } catch (err: any) {
+        if (err.code === '42703') {
+          const { rows } = await pgPool.query(
+            'SELECT points, streak_count, 0 AS gacha_tickets, last_daily_claim_at FROM users WHERE telegram_id = $1',
+            [tid]
+          );
+          if (rows.length > 0) row = rows[0];
+        } else {
+          throw err;
+        }
+      }
+      if (!row) return;
+
       const pts = Number(row.points || 0);
       const streak = Number(row.streak_count || 0);
+      const tickets = Number(row.gacha_tickets || 0);
       const lastClaim: string | null = row.last_daily_claim_at
         ? new Date(row.last_daily_claim_at).toISOString()
         : null;
@@ -2187,6 +2207,7 @@ export class DataStore {
       existingUser.points = pts;
       existingUser.reward_points = pts;
       existingUser.streak_count = streak;
+      existingUser.gacha_tickets = tickets;
       existingUser.last_daily_claim_at = lastClaim;
 
       let profile = this.profiles.get(numId);
@@ -2195,6 +2216,7 @@ export class DataStore {
         profile.reward_points = pts;
         profile.loyalty_points = pts;
         profile.streak_count = streak;
+        profile.gacha_tickets = tickets;
         profile.last_daily_claim_at = lastClaim;
       }
 
@@ -2307,19 +2329,17 @@ export class DataStore {
         }
 
         // If not found, insert a record and return it
+        const isAdmin = numId > 0 && env.ADMIN_TELEGRAM_USER_IDS.includes(numId);
         const insertRes = await pgPool.query(
           `INSERT INTO users (telegram_id, username, first_name, role, points, streak_count, gacha_tickets, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+           VALUES ($1, $2, $3, $4, 0, 0, 0, NOW(), NOW())
            ON CONFLICT (telegram_id) DO UPDATE SET updated_at = NOW()
            RETURNING *`,
           [
             tid,
-            tid === '6594079594' ? 'Noreakyout' : null,
-            tid === '6594079594' ? 'Noreakyout' : 'Customer',
-            tid === '6594079594' ? 'admin' : 'customer',
-            tid === '6594079594' ? 500 : 0,
-            tid === '6594079594' ? 1 : 0,
-            0,
+            null,
+            'Customer',
+            isAdmin ? 'admin' : 'customer',
           ]
         );
         if (insertRes.rows.length > 0) {
@@ -2588,6 +2608,7 @@ export class DataStore {
       created_at: new Date().toISOString(),
     };
     this.pointLedger.unshift(entry);
+    persistPointsDelta(telegramId, amount, description).catch(() => {});
 
     return { success: true, newBalance: profile.points };
   }
@@ -3616,9 +3637,17 @@ export class DataStore {
       message: 'Demo data reset completed safely (non-production environment only)',
     };
   }
+
+  static async getUserSnapshot(telegramId: string | number): Promise<UserSnapshot> {
+    return getUserSnapshot(telegramId);
+  }
+
+  static async buyGachaTicket(telegramId: string | number, cost: number) {
+    return buyGachaTicket(telegramId, cost);
+  }
 }
 
-// ================= MODULE 1: SUPABASE PERSISTENCE =================
+// ================= MODULE 1: SUPABASE / POSTGRES PERSISTENCE =================
 
 export type OrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded';
 
@@ -3628,10 +3657,22 @@ export interface StoredUser {
   firstName: string | null;
   points: number;
   streakCount: number;
+  gachaTickets?: number;
   lastDailyClaimAt: string | null;
   extra: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UserSnapshot {
+  telegramId: number;
+  points: number;
+  streak: number;
+  gachaTickets: number;
+  lastDailyClaimAt: string | null;
+  nextClaimAt: string | null;
+  ordersCount: number;
+  totalSpent: number;
 }
 
 export interface SaveUserInput {
@@ -3696,6 +3737,7 @@ interface UserRow {
   first_name: string | null;
   points: number;
   streak_count: number;
+  gacha_tickets?: number;
   last_daily_claim_at: string | null;
   extra: Record<string, unknown> | null;
   created_at: string;
@@ -3716,30 +3758,6 @@ interface OrderRow {
   updated_at: string;
 }
 
-interface ClaimRpcSuccess {
-  success: true;
-  points: number;
-  points_awarded: number;
-  streak: number;
-  next_claim_at: string;
-  server_now: string;
-}
-
-interface ClaimRpcCooldown {
-  success: false;
-  error: 'ALREADY_CLAIMED';
-  remaining_ms: number;
-  points: number;
-  streak: number;
-  server_now: string;
-}
-
-interface AdjustRpcResult {
-  success: boolean;
-  error?: string;
-  points: number;
-}
-
 function rowToUser(row: UserRow): StoredUser {
   return {
     telegramId: row.telegram_id,
@@ -3747,10 +3765,358 @@ function rowToUser(row: UserRow): StoredUser {
     firstName: row.first_name,
     points: row.points ?? 0,
     streakCount: row.streak_count ?? 0,
+    gachaTickets: row.gacha_tickets ?? 0,
     lastDailyClaimAt: row.last_daily_claim_at,
     extra: row.extra ?? {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+let schemaEnsuredPromise: Promise<void> | null = null;
+export async function ensureUserSchema(): Promise<void> {
+  if (!isPostgresConfigured()) return;
+  if (schemaEnsuredPromise) return schemaEnsuredPromise;
+  schemaEnsuredPromise = (async () => {
+    try {
+      const { rows } = await pgPool.query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'gacha_tickets'
+      `);
+      if (rows.length === 0) {
+        await pgPool.query(`ALTER TABLE users ADD COLUMN gacha_tickets INTEGER NOT NULL DEFAULT 0`);
+        try {
+          await pgPool.query(`
+            UPDATE users
+            SET gacha_tickets = COALESCE((extra->>'gacha_tickets')::integer, 0)
+            WHERE extra IS NOT NULL AND extra->>'gacha_tickets' IS NOT NULL
+          `);
+        } catch (bfErr: any) {
+          console.warn('[DataStore] backfill gacha_tickets warning:', bfErr?.message);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[DataStore] ensureUserSchema error:', err?.message);
+    }
+  })();
+  return schemaEnsuredPromise;
+}
+
+const pendingUserWrites = new Map<string, Promise<any>>();
+
+export async function awaitPendingUserWrites(telegramId: string | number): Promise<void> {
+  const tid = String(telegramId);
+  const existing = pendingUserWrites.get(tid);
+  if (existing) {
+    try {
+      await existing;
+    } catch {
+      // Ignore write errors here
+    }
+  }
+}
+
+function queueUserWrite<T>(telegramId: string | number, task: () => Promise<T>): Promise<T> {
+  const tid = String(telegramId);
+  const current = pendingUserWrites.get(tid) || Promise.resolve();
+  const next = current.then(task, task);
+  pendingUserWrites.set(tid, next);
+  return next;
+}
+
+export async function persistPointsDelta(
+  telegramId: string | number,
+  delta: number,
+  description: string
+): Promise<number | null> {
+  const tid = String(telegramId);
+  const deltaNum = Math.trunc(delta);
+  if (!deltaNum || !isPostgresConfigured()) return null;
+
+  return queueUserWrite(tid, async () => {
+    try {
+      await pgPool.query(
+        `INSERT INTO users (telegram_id, role, points, streak_count, created_at, updated_at)
+         VALUES ($1, 'customer', 0, 0, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO NOTHING`,
+        [tid]
+      );
+
+      const { rows } = await pgPool.query(
+        `UPDATE users
+         SET points = GREATEST(0, points + $2::int), updated_at = NOW()
+         WHERE telegram_id = $1
+         RETURNING points`,
+        [tid, deltaNum]
+      );
+
+      if (rows.length === 0) return null;
+      const newBalance = Number(rows[0].points);
+
+      try {
+        await pgPool.query(
+          `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [tid, deltaNum, deltaNum < 0 ? 'deduction' : 'addition', newBalance, description]
+        );
+      } catch (lErr: any) {
+        console.warn('[DataStore] persistPointsDelta ledger write warning:', lErr?.message);
+      }
+
+      return newBalance;
+    } catch (err: any) {
+      console.warn('[DataStore] persistPointsDelta error:', err?.message);
+      return null;
+    }
+  });
+}
+
+export async function persistTicketsDelta(
+  telegramId: string | number,
+  delta: number
+): Promise<number | null> {
+  const tid = String(telegramId);
+  const deltaNum = Math.trunc(delta);
+  if (!deltaNum || !isPostgresConfigured()) return null;
+
+  return queueUserWrite(tid, async () => {
+    try {
+      await ensureUserSchema();
+      await pgPool.query(
+        `INSERT INTO users (telegram_id, role, points, streak_count, gacha_tickets, created_at, updated_at)
+         VALUES ($1, 'customer', 0, 0, 0, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO NOTHING`,
+        [tid]
+      );
+
+      const { rows } = await pgPool.query(
+        `UPDATE users
+         SET gacha_tickets = GREATEST(0, COALESCE(gacha_tickets, 0) + $2::int), updated_at = NOW()
+         WHERE telegram_id = $1
+         RETURNING gacha_tickets`,
+        [tid, deltaNum]
+      );
+
+      if (rows.length === 0) return null;
+      return Number(rows[0].gacha_tickets);
+    } catch (err: any) {
+      console.warn('[DataStore] persistTicketsDelta error:', err?.message);
+      return null;
+    }
+  });
+}
+
+export async function getUserSnapshot(telegramId: string | number): Promise<UserSnapshot> {
+  const tid = String(telegramId);
+  const numId = Number(telegramId) || 0;
+
+  await awaitPendingUserWrites(tid);
+
+  if (isPostgresConfigured()) {
+    try {
+      await ensureUserSchema();
+
+      let userRow: any = null;
+      try {
+        const { rows } = await pgPool.query(
+          `SELECT telegram_id, points, streak_count, gacha_tickets, last_daily_claim_at
+           FROM users WHERE telegram_id = $1 LIMIT 1`,
+          [tid]
+        );
+        if (rows.length > 0) userRow = rows[0];
+      } catch (err: any) {
+        if (err.code === '42703') {
+          const { rows } = await pgPool.query(
+            `SELECT telegram_id, points, streak_count, 0 AS gacha_tickets, last_daily_claim_at
+             FROM users WHERE telegram_id = $1 LIMIT 1`,
+            [tid]
+          );
+          if (rows.length > 0) userRow = rows[0];
+        } else {
+          throw err;
+        }
+      }
+
+      let ordersCount = 0;
+      let totalSpent = 0;
+      try {
+        const { rows: orderRows } = await pgPool.query(
+          `SELECT COUNT(*)::int AS orders_count, COALESCE(SUM(total_amount), 0)::float AS total_spent
+           FROM orders WHERE telegram_id = $1 AND status = 'paid'`,
+          [tid]
+        );
+        if (orderRows.length > 0) {
+          ordersCount = Number(orderRows[0].orders_count || 0);
+          totalSpent = Number(Number(orderRows[0].total_spent || 0).toFixed(2));
+        }
+      } catch {
+        try {
+          const { rows: orderRows } = await pgPool.query(
+            `SELECT COUNT(*)::int AS orders_count, COALESCE(SUM(amount), 0)::float AS total_spent
+             FROM orders WHERE telegram_id = $1 AND status = 'paid'`,
+            [tid]
+          );
+          if (orderRows.length > 0) {
+            ordersCount = Number(orderRows[0].orders_count || 0);
+            totalSpent = Number(Number(orderRows[0].total_spent || 0).toFixed(2));
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const points = Number(userRow?.points || 0);
+      const streak = Number(userRow?.streak_count || 0);
+      const gachaTickets = Number(userRow?.gacha_tickets || 0);
+      const lastDailyClaimAt = userRow?.last_daily_claim_at
+        ? new Date(userRow.last_daily_claim_at).toISOString()
+        : null;
+      const nextClaimAt = lastDailyClaimAt
+        ? new Date(new Date(lastDailyClaimAt).getTime() + 86400000).toISOString()
+        : null;
+
+      if (numId) {
+        let existingUser = DataStore.getTelegramUser(numId);
+        if (!existingUser) {
+          const created = DataStore.findOrCreateTelegramUser({ telegram_id: numId, first_name: 'Customer' });
+          existingUser = created.user;
+        }
+        existingUser.points = points;
+        existingUser.reward_points = points;
+        existingUser.streak_count = streak;
+        existingUser.gacha_tickets = gachaTickets;
+        existingUser.last_daily_claim_at = lastDailyClaimAt;
+
+        let profile = DataStore.getProfile(numId);
+        if (profile) {
+          profile.points = points;
+          profile.reward_points = points;
+          profile.loyalty_points = points;
+          profile.streak_count = streak;
+          profile.gacha_tickets = gachaTickets;
+          profile.last_daily_claim_at = lastDailyClaimAt;
+        }
+      }
+
+      return {
+        telegramId: numId,
+        points,
+        streak,
+        gachaTickets,
+        lastDailyClaimAt,
+        nextClaimAt,
+        ordersCount,
+        totalSpent,
+      };
+    } catch (err: any) {
+      console.warn('[DataStore] getUserSnapshot postgres error:', err?.message);
+    }
+  }
+
+  // Memory fallback
+  const user = DataStore.getTelegramUser(numId);
+  const profile = DataStore.getProfile(numId);
+  const pts = Number(profile?.points ?? user?.points ?? 0);
+  const streak = Number(profile?.streak_count ?? user?.streak_count ?? 0);
+  const tickets = Number(profile?.gacha_tickets ?? 0);
+  const lastDailyClaimAt = user?.last_daily_claim_at || profile?.last_daily_claim_at || null;
+  const nextClaimAt = lastDailyClaimAt
+    ? new Date(new Date(lastDailyClaimAt).getTime() + 86400000).toISOString()
+    : null;
+  const userOrders = DataStore.getOrdersByCustomer(numId).filter(
+    (o) => o.status === 'paid' || (o.status as string) === 'completed'
+  );
+  const ordersCount = userOrders.length;
+  const totalSpent = Number(
+    userOrders.reduce((sum, o) => sum + (Number(o.total_amount ?? o.total_price ?? 0)), 0).toFixed(2)
+  );
+
+  return {
+    telegramId: numId,
+    points: pts,
+    streak,
+    gachaTickets: tickets,
+    lastDailyClaimAt,
+    nextClaimAt,
+    ordersCount,
+    totalSpent,
+  };
+}
+
+export async function buyGachaTicket(
+  telegramId: string | number,
+  cost: number
+): Promise<{ success: boolean; points: number; gachaTickets: number; error?: string }> {
+  const numId = Number(telegramId);
+  const tid = String(telegramId);
+  const costNum = Math.trunc(cost);
+  if (!numId || costNum <= 0) {
+    return { success: false, points: 0, gachaTickets: 0, error: 'INVALID_PARAMS' };
+  }
+
+  await awaitPendingUserWrites(tid);
+
+  if (isPostgresConfigured()) {
+    await ensureUserSchema();
+    const client = await pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO users (telegram_id, role, points, streak_count, gacha_tickets, created_at, updated_at)
+         VALUES ($1, 'customer', 0, 0, 0, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO NOTHING`,
+        [tid]
+      );
+
+      const { rows } = await client.query(
+        `UPDATE users
+         SET points = points - $2::int,
+             gacha_tickets = COALESCE(gacha_tickets, 0) + 1,
+             updated_at = NOW()
+         WHERE telegram_id = $1 AND points >= $2::int
+         RETURNING points, gacha_tickets`,
+        [tid, costNum]
+      );
+
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        const snap = await getUserSnapshot(tid);
+        return { success: false, points: snap.points, gachaTickets: snap.gachaTickets, error: 'INSUFFICIENT_POINTS' };
+      }
+
+      const newPoints = Number(rows[0].points);
+      const newTickets = Number(rows[0].gacha_tickets);
+      await client.query('COMMIT');
+
+      try {
+        await pgPool.query(
+          `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
+           VALUES ($1, $2, 'deduction', $3, $4, NOW())`,
+          [tid, -costNum, newPoints, `-${costNum} Gacha Ticket Exchange`]
+        );
+      } catch (lErr: any) {
+        console.warn('[DataStore] points_ledger write warning:', lErr?.message);
+      }
+
+      await DataStore.syncUserFromPostgres(tid);
+
+      return { success: true, points: newPoints, gachaTickets: newTickets };
+    } catch (err: any) {
+      await client.query('ROLLBACK').catch(() => {});
+      console.error('[DataStore] buyGachaTicket error:', err?.message);
+      return { success: false, points: 0, gachaTickets: 0, error: 'DB_ERROR' };
+    } finally {
+      client.release();
+    }
+  }
+
+  const memRes = DataStore.buyGachaTickets(numId, 1);
+  return {
+    success: memRes.success,
+    points: memRes.newBalance,
+    gachaTickets: memRes.tickets,
+    error: memRes.error,
   };
 }
 
@@ -3848,84 +4214,115 @@ export async function claimDailyReward(telegramId: string | number): Promise<Cla
   }
 
   const tid = String(telegramId);
+  await awaitPendingUserWrites(tid);
 
   if (isPostgresConfigured()) {
+    const client = await pgPool.connect();
     try {
-      const { rows } = await pgPool.query(
-        `INSERT INTO users (telegram_id, role, points, streak_count, last_daily_claim_at, created_at, updated_at)
-         VALUES ($1, 'customer', 5, 1, NOW(), NOW(), NOW())
-         ON CONFLICT (telegram_id) DO UPDATE
-         SET points = users.points + 5,
-             streak_count = users.streak_count + 1,
-             last_daily_claim_at = NOW(),
-             updated_at = NOW()
-         RETURNING points, streak_count`,
+      await client.query('BEGIN');
+
+      const isAdmin = numId > 0 && env.ADMIN_TELEGRAM_USER_IDS.includes(numId);
+      await client.query(
+        `INSERT INTO users (telegram_id, role, points, streak_count, created_at, updated_at)
+         VALUES ($1, $2, 0, 0, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO NOTHING`,
+        [tid, isAdmin ? 'admin' : 'customer']
+      );
+
+      const { rows } = await client.query(
+        `SELECT points, streak_count, last_daily_claim_at, NOW() AS db_now
+         FROM users WHERE telegram_id = $1 FOR UPDATE`,
         [tid]
       );
 
-      const row = rows[0];
-      const pts = Number(row.points || 0);
-      const streak = Number(row.streak_count || 1);
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        return { success: false, error: 'USER_NOT_FOUND', remainingMs: 0, points: 0, streak: 0, serverNow: new Date().toISOString() };
+      }
 
-      // Also insert a record into points_ledger
+      const row = rows[0];
+      const currentPts = Number(row.points || 0);
+      const currentStreak = Number(row.streak_count || 0);
+      const dbNow = new Date(row.db_now || Date.now());
+      const nowMs = dbNow.getTime();
+      const lastClaimAt = row.last_daily_claim_at ? new Date(row.last_daily_claim_at).getTime() : 0;
+      const cooldownMs = 24 * 60 * 60 * 1000;
+
+      // Reject if last claim < 24h ago
+      if (lastClaimAt > 0 && nowMs - lastClaimAt < cooldownMs) {
+        await client.query('ROLLBACK');
+        const remainingMs = cooldownMs - (nowMs - lastClaimAt);
+        const seconds_remaining = Math.ceil(remainingMs / 1000);
+        return {
+          success: false,
+          error: 'ALREADY_CLAIMED_TODAY',
+          remainingMs,
+          seconds_remaining,
+          points: currentPts,
+          streak: currentStreak,
+          serverNow: dbNow.toISOString(),
+        };
+      }
+
+      // Streak resets to 1 if > 48h
+      let newStreak = 1;
+      if (lastClaimAt > 0 && nowMs - lastClaimAt < 48 * 60 * 60 * 1000) {
+        newStreak = currentStreak + 1;
+      }
+
+      // Bonus when newStreak % streak_interval_days === 0
+      const settings = DataStore.getStoreSettings();
+      const baseReward = settings.daily_reward_points || 5;
+      const streakBonus = settings.streak_bonus_points || 15;
+      const streakInterval = settings.streak_interval_days || 7;
+      const isBonus = newStreak % streakInterval === 0;
+      const pointsAwarded = isBonus ? baseReward + streakBonus : baseReward;
+      const newPoints = currentPts + pointsAwarded;
+
+      await client.query(
+        `UPDATE users
+         SET points = $1, streak_count = $2, last_daily_claim_at = NOW(), updated_at = NOW()
+         WHERE telegram_id = $3`,
+        [newPoints, newStreak, tid]
+      );
+
+      await client.query('COMMIT');
+
+      // Non-fatal ledger insert after commit
       try {
         await pgPool.query(
           `INSERT INTO points_ledger (telegram_id, amount, type, balance_after, description, created_at)
-           VALUES ($1, 5, 'daily_reward', $2, '+5 Daily Reward Claim', NOW())`,
-          [tid, pts]
+           VALUES ($1, $2, 'daily_reward', $3, $4, NOW())`,
+          [tid, pointsAwarded, newPoints, isBonus ? `+${pointsAwarded} Daily Reward & Streak Bonus` : `+${pointsAwarded} Daily Reward`]
         );
-      } catch (err: any) {
-        console.warn('[DataStore] points_ledger write warning:', err?.message);
+      } catch (lErr: any) {
+        console.warn('[DataStore] daily reward points_ledger write warning:', lErr?.message);
       }
 
-      // Sync in-memory state
-      let existingUser = DataStore.getTelegramUser(numId);
-      if (!existingUser) {
-        const created = DataStore.findOrCreateTelegramUser({ telegram_id: numId, first_name: 'Customer' });
-        existingUser = created.user;
-      }
-      existingUser.points = pts;
-      existingUser.reward_points = pts;
-      existingUser.streak_count = streak;
-      existingUser.last_daily_claim_at = new Date().toISOString();
-
-      let profile = DataStore.getProfile(numId);
-      if (profile) {
-        profile.points = pts;
-        profile.reward_points = pts;
-        profile.loyalty_points = pts;
-        profile.streak_count = streak;
-        profile.last_daily_claim_at = existingUser.last_daily_claim_at;
-      }
+      await DataStore.syncUserFromPostgres(tid);
 
       return {
         success: true,
-        points: pts,
-        streak,
+        points: newPoints,
+        streak: newStreak,
         seconds_remaining: 86400,
-        pointsAwarded: 5,
-        newBalance: pts,
-        nextClaimAt: new Date(Date.now() + 86400000).toISOString(),
-        serverNow: new Date().toISOString(),
+        pointsAwarded,
+        newBalance: newPoints,
+        nextClaimAt: new Date(nowMs + cooldownMs).toISOString(),
+        serverNow: dbNow.toISOString(),
       };
     } catch (err: any) {
+      await client.query('ROLLBACK').catch(() => {});
       console.error('[DataStore] claimDailyReward PostgreSQL error:', err.message);
       return { success: false, error: 'DB_ERROR', remainingMs: 0, points: 0, streak: 0, serverNow: new Date().toISOString() };
+    } finally {
+      client.release();
     }
   }
 
   // In-memory fallback
   const dsRes = DataStore.claimDailyReward(numId);
-  return {
-    success: true,
-    points: Number(dsRes.points),
-    streak: Number(dsRes.streak),
-    seconds_remaining: 86400,
-    pointsAwarded: 5,
-    newBalance: Number(dsRes.points),
-    nextClaimAt: new Date(Date.now() + 86400000).toISOString(),
-    serverNow: new Date().toISOString(),
-  };
+  return dsRes as ClaimResult;
 }
 
 export async function adjustPoints(
@@ -3939,36 +4336,36 @@ export async function adjustPoints(
   const tid = String(telegramId);
   const deltaNum = Math.trunc(delta);
 
+  await awaitPendingUserWrites(tid);
+
   if (isPostgresConfigured()) {
+    const client = await pgPool.connect();
     try {
-      await pgPool.query(
+      await client.query('BEGIN');
+      await client.query(
         `INSERT INTO users (telegram_id, role, points, streak_count, created_at, updated_at)
          VALUES ($1, 'customer', 0, 0, NOW(), NOW())
          ON CONFLICT (telegram_id) DO NOTHING`,
         [tid]
       );
 
-      if (deltaNum < 0) {
-        const { rows: checkRows } = await pgPool.query(
-          `SELECT points FROM users WHERE telegram_id = $1`,
-          [tid]
-        );
-        const currentPts = Number(checkRows[0]?.points || 0);
-        if (currentPts + deltaNum < 0) {
-          return { success: false, error: 'INSUFFICIENT_POINTS', points: currentPts };
-        }
-      }
-
-      const { rows } = await pgPool.query(
-        `UPDATE users SET points = points + $2, updated_at = NOW() WHERE telegram_id = $1 RETURNING points`,
+      const { rows } = await client.query(
+        `UPDATE users
+         SET points = points + $2::int, updated_at = NOW()
+         WHERE telegram_id = $1 AND points + $2::int >= 0
+         RETURNING points`,
         [tid, deltaNum]
       );
 
       if (rows.length === 0) {
-        return { success: false, error: 'USER_NOT_FOUND', points: 0 };
+        await client.query('ROLLBACK');
+        const { rows: currentRows } = await pgPool.query('SELECT points FROM users WHERE telegram_id = $1', [tid]);
+        const currentPts = Number(currentRows[0]?.points || 0);
+        return { success: false, error: 'INSUFFICIENT_POINTS', points: currentPts };
       }
 
       const newBalance = Number(rows[0].points);
+      await client.query('COMMIT');
 
       try {
         await pgPool.query(
@@ -3980,22 +4377,15 @@ export async function adjustPoints(
         console.warn('[DataStore] points_ledger write warning:', err?.message);
       }
 
-      const existingUser = DataStore.getTelegramUser(numId);
-      if (existingUser) {
-        existingUser.points = newBalance;
-        existingUser.reward_points = newBalance;
-      }
-      const profile = DataStore.getProfile(numId);
-      if (profile) {
-        profile.points = newBalance;
-        profile.reward_points = newBalance;
-        profile.loyalty_points = newBalance;
-      }
+      await DataStore.syncUserFromPostgres(tid);
 
       return { success: true, points: newBalance };
     } catch (err: any) {
+      await client.query('ROLLBACK').catch(() => {});
       console.error('[DataStore] adjustPoints PostgreSQL error:', err?.message);
       return { success: false, error: 'DB_ERROR', points: 0 };
+    } finally {
+      client.release();
     }
   }
 

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { DataStore } from '../database/data-store';
+import { DataStore, getUserSnapshot } from '../database/data-store';
 import { validateTelegramInitData } from '../security/telegram-validator';
 import { env } from '../config/env';
 
@@ -67,26 +67,30 @@ userRouter.get(['/profile', '/me'], async (req: Request, res: Response) => {
       return;
     }
 
-    const user = await DataStore.getUserByTelegramId(telegramId);
     const numId = Number(telegramId) || 0;
+    const snap = await getUserSnapshot(telegramId);
+    const user = await DataStore.getUserByTelegramId(telegramId);
     const profile = DataStore.getProfile(numId);
-    const userPoints = Number(user?.points ?? profile?.points ?? 0);
+    const isAdmin = numId > 0 && env.ADMIN_TELEGRAM_USER_IDS.includes(numId);
 
     res.json({
       success: true,
       data: {
-        id: user.id || profile?.id,
-        telegram_id: String(user.telegram_id || telegramId),
-        username: user.username || null,
-        first_name: user.first_name || 'Customer',
-        points: userPoints,
-        loyalty_points: userPoints,
-        reward_points: userPoints,
-        streak_count: user.streak_count ?? 0,
-        role: user.role || (String(telegramId) === '6594079594' ? 'admin' : 'customer'),
-        last_daily_claim_at: user.last_daily_claim_at || profile?.last_daily_claim_at || null,
-        gacha_tickets: profile?.gacha_tickets ?? (user.extra as any)?.gacha_tickets ?? 0,
-        created_at: user.created_at,
+        id: user?.id || profile?.id,
+        telegram_id: String(user?.telegram_id || telegramId),
+        username: user?.username || null,
+        first_name: user?.first_name || 'Customer',
+        points: snap.points,
+        loyalty_points: snap.points,
+        reward_points: snap.points,
+        streak_count: snap.streak,
+        role: user?.role || (isAdmin ? 'admin' : 'customer'),
+        last_daily_claim_at: snap.lastDailyClaimAt,
+        next_claim_at: snap.nextClaimAt,
+        gacha_tickets: snap.gachaTickets,
+        total_orders: snap.ordersCount,
+        total_spent: snap.totalSpent,
+        created_at: user?.created_at,
         server_now: new Date().toISOString(),
       },
     });

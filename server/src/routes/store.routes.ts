@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { StoreService } from '../services/store.service';
 import { ProductController } from '../controllers/product.controller';
-import { DataStore, claimDailyReward } from '../database/data-store';
+import { DataStore, claimDailyReward, getUserSnapshot } from '../database/data-store';
 import { RobloxService } from '../services/roblox.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
 
@@ -47,38 +47,35 @@ storeRouter.get('/coupons/my-coupons', requireTelegramAuth, (req: RequestWithAut
 // Real Customer Profile Statistics (Verified paid orders & ledger balance)
 export const getCustomerStatsHandler = async (req: RequestWithAuth, res: any) => {
   const tgId = req.user!.telegram_id;
-  await DataStore.syncUserFromPostgres(tgId);
-  const realOrders = DataStore.getOrdersByCustomer(tgId);
-  const verifiedOrders = realOrders.filter(
-    (o) => o.status === 'paid' || o.status === 'delivered' || o.status === 'completed'
-  );
-  const totalOrders = verifiedOrders.length;
-  const totalSpent = verifiedOrders.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0);
+  const snapshot = await getUserSnapshot(tgId);
   const realProfile = DataStore.getProfile(tgId);
-  const realUser = DataStore.getTelegramUser(tgId);
 
   return res.json({
     success: true,
     data: {
-      total_orders: totalOrders,
-      total_spent: Number(totalSpent.toFixed(2)),
+      total_orders: snapshot.ordersCount,
+      total_spent: snapshot.totalSpent,
       profile: {
         ...(realProfile || {}),
-        points: Number(realProfile?.points ?? realUser?.points ?? 0),
-        reward_points: Number(realProfile?.points ?? realUser?.points ?? 0),
-        loyalty_points: Number(realProfile?.points ?? realUser?.points ?? 0),
-        gacha_tickets: Number(realProfile?.gacha_tickets ?? realUser?.gacha_tickets ?? 0),
+        points: snapshot.points,
+        reward_points: snapshot.points,
+        loyalty_points: snapshot.points,
+        gacha_tickets: snapshot.gachaTickets,
+        streak_count: snapshot.streak,
+        last_daily_claim_at: snapshot.lastDailyClaimAt,
       },
-      points: Number(realProfile?.points ?? realUser?.points ?? 0),
-      reward_points: Number(realProfile?.points ?? realUser?.points ?? 0),
-      loyalty_points: Number(realProfile?.points ?? realUser?.points ?? 0),
-      gacha_tickets: Number(realProfile?.gacha_tickets ?? realUser?.gacha_tickets ?? 0),
-      streak_count: Number(realUser?.streak_count || 1),
-      last_daily_claim_at: realUser?.last_daily_claim_at || null,
+      points: snapshot.points,
+      reward_points: snapshot.points,
+      loyalty_points: snapshot.points,
+      gacha_tickets: snapshot.gachaTickets,
+      streak_count: snapshot.streak,
+      last_daily_claim_at: snapshot.lastDailyClaimAt,
+      next_claim_at: snapshot.nextClaimAt,
     },
   });
 };
 
+storeRouter.get('/me', requireTelegramAuth, getCustomerStatsHandler);
 storeRouter.get('/me/stats', requireTelegramAuth, getCustomerStatsHandler);
 storeRouter.get('/user/stats', requireTelegramAuth, getCustomerStatsHandler);
 storeRouter.get('/user/profile', requireTelegramAuth, getCustomerStatsHandler);
@@ -184,102 +181,111 @@ export function resolveTelegramIdFromReq(req: RequestWithAuth): number | null {
   if (req.user?.telegram_id && Number(req.user.telegram_id) > 0) {
     return Number(req.user.telegram_id);
   }
-  const rawId =
-    req.body?.telegramId ||
-    req.body?.telegram_id ||
-    req.query?.telegramId ||
-    req.query?.telegram_id ||
-    req.headers['x-telegram-id'];
-  if (rawId && !isNaN(Number(rawId)) && Number(rawId) > 0) {
-    const id = Number(rawId);
-    DataStore.findOrCreateTelegramUser({
-      telegram_id: id,
-      first_name: req.body?.first_name || 'Customer',
-      username: req.body?.username || null,
-      language_code: 'km',
-    });
-    return id;
+  if (process.env.NODE_ENV === 'test') {
+    const rawId =
+      req.body?.telegramId ||
+      req.body?.telegram_id ||
+      req.query?.telegramId ||
+      req.query?.telegram_id ||
+      req.headers['x-telegram-id'];
+    if (rawId && !isNaN(Number(rawId)) && Number(rawId) > 0) {
+      return Number(rawId);
+    }
   }
   return null;
 }
 
 export const handleDailyRewardStatus = async (req: RequestWithAuth, res: any) => {
-  const tgId = resolveTelegramIdFromReq(req);
+  const tgId = req.user?.telegram_id
+    ? Number(req.user.telegram_id)
+    : resolveTelegramIdFromReq(req);
   if (!tgId) {
-    return res.json({
-      success: true,
-      data: {
-        can_claim: true,
-        current_streak: 1,
-        reward_points: 5,
-        last_claimed_at: null,
-        next_claim_at: null,
-        seconds_remaining: 0,
-        streak_days: [1, 2, 3, 4, 5, 6, 7].map((d) => ({
-          day: d,
-          points: d === 7 ? 20 : 5,
-          isClaimed: false,
-          isToday: d === 1,
-          isBonus: d === 7,
-        })),
-      },
-    });
+    return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
   }
 
-  await DataStore.syncUserFromPostgres(tgId);
-  const status = DataStore.getDailyRewardStatus(tgId);
+  const snap = await getUserSnapshot(tgId);
+  const now = Date.now();
+  const lastClaimMs = snap.lastDailyClaimAt ? new Date(snap.lastDailyClaimAt).getTime() : 0;
+  const cooldownMs = 24 * 60 * 60 * 1000;
+  const elapsedMs = lastClaimMs > 0 ? now - lastClaimMs : cooldownMs;
+  const canClaim = elapsedMs >= cooldownMs;
+  const remainingMs = canClaim ? 0 : cooldownMs - elapsedMs;
+  const secondsRemaining = Math.ceil(remainingMs / 1000);
+  const nextClaimAt = lastClaimMs > 0 ? new Date(lastClaimMs + cooldownMs).toISOString() : null;
+
   return res.json({
     success: true,
-    data: status,
+    data: {
+      can_claim: canClaim,
+      current_streak: snap.streak || 1,
+      reward_points: snap.streak % 7 === 0 ? 20 : 5,
+      last_claimed_at: snap.lastDailyClaimAt,
+      next_claim_at: nextClaimAt,
+      seconds_remaining: secondsRemaining,
+      points: snap.points,
+      streak_days: [1, 2, 3, 4, 5, 6, 7].map((d) => ({
+        day: d,
+        points: d === 7 ? 20 : 5,
+        isClaimed: snap.streak >= d,
+        isToday: ((snap.streak % 7) || 7) === d,
+        isBonus: d === 7,
+      })),
+    },
   });
 };
 
 export const handleDailyRewardClaim = async (req: RequestWithAuth, res: any) => {
-  const resolved =
-    req.user?.telegram_id ||
-    req.body?.telegramId ||
-    req.body?.telegram_id ||
-    req.query?.telegramId ||
-    req.query?.telegram_id ||
-    req.headers['x-telegram-id'] ||
-    (process.env.NODE_ENV === 'test' ? 123456789 : undefined);
+  const tgId = req.user?.telegram_id
+    ? Number(req.user.telegram_id)
+    : (process.env.NODE_ENV === 'test' ? resolveTelegramIdFromReq(req) : null);
 
-  if (!resolved || isNaN(Number(resolved))) {
+  if (!tgId) {
     return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
   }
-  const tgId = Number(resolved);
 
-  await DataStore.syncUserFromPostgres(tgId);
   const claimRes = await claimDailyReward(tgId);
+
+  if (!claimRes.success) {
+    const secondsRemaining = (claimRes as any).seconds_remaining ?? Math.ceil(((claimRes as any).remainingMs ?? 0) / 1000);
+    const nextClaimAt = new Date(Date.now() + secondsRemaining * 1000).toISOString();
+    return res.status(429).json({
+      success: false,
+      error: claimRes.error || 'ALREADY_CLAIMED_TODAY',
+      seconds_remaining: secondsRemaining,
+      next_claim_at: nextClaimAt,
+    });
+  }
 
   return res.json({
     success: true,
     points: Number(claimRes.points),
     streak: Number(claimRes.streak),
-    seconds_remaining: 86400,
+    seconds_remaining: claimRes.seconds_remaining ?? 86400,
+    next_claim_at: claimRes.nextClaimAt,
     data: {
       success: true,
       points: Number(claimRes.points),
       streak: Number(claimRes.streak),
-      seconds_remaining: 86400,
+      seconds_remaining: claimRes.seconds_remaining ?? 86400,
+      next_claim_at: claimRes.nextClaimAt,
     },
   });
 };
 
-// Daily Reward Status (Requirement 34)
-storeRouter.get('/daily-reward', handleDailyRewardStatus);
-storeRouter.get('/daily-reward/status', handleDailyRewardStatus);
-storeRouter.get('/daily-status', handleDailyRewardStatus);
-storeRouter.get('/gacha/daily-status', handleDailyRewardStatus);
-storeRouter.get('/user/daily-status', handleDailyRewardStatus);
+// Daily Reward Status
+storeRouter.get('/daily-reward', requireTelegramAuth, handleDailyRewardStatus);
+storeRouter.get('/daily-reward/status', requireTelegramAuth, handleDailyRewardStatus);
+storeRouter.get('/daily-status', requireTelegramAuth, handleDailyRewardStatus);
+storeRouter.get('/gacha/daily-status', requireTelegramAuth, handleDailyRewardStatus);
+storeRouter.get('/user/daily-status', requireTelegramAuth, handleDailyRewardStatus);
 
-// Claim Daily Reward (Requirement 34: Must be manually claimed)
-storeRouter.post('/daily-reward/claim', handleDailyRewardClaim);
-storeRouter.post('/daily-claim', handleDailyRewardClaim);
-storeRouter.post('/claim-points', handleDailyRewardClaim);
-storeRouter.post('/gacha/daily-claim', handleDailyRewardClaim);
-storeRouter.post('/user/claim-daily', handleDailyRewardClaim);
-storeRouter.post('/claim-daily', handleDailyRewardClaim);
+// Claim Daily Reward
+storeRouter.post('/daily-reward/claim', requireTelegramAuth, handleDailyRewardClaim);
+storeRouter.post('/daily-claim', requireTelegramAuth, handleDailyRewardClaim);
+storeRouter.post('/claim-points', requireTelegramAuth, handleDailyRewardClaim);
+storeRouter.post('/gacha/daily-claim', requireTelegramAuth, handleDailyRewardClaim);
+storeRouter.post('/user/claim-daily', requireTelegramAuth, handleDailyRewardClaim);
+storeRouter.post('/claim-daily', requireTelegramAuth, handleDailyRewardClaim);
 
 // Point Ledger (Requirement 67)
 storeRouter.get('/points/ledger', requireTelegramAuth, (req: RequestWithAuth, res) => {
