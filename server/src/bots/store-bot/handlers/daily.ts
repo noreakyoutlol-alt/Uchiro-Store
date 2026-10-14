@@ -82,8 +82,13 @@ export async function fetchDailyLiveInfo(telegramId: number | string): Promise<D
     }
   }
 
-  const next_streak = is_claimable ? (streak_count % 7) + 1 : streak_count;
-  const next_pts = next_streak === 7 ? 20 : 5;
+  // Use DataStore settings for streak and reward calculation
+  const storeSettings = DataStore.getStoreSettings();
+  const streakInterval = storeSettings.streak_interval_days || 7;
+  const next_streak = is_claimable ? (streak_count % streakInterval) + 1 : streak_count;
+  const baseReward = storeSettings.daily_reward_points || 5;
+  const streakBonus = storeSettings.streak_bonus_points || 15;
+  const next_pts = next_streak % streakInterval === 0 ? baseReward + streakBonus : baseReward;
 
   return {
     streak_count,

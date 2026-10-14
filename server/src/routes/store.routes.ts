@@ -204,6 +204,7 @@ export const handleDailyRewardStatus = async (req: RequestWithAuth, res: any) =>
   }
 
   const snap = await getUserSnapshot(tgId);
+  const settings = DataStore.getStoreSettings();
   const now = Date.now();
   const lastClaimMs = snap.lastDailyClaimAt ? new Date(snap.lastDailyClaimAt).getTime() : 0;
   const cooldownMs = 24 * 60 * 60 * 1000;
@@ -218,18 +219,22 @@ export const handleDailyRewardStatus = async (req: RequestWithAuth, res: any) =>
     data: {
       can_claim: canClaim,
       current_streak: snap.streak || 1,
-      reward_points: snap.streak % 7 === 0 ? 20 : 5,
+      reward_points: snap.streak % settings.streak_interval_days === 0 ? settings.streak_bonus_points + settings.daily_reward_points : settings.daily_reward_points,
       last_claimed_at: snap.lastDailyClaimAt,
       next_claim_at: nextClaimAt,
       seconds_remaining: secondsRemaining,
       points: snap.points,
-      streak_days: [1, 2, 3, 4, 5, 6, 7].map((d) => ({
-        day: d,
-        points: d === 7 ? 20 : 5,
-        isClaimed: snap.streak >= d,
-        isToday: ((snap.streak % 7) || 7) === d,
-        isBonus: d === 7,
-      })),
+      streak_days: [...Array(settings.streak_interval_days).keys()].map((d) => {
+        const dayNum = d + 1;
+        const points = dayNum % settings.streak_interval_days === 0 ? settings.streak_bonus_points + settings.daily_reward_points : settings.daily_reward_points;
+        return {
+          day: dayNum,
+          points,
+          isClaimed: snap.streak >= dayNum,
+          isToday: ((snap.streak % settings.streak_interval_days) || settings.streak_interval_days) === dayNum,
+          isBonus: dayNum % settings.streak_interval_days === 0,
+        };
+      }),
     },
   });
 };

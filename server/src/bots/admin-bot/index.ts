@@ -3,11 +3,10 @@ import { env } from '../../config/env';
 import { handleAdminStart, handleAdminCallback, isMessageNotModifiedError } from './admin-actions';
 import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
 
-const HARDCODED_ADMINS = ['6594079594'];
 export function isAuthorizedAdmin(telegramId: string | number): boolean {
   const id = String(telegramId).trim();
   const envAdmins = (process.env.ADMIN_TELEGRAM_IDS || process.env.ADMIN_TELEGRAM_USER_IDS || '').split(',').map(s => s.trim());
-  return HARDCODED_ADMINS.includes(id) || envAdmins.includes(id);
+  return envAdmins.includes(id);
 }
 
 const token = (process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim();

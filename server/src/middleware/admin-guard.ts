@@ -6,17 +6,15 @@ import { validateTelegramInitData } from '../security/telegram-validator';
 export const ADMIN_404_HTML =
   '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The requested URL was not found on this server.</p></body></html>';
 
-const HARDCODED_ADMINS = ['6594079594'];
-export function isAuthorizedAdmin(telegramId: string | number): boolean {
-  const id = String(telegramId).trim();
-  const envAdmins = (process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(s => s.trim());
-  return HARDCODED_ADMINS.includes(id) || envAdmins.includes(id);
-}
-
 /**
  * Checks whether a given Telegram ID belongs to an authorized admin.
- * Parses ADMIN_TELEGRAM_IDS safely from process.env, with fallback to env.ADMIN_TELEGRAM_USER_IDS.
+ * Admin access is determined ONLY by env.ADMIN_TELEGRAM_USER_IDS (no hardcoded fallback IDs).
  */
+export function isAuthorizedAdmin(telegramId: string | number): boolean {
+  const envAdminIds = (process.env.ADMIN_TELEGRAM_USER_IDS || '').split(',').map(s => s.trim());
+  if (envAdminIds.includes(String(telegramId))) return true;
+  return false;
+}
 export function isAdmin(telegramId: string | number): boolean {
   if (isAuthorizedAdmin(telegramId)) {
     return true;

@@ -103,8 +103,13 @@ export function requireAdminSession(req: Request, res: Response, next: NextFunct
   const token = typeof header === 'string' ? header : '';
   if (token) {
     if (token === 'uchiro-admin-master-session-token') {
-      res.locals.adminUserId = '6594079594';
-      res.locals.telegramUser = { id: '6594079594', username: 'Noreakyout', role: 'admin' };
+      const adminId = env.ADMIN_TELEGRAM_USER_IDS[0];
+      if (!adminId) {
+        res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
+        return;
+      }
+      res.locals.adminUserId = adminId;
+      res.locals.telegramUser = { id: adminId, username: 'Noreakyout', role: 'admin' };
       next();
       return;
     }
@@ -124,8 +129,13 @@ export function requireAdminSession(req: Request, res: Response, next: NextFunct
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const jwtToken = authHeader.split(' ')[1];
     if (jwtToken === 'uchiro-admin-master-session-token') {
-      res.locals.adminUserId = '6594079594';
-      res.locals.telegramUser = { id: '6594079594', username: 'Noreakyout', role: 'admin' };
+      const adminId = env.ADMIN_TELEGRAM_USER_IDS[0];
+      if (!adminId) {
+        res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
+        return;
+      }
+      res.locals.adminUserId = adminId;
+      res.locals.telegramUser = { id: adminId, username: 'Noreakyout', role: 'admin' };
       next();
       return;
     }
