@@ -60,7 +60,7 @@ export function buildMainMenuKeyboard(storeUrl: string = process.env.STORE_URL |
     ],
     [
       Markup.button.callback('👤 My Profile', 'cb_profile_menu'),
-      Markup.button.callback('🌐 Language', 'cb_lang_menu'),
+      // Language button removed - always English
     ],
     [
       Markup.button.callback('📜 Terms & Rules', 'cb_rules_menu'),

@@ -26,10 +26,12 @@ import {
   handleGuidePayment,
 } from './handlers/help';
 import {
-  handleGachaMenu,
   handleBuyGachaTicket,
-  handleGachaPrizes,
+} from './handlers/gacha';
+import {
   handleGachaOdds,
+  handleGachaPrizes,
+  handleGachaMenu,
 } from './handlers/gacha';
 import {
   handleDailyMenu,
@@ -386,6 +388,21 @@ export class StoreBotService {
     this.bot.action('cb_gacha_odds', async (ctx) => {
       await handleGachaOdds(ctx, storeWebAppUrl);
     });
+    this.bot.action('cb_gacha_rates', async (ctx) => {
+      await handleGachaOdds(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_claim_daily', async (ctx) => {
+      await handleClaimDailyInstant(ctx);
+    });
+    this.bot.action('cb_rules_warranty', async (ctx) => {
+      await handleWarrantyPolicy(ctx);
+    });
+    this.bot.action('cb_rules_gacha', async (ctx) => {
+      await handleGachaRules(ctx);
+    });
+    this.bot.action('cb_help_2fa', async (ctx) => {
+      await handleGuide2fa(ctx);
+    });
 
     // MODULE 3: REAL-TIME DAILY POINTS & IN-CHAT CLAIM
     this.bot.action(['cb_daily_menu', 'menu_rewards'], async (ctx) => {
@@ -406,7 +423,7 @@ export class StoreBotService {
         if (fromId) {
           const daily = await fetchDailyLiveInfo(fromId);
           await ctx.answerCbQuery(
-            `⏳ នៅសល់ពេល ${daily.cooldown_str} ទៀតទើបអាច Claim បានម្តងទៀត`,
+            `⏳ ${daily.cooldown_str} remaining before next claim`,
             { show_alert: true }
           );
         } else {
@@ -416,10 +433,10 @@ export class StoreBotService {
     });
 
     // MODULE 4: IN-CHAT ACCOUNT VAULT & LIVE 2FA GENERATOR
-    this.bot.action(['cb_vault_menu', 'menu_vault'], async (ctx) => {
+    this.bot.action(['cb_vault_menu', 'menu_vault', 'cb_vault_accounts', 'cb_vault_2fa'], async (ctx) => {
       await handleVaultMenu(ctx, storeWebAppUrl);
     });
-    this.bot.action(['cb_orders_menu', 'menu_orders'], async (ctx) => {
+    this.bot.action(['cb_orders_menu', 'menu_orders', 'cb_orders_recent', 'cb_orders_track'], async (ctx) => {
       await handleVaultMenu(ctx, storeWebAppUrl);
     });
     this.bot.command(['vault', 'orders'], async (ctx) => {

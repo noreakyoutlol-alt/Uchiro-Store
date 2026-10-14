@@ -1,5 +1,5 @@
 import { Context } from 'telegraf';
-import { DataStore } from '../../../database/data-store';
+import { DataStore, getUserSnapshot } from '../../../database/data-store';
 import { pgPool, isPostgresConfigured } from '../../../database/postgres';
 import {
   buildGachaKeyboard,
@@ -7,6 +7,7 @@ import {
 } from '../keyboards';
 import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { escapeHtml, isMessageNotModifiedError } from './orders';
+import { buyGachaTicket } from '../../../database/data-store';
 
 export interface GachaLiveInfo {
   tickets: number;
@@ -23,51 +24,20 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
 
   let tickets = 0;
   let points = 0;
-  const ticket_price_pts = 100;
+  let ticket_price_pts = 100;
   let top_mythical_item = '🍎 Kitsune Fruit Permanent (Jackpot)';
   let top_legendary_item = '⚔️ Dark Blade (Yoru) Account';
   let mythical_drop_rate = 1.5;
 
-  // 1. Fetch user data from PostgreSQL if configured
-  if (isPostgresConfigured()) {
-    try {
-      const { rows } = await pgPool.query(
-        'SELECT points, extra FROM users WHERE telegram_id = $1 LIMIT 1',
-        [tid]
-      );
-      if (rows.length > 0) {
-        points = Number(rows[0].points || 0);
-        const extra = typeof rows[0].extra === 'string' ? JSON.parse(rows[0].extra) : (rows[0].extra || {});
-        tickets = Number(extra.gacha_tickets || 0);
-      }
-    } catch (err: any) {
-      console.warn('[fetchGachaLiveInfo] Postgres query warning:', err?.message);
-    }
-  }
-
-  // 2. Fallback to / sync with DataStore
-  const dsUser = DataStore.getTelegramUser(numId);
-  const dsProfile = DataStore.getProfile(numId);
-  if (dsUser) {
-    if (!points) points = Number(dsUser.points || 0);
-    if (!tickets && dsUser.gacha_tickets) tickets = Number(dsUser.gacha_tickets);
-  }
-  if (dsProfile) {
-    if (!points) points = Number(dsProfile.points || 0);
-    if (dsProfile.gacha_tickets) tickets = Number(dsProfile.gacha_tickets);
-  }
-
-  // Fetch pool prizes from DataStore
+  // 1. Fetch user data from getUserSnapshot (single source of truth)
   try {
-    const activePool = DataStore.getActiveGachaPool();
-    if (activePool) {
-      const poolPrizes = DataStore.getGachaPrizesByPoolId(activePool.id);
-      const mythical = poolPrizes.find((p: any) => p.rarity === 'mythical');
-      const legendary = poolPrizes.find((p: any) => p.rarity === 'legendary');
-      if (mythical) top_mythical_item = `${mythical.name} (Jackpot)`;
-      if (legendary) top_legendary_item = legendary.name;
-    }
-  } catch {}
+    const snap = await getUserSnapshot(tid);
+    points = snap.points;
+    tickets = snap.gachaTickets || 0;
+    ticket_price_pts = DataStore.getStoreSettings().gacha_ticket_points_cost || 100;
+  } catch (err: any) {
+    console.warn('[fetchGachaLiveInfo] getUserSnapshot warning:', err?.message);
+  }
 
   return {
     tickets,
@@ -80,7 +50,7 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
 }
 
 /**
- * Handle Gacha Dashboard (cb_gacha_menu / /gacha)
+ * Handle Gacha Menu (cb_gacha_menu)
  */
 export async function handleGachaMenu(
   ctx: Context,
@@ -89,44 +59,122 @@ export async function handleGachaMenu(
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
-  try {
-    await ctx.answerCbQuery();
-  } catch {}
-
-  await DataStore.syncUserFromPostgres(telegramId);
-  const gacha = await fetchGachaLiveInfo(telegramId);
+  const liveInfo = await fetchGachaLiveInfo(telegramId);
 
   const text =
     `🎰 <b>UCHIRO MYTHICAL GACHA — LIVE OVERVIEW</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>Your Tickets:</b> <code>${gacha.tickets} Tickets</code>\n` +
-    `💎 <b>Your Points:</b> <code>${gacha.points} Pts</code>\n` +
-    `💰 <b>Ticket Price:</b> <code>100 Pts / Ticket</code>\n\n` +
-    `🏆 <b>Jackpot Pool Prizes:</b>\n` +
-    `• 🔴 🍎 <b>Kitsune Fruit Permanent</b> (Jackpot)\n` +
-    `• 🟣 ⚔️ <b>Dark Blade (Yoru) Account</b>\n` +
-    `• ⚡ <b>Mythical Drop Rate:</b> <code>1.5%</code>\n` +
+    `🎫 <b>Your Tickets:</b> ` +
+    `${liveInfo.tickets}\n` +
+    `💎 <b>Your Points:</b> ${liveInfo.points} Pts\n` +
+    `💰 <b>Ticket Price:</b> ${liveInfo.ticket_price_pts} Pts\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `<i>Exchange points for tickets below or launch the Mini App to spin!</i>`;
-
-  const keyboard = buildGachaKeyboard(storeUrl);
-  const formattedHtml = enrichWithTgEmojis(text);
+    `🏆 <b>Top Prizes:</b>\n` +
+    `  ${liveInfo.top_mythical_item}\n` +
+    `  ${liveInfo.top_legendary_item}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚠️ <b>Mythical Drop Rate:</b> ${liveInfo.mythical_drop_rate}%\n`;
 
   try {
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(formattedHtml, {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
+    await ctx.reply(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...buildSubGachaKeyboard(),
+    });
+  } catch (err: any) {
+    if (isMessageNotModifiedError(err)) {
+      await ctx.answerCbQuery('Already up to date');
     } else {
-      await ctx.reply(formattedHtml, {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
+      throw err;
     }
-  } catch (err) {
-    if (!isMessageNotModifiedError(err)) {
-      console.warn('[Gacha Menu] Render warning:', err);
+  }
+}
+
+/**
+ * Handle Gacha Prizes (cb_gacha_prizes)
+ */
+export async function handleGachaPrizes(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const liveInfo = await fetchGachaLiveInfo(telegramId);
+
+  const text =
+    `🏆 <b>UCHIRO GACHA PRIZE POOL</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🍭 <b>Common Items:</b>\n` +
+    `  • Apple Seeds x50\n` +
+    `  • Iron Ore x30\n` +
+    `  • Healing Herb x20\n` +
+    `  • Lucky Coin x10\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚔️ <b>Legendary Items:</b>\n` +
+    `  ${liveInfo.top_legendary_item}\n` +
+    `  • Phoenix Feather Account\n` +
+    `  • Dragon Scale Sword\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🌟 <b>Mythical Items:</b>\n` +
+    `  ${liveInfo.top_mythical_item}\n` +
+    `  • Celestial Kimono Set\n` +
+    `  • Void Walker Companion\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💰 <b>Odds:</b> Common 70% | Legendary 25% | Mythical 5%\n`;
+
+  try {
+    await ctx.reply(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
+    });
+  } catch (err: any) {
+    if (isMessageNotModifiedError(err)) {
+      await ctx.answerCbQuery('Already up to date');
+    } else {
+      throw err;
+    }
+  }
+}
+
+/**
+ * Handle Gacha Odds/Rates (cb_gacha_odds / cb_gacha_rates)
+ */
+export async function handleGachaOdds(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const liveInfo = await fetchGachaLiveInfo(telegramId);
+
+  const text =
+    `📊 <b>UCHIRO GACHA DROP RATES</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `📦 <b>Item Rarity Distribution:</b>\n` +
+    `  • Common: 70.0% (Everyday items & resources)\n` +
+    `  • Rare: 20.0% (Enhanced gear & materials)\n` +
+    `  • Epic: 7.0% (Powerful artifacts)\n` +
+    `  • Legendary: 2.5% (Hero equipment)\n` +
+    `  • Mythical: 0.5% (Divine relics)\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🎯 <b>Current Focus:</b>\n` +
+    `  • Mythical Drop Rate: ${liveInfo.mythical_drop_rate}%\n` +
+    `  • Guaranteed Legendary: Every 40th pull\n` +
+    `  • Jackpot Reset: None (Progressive)\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💡 <b>Tip:</b> Save tickets for rate-up events!\n`;
+
+  try {
+    await ctx.reply(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
+    });
+  } catch (err: any) {
+    if (isMessageNotModifiedError(err)) {
+      await ctx.answerCbQuery('Already up to date');
+    } else {
+      throw err;
     }
   }
 }
@@ -143,74 +191,43 @@ export async function handleBuyGachaTicket(
 
   const tid = String(telegramId);
   const numId = Number(telegramId);
-  const TICKET_COST = 100;
 
-  await DataStore.syncUserFromPostgres(numId);
+  // Use DataStore.getStoreSettings for ticket cost
+  const ticketCost = DataStore.getStoreSettings().gacha_ticket_points_cost || 100;
+
   const liveInfo = await fetchGachaLiveInfo(telegramId);
   const currentPoints = liveInfo.points;
 
   // Insufficient Points Check
-  if (currentPoints < TICKET_COST) {
+  if (currentPoints < ticketCost) {
     try {
       await ctx.answerCbQuery(
-        `⚠️ You need at least 100 Points to buy 1 Ticket! (You have: ${currentPoints} Pts)`,
+        `⚠️ You need at least ${ticketCost} Points to buy 1 Ticket! (You have: ${currentPoints} Pts)`,
         { show_alert: true }
       );
     } catch {}
     return;
   }
 
-  // Deduct 100 Points via DataStore.adjustPoints
-  const adjustRes = await DataStore.adjustPoints(telegramId, -TICKET_COST, 'GACHA_TICKET');
-  if (!adjustRes.success) {
+  // Use buyGachaTicket which handles both points and tickets atomically in Postgres
+  const result = await buyGachaTicket(telegramId, ticketCost);
+  if (!result.success) {
     try {
       await ctx.answerCbQuery(
-        `⚠️ Failed to exchange ticket: ${adjustRes.error || 'INSUFFICIENT_POINTS'}`,
+        `⚠️ Failed to exchange ticket: ${result.error || 'INSUFFICIENT_POINTS'}`,
         { show_alert: true }
       );
     } catch {}
     return;
   }
 
-  const newBalance = adjustRes.points;
-
-  // Increment user's gacha_tickets by 1 in in-memory profile and user
-  let newTickets = liveInfo.tickets + 1;
-  const dsUser = DataStore.getTelegramUser(numId);
-  if (dsUser) {
-    dsUser.points = newBalance;
-    dsUser.reward_points = newBalance;
-    dsUser.gacha_tickets = (dsUser.gacha_tickets || 0) + 1;
-    newTickets = dsUser.gacha_tickets;
-  }
-  const dsProfile = DataStore.getProfile(numId);
-  if (dsProfile) {
-    dsProfile.points = newBalance;
-    dsProfile.reward_points = newBalance;
-    dsProfile.loyalty_points = newBalance;
-    dsProfile.gacha_tickets = (dsProfile.gacha_tickets || 0) + 1;
-    newTickets = dsProfile.gacha_tickets;
-  }
-
-  // Persist updated tickets to extra in PostgreSQL if configured
-  if (isPostgresConfigured()) {
-    try {
-      await pgPool.query(
-        `UPDATE users
-         SET extra = jsonb_set(COALESCE(extra::jsonb, '{}'::jsonb), '{gacha_tickets}', $2::jsonb),
-             updated_at = NOW()
-         WHERE telegram_id = $1`,
-        [tid, JSON.stringify(newTickets)]
-      );
-    } catch (err: any) {
-      console.warn('[handleBuyGachaTicket] Postgres extra tickets save warning:', err?.message);
-    }
-  }
+  const newBalance = result.points;
+  const newTickets = result.gachaTickets;
 
   // Success Alert Popup
   try {
     await ctx.answerCbQuery(
-      `🎉 Successfully exchanged 100 Points for 1 Gacha Ticket! (Remaining: ${newBalance} Pts, Tickets: ${newTickets})`,
+      `🎉 Successfully exchanged ${ticketCost} Points for 1 Gacha Ticket! (Remaining: ${newBalance} Pts, Tickets: ${newTickets})`,
       { show_alert: true }
     );
   } catch {}
@@ -223,129 +240,27 @@ export async function handleBuyGachaTicket(
   const text =
     `🎰 <b>UCHIRO MYTHICAL GACHA — LIVE OVERVIEW</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>Your Tickets:</b> <code>${newTickets} Tickets</code>\n` +
-    `💎 <b>Your Points:</b> <code>${newBalance} Pts</code>\n` +
-    `💰 <b>Ticket Price:</b> <code>100 Pts / Ticket</code>\n\n` +
-    `🏆 <b>Jackpot Pool Prizes:</b>\n` +
-    `• 🔴 🍎 <b>Kitsune Fruit Permanent</b> (Jackpot)\n` +
-    `• 🟣 ⚔️ <b>Dark Blade (Yoru) Account</b>\n` +
-    `• ⚡ <b>Mythical Drop Rate:</b> <code>1.5%</code>\n` +
+    `🎫 <b>Your Tickets:</b> ` +
+    `${gacha.tickets}\n` +
+    `💎 <b>Your Points:</b> ${gacha.points} Pts\n` +
+    `💰 <b>Ticket Price:</b> ${gacha.ticket_price_pts} Pts\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `<i>Exchange points for tickets below or launch the Mini App to spin!</i>`;
-
-  const keyboard = buildGachaKeyboard(storeUrl);
+    `🏆 <b>Top Prizes:</b>\n` +
+    `  ${gacha.top_mythical_item}\n` +
+    `  ${gacha.top_legendary_item}\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚠️ <b>Mythical Drop Rate:</b> ${gacha.mythical_drop_rate}%\n`;
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
-      ...keyboard,
+      ...buildSubGachaKeyboard(),
     });
-  } catch (err) {
-    if (!isMessageNotModifiedError(err)) {
-      console.warn('[Buy Ticket] Render warning:', err);
-    }
-  }
-}
-
-/**
- * Handle View All Gacha Prizes (cb_gacha_prizes)
- */
-export async function handleGachaPrizes(
-  ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
-): Promise<void> {
-  try {
-    await ctx.answerCbQuery();
-  } catch {}
-
-  const activePool = DataStore.getActiveGachaPool();
-  const poolPrizes = activePool ? DataStore.getGachaPrizesByPoolId(activePool.id) : [];
-
-  let prizeList = '';
-  if (poolPrizes.length > 0) {
-    prizeList = poolPrizes
-      .map((p: any) => {
-        const rarityBadge =
-          p.rarity === 'mythical'
-            ? '🔴 Mythical'
-            : p.rarity === 'legendary'
-            ? '🟣 Legendary'
-            : p.rarity === 'epic'
-            ? '🔵 Epic'
-            : p.rarity === 'rare'
-            ? '🟢 Rare'
-            : '⚪ Common';
-        return `• ${rarityBadge}: <b>${escapeHtml(p.name)}</b> (${p.drop_rate}%)`;
-      })
-      .join('\n');
-  } else {
-    prizeList =
-      `• 🔴 Mythical: <b>Kitsune Fruit Permanent</b> (1.5%)\n` +
-      `• 🟣 Legendary: <b>Dark Blade (Yoru) Account</b> (5.0%)\n` +
-      `• 🔵 Epic: <b>50% Discount Coupon</b> (15.0%)\n` +
-      `• 🟢 Rare: <b>2x Mastery & Money Gamepass</b> (30.0%)\n` +
-      `• ⚪ Common: <b>+25 Points Cashback</b> (48.5%)`;
-  }
-
-  const text =
-    `🏆 <b>CURRENT GACHA POOL PRIZES</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    prizeList +
-    `\n\n` +
-    `💡 <i>All won accounts and codes are instantly delivered to your 🎒 Vault!</i>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
-
-  const keyboard = buildSubGachaKeyboard(storeUrl);
-
-  try {
-    await ctx.editMessageText(enrichWithTgEmojis(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  } catch (err) {
-    if (!isMessageNotModifiedError(err)) {
-      console.warn('[Gacha Prizes] Render warning:', err);
-    }
-  }
-}
-
-/**
- * Handle Gacha Drop Rates & Odds (cb_gacha_rates / cb_gacha_odds)
- */
-export async function handleGachaOdds(
-  ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
-): Promise<void> {
-  try {
-    await ctx.answerCbQuery();
-  } catch {}
-
-  const text =
-    `⚡ <b>OFFICIAL GACHA DROP RATES &amp; FAIR PLAY</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔴 <b>MYTHICAL (Jackpot):</b> <code>1.50%</code>\n` +
-    `• Chance to win high-tier Max Level Accounts or Permanent Fruits\n\n` +
-    `🟣 <b>LEGENDARY:</b> <code>5.00%</code>\n` +
-    `• Chance to win Dark Blade, Godhuman Accounts\n\n` +
-    `🔵 <b>EPIC:</b> <code>15.00%</code>\n` +
-    `• 50% Off Discount Vouchers & Fruit Codes\n\n` +
-    `🟢 <b>RARE:</b> <code>30.00%</code>\n` +
-    `• Gamepass Codes, 2x Money & Mastery Boosts\n\n` +
-    `⚪ <b>COMMON:</b> <code>48.50%</code>\n` +
-    `• Loyalty Points Cashback (+25 Pts)\n\n` +
-    `🔒 <i>Provably Fair RNG Engine 100% verified — no manipulation.</i>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
-
-  const keyboard = buildSubGachaKeyboard(storeUrl);
-
-  try {
-    await ctx.editMessageText(enrichWithTgEmojis(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  } catch (err) {
-    if (!isMessageNotModifiedError(err)) {
-      console.warn('[Gacha Odds] Render warning:', err);
+  } catch (err: any) {
+    if (isMessageNotModifiedError(err)) {
+      await ctx.answerCbQuery('Already up to date');
+    } else {
+      throw err;
     }
   }
 }
