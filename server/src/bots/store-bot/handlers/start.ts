@@ -2,6 +2,7 @@ import { Context } from 'telegraf';
 import { DataStore } from '../../../database/data-store';
 import { buildMainMenuKeyboard } from '../keyboards';
 import { getWelcomeMessage, formatTelegramHtml } from '../index';
+import { enrichWithTgEmojis } from '../utils/emoji-registry';
 
 export async function handleStart(ctx: Context) {
   const from = ctx.from;
@@ -16,8 +17,9 @@ export async function handleStart(ctx: Context) {
   });
 
   const welcomeText = getWelcomeMessage('en');
-  return ctx.reply(formatTelegramHtml(welcomeText), {
+  const keyboard = buildMainMenuKeyboard();
+  await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
     parse_mode: 'HTML',
-    reply_markup: (buildMainMenuKeyboard() as any).reply_markup,
+    ...keyboard,
   });
 }

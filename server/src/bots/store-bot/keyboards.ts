@@ -48,31 +48,14 @@ export function createWebAppOrUrlButton(text: string, targetUrl: string) {
  * Row 4: 📜 Terms & Rules | ❓ Help & Support
  * Row 5: 🛍️ Open Store (Mini App) | 💬 Contact Admin
  */
-export function buildMainMenuKeyboard(storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app') {
-  const kb = Markup.inlineKeyboard([
+export function buildMainMenuKeyboard(storeUrl: string = process.env.STORE_URL || '[https://web-production-2d8bd.up.railway.app](https://web-production-2d8bd.up.railway.app)') {
+  return Markup.inlineKeyboard([
+    [Markup.button.webApp('🛍️ Open Store', storeUrl)],
     [
-      Markup.button.callback('🎰 Play Gacha', 'cb_gacha_menu'),
-      Markup.button.callback('🎁 Daily Reward', 'cb_daily_menu'),
-    ],
-    [
-      Markup.button.callback('🎒 My Vault & Accounts', 'cb_vault_menu'),
-      Markup.button.callback('📜 Order History', 'cb_orders_menu'),
-    ],
-    [
-      Markup.button.callback('👤 My Profile', 'cb_profile_menu'),
-      // Language button removed - always English
-    ],
-    [
-      Markup.button.callback('📜 Terms & Rules', 'cb_rules_menu'),
-      Markup.button.callback('❓ Help & Support', 'cb_help_menu'),
-    ],
-    [
-      Markup.button.webApp('🛍️ Open Store (Mini App)', storeUrl),
-      Markup.button.url('💬 Contact Admin', 'https://t.me/UchiroSupport'),
+      Markup.button.callback('📦 My Orders', 'cb_orders_menu'),
+      Markup.button.url('💬 Contact Support', '[https://t.me/UchiroSupport](https://t.me/UchiroSupport)'),
     ],
   ]);
-  Object.assign(kb, kb.reply_markup);
-  return kb;
 }
 
 export function getMainMenuKeyboard(storeUrl: string, _lang: string = 'en', supportUsername: string = 'UchiroSupport') {

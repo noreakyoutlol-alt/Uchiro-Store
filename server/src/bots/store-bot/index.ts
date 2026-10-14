@@ -223,13 +223,12 @@ export class StoreBotService {
       });
 
       // Send English welcome & main menu directly
-      await ctx.reply(
-        formatTelegramHtml(getWelcomeMessage('en')),
-        {
-          parse_mode: 'HTML',
-          reply_markup: (buildMainMenuKeyboard() as any).reply_markup,
-        }
-      );
+      const welcomeText = getWelcomeMessage('en');
+      const keyboard = buildMainMenuKeyboard();
+      await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
     });
 
     // Universal Back Home Navigation (cb_main_menu)

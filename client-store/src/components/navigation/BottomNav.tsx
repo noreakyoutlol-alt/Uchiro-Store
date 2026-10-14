@@ -27,13 +27,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const { language } = useLanguage();
   const isKm = language === 'km';
 
-  // The 4th tab MUST be "Orders" (📦 ប្រវត្តិទិញ) with Package icon navigating directly to Order History
+  // The 4th tab MUST be "Orders" (📦) with Package icon navigating directly to Order History
   const tabs: TabItem[] = [
-    { id: 'home', label: isKm ? 'ទំព័រដើម' : 'Home', iconKey: 'HOME' },
-    { id: 'shop', label: isKm ? 'ហាងទំនិញ' : 'Shop', iconKey: 'SHOP' },
-    { id: 'gacha', label: isKm ? 'កាឆា' : 'Gacha', iconKey: 'GACHA', highlight: true },
-    { id: 'orders', label: isKm ? 'ប្រវត្តិទិញ' : 'Orders', iconKey: 'ORDERS', badge: ordersBadgeCount },
-    { id: 'profile', label: isKm ? 'គណនី' : 'Profile', iconKey: 'PROFILE' },
+    { id: 'home', label: 'Home', iconKey: 'HOME' },
+    { id: 'shop', label: 'Shop', iconKey: 'SHOP' },
+    { id: 'gacha', label: 'Gacha', iconKey: 'GACHA', highlight: true },
+    { id: 'orders', label: 'Orders', iconKey: 'ORDERS', badge: ordersBadgeCount },
+    { id: 'profile', label: 'Profile', iconKey: 'PROFILE' },
   ];
 
   const tabThemes: Record<TabType, { activeColor: string; glow: string; bg: string }> = {
