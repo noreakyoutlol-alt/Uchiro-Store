@@ -86,6 +86,10 @@ export const TELEGRAM_EMOJIS: Record<string, TelegramEmojiDef> = {
   PURPLE_CIRCLE: { fallback: '🟣', customEmojiId: '5915954581338068740' },
   EGG:           { fallback: '🥚', customEmojiId: '5208541530310065351' },
   COPYRIGHT:     { fallback: '©', customEmojiId: '5323442290708985472' },
+  HOUSE:         { fallback: '🏠' },
+  BACK:          { fallback: '🔙' },
+  COMPASS:       { fallback: '🧭' },
+  QUESTION:      { fallback: '❓' },
 };
 
 export type TelegramEmojiKey = keyof typeof TELEGRAM_EMOJIS;
@@ -105,7 +109,7 @@ export function enrichWithTgEmojis(text: string): string {
 
   // Type predicate guarantees customEmojiId is a non-empty string for TypeScript TS18048
   const activeEntries = Object.values(TELEGRAM_EMOJIS)
-    .filter((item): item is TelegramEmojiDef & { customEmojiId: string } => 
+    .filter((item): item is TelegramEmojiDef & { customEmojiId: string } =>
       typeof item.customEmojiId === 'string' && item.customEmojiId.trim() !== ''
     )
     .sort((a, b) => b.fallback.length - a.fallback.length);
@@ -113,12 +117,15 @@ export function enrichWithTgEmojis(text: string): string {
   const seenFallbacks = new Set<string>();
 
   for (const item of activeEntries) {
-    if (seenFallbacks.has(item.fallback)) continue;
-    seenFallbacks.add(item.fallback);
+    const rawFallback = item.fallback;
+    const baseGlyph = rawFallback.replace(/️/g, '');
+    if (seenFallbacks.has(baseGlyph)) continue;
+    seenFallbacks.add(baseGlyph);
 
-    const tgTag = `<tg-emoji emoji-id="${item.customEmojiId.trim()}">${item.fallback}</tg-emoji>`;
-    const escapedFallback = item.fallback.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(?<!<tg-emoji[^>]*>)${escapedFallback}(?!<\\/tg-emoji>)`, 'g');
+    const tgTag = `<tg-emoji emoji-id="${item.customEmojiId.trim()}">${rawFallback}</tg-emoji>`;
+    const escapedBase = baseGlyph.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match base glyph with optional U+FE0F
+    const regex = new RegExp(`(?<!<tg-emoji[^>]*>)${escapedBase}(?:\\uFE0F)?(?!<\\/tg-emoji>)`, 'gu');
     enriched = enriched.replace(regex, tgTag);
   }
   return enriched;

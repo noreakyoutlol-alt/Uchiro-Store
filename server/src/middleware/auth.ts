@@ -81,13 +81,31 @@ export function requireTelegramAuth(req: RequestWithAuth, res: Response, next: N
     req.path?.includes('/create-qr') ||
     (req.method === 'POST' && (req.originalUrl?.includes('/payments') || req.originalUrl?.includes('/orders')));
 
+  const isDailyReward =
+    req.originalUrl?.includes('/daily-') ||
+    req.path?.includes('/daily-') ||
+    req.originalUrl?.includes('/claim') ||
+    req.path?.includes('/claim') ||
+    req.originalUrl?.includes('/points') ||
+    req.path?.includes('/points');
+
   const isDevOrTest =
     env.NODE_ENV !== 'production' ||
     process.env.NODE_ENV === 'test' ||
     process.env.NODE_ENV === 'development';
 
-  if (isQrCreationOrCheckout && isDevOrTest) {
-    const guestTgId = 999000001;
+  if ((isQrCreationOrCheckout || isDailyReward) && isDevOrTest) {
+    const rawTgId =
+      req.body?.telegramId ||
+      req.body?.telegram_id ||
+      req.query?.telegramId ||
+      req.query?.telegram_id ||
+      req.headers['x-telegram-id'];
+
+    const guestTgId = rawTgId && !isNaN(Number(rawTgId)) && Number(rawTgId) > 0
+      ? Number(rawTgId)
+      : 999000001;
+
     const { user } = DataStore.findOrCreateTelegramUser({
       telegram_id: guestTgId,
       first_name: 'Guest Customer',

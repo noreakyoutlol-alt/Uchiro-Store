@@ -7,8 +7,12 @@ import {
   handleVaultMenu,
   handleViewAccount,
   handleGen2fa,
+  handleOrdersMenu,
+  handleOrdersRecent,
+  handleOrdersTrack,
   isMessageNotModifiedError,
 } from './handlers/orders';
+import { applyTelegramOutboundGuard } from '../telegram-guard';
 import {
   handleProfileMenu,
   handlePointsLedger,
@@ -24,7 +28,13 @@ import {
   handleMainHelp,
   handleGuide2fa,
   handleGuidePayment,
+  handleHowToBuy,
+  handleGuideKhqr,
 } from './handlers/help';
+import {
+  handleVault2fa,
+  handleVaultAccounts,
+} from './handlers/vault';
 import {
   handleBuyGachaTicket,
 } from './handlers/gacha';
@@ -144,21 +154,21 @@ export function createEmojiInlineButton(opts: {
 export const storeKeyboard = getMainMenuKeyboard;
 export const mainMenuKeyboard = getMainMenuKeyboard;
 
-export function getWelcomeMessage(lang: string = 'km'): string {
+export function getWelcomeMessage(lang: string = 'en'): string {
   const lightning = renderTgEmoji('LIGHTNING');
   const fire = renderTgEmoji('FIRE');
 
-  if (lang !== 'en') {
+  if (lang === 'km') {
     return (
       `${lightning} <b>សូមស្វាគមន៍មកកាន់ UCHIRO STORE</b> ${lightning}\n\n` +
-      `ហាងលក់ Account ហ្គេម វត្ថុក្នុងហ្គេម និងរង្វាន់ពិសេសៗ។\n\n` +
-      `${fire} <b>លក្ខណៈពិសេស:</b>\n` +
-      `• ផ្ញើជូន Account និង Digital Code ភ្លាមៗដោយស្វ័យប្រវត្តិ\n` +
-      `• Blox Fruits, MM2, Blade Ball និង Evade\n` +
-      `• កងបង្វិលរង្វាន់ Mythical Gacha ឱកាសឈ្នះខ្ពស់\n` +
-      `• ទូទាត់រហ័សតាម KHQR / Bakong\n` +
-      `• សុវត្ថិភាព ១០០% ជាមួយការធានារយៈពេល ១៤ ថ្ងៃពេញ\n\n` +
-      `ចុចប៊ូតុងខាងក្រោមដើម្បីជ្រើសរើសមុខងារ:`
+      `គណនីហ្គេមពិសេស, ផ្លែឈើ និងរង្វាន់ជាច្រើន។\n\n` +
+      `${fire} <b>សេវាកម្មចម្បង៖</b>\n` +
+      `• Auto-Delivery ២ វិនាទី ទទួលបានគណនី និងកូដភ្លាមៗ\n` +
+      `• Blox Fruits, MM2, Blade Ball & Evade\n` +
+      `• ប្រអប់ Gacha ឱកាសឈ្នះខ្ពស់\n` +
+      `• បង់ប្រាក់ងាយស្រួលតាម KHQR / Bakong (ABA, Wing, ACLEDA...)\n` +
+      `• ធានាសុវត្ថិភាព ១០០% និងធានាជូន ១៤ ថ្ងៃ\n\n` +
+      `សូមចុចជ្រើសរើសមុខងារខាងក្រោមដើម្បីចាប់ផ្តើម៖`
     );
   }
 
@@ -189,6 +199,7 @@ export class StoreBotService {
     if (this.token && !this.token.startsWith('mock_')) {
       if (!this.bot) {
         this.bot = new Telegraf(this.token);
+        applyTelegramOutboundGuard(this.bot);
         this.setupHandlers();
       }
     }
@@ -199,7 +210,6 @@ export class StoreBotService {
 
     const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
     const supportUsername = (process.env.SUPPORT_TELEGRAM_USERNAME || env.TELEGRAM_SUPPORT_USERNAME || 'UchiroSupport').replace(/^@/, '');
-    const channelUsername = (process.env.TELEGRAM_CHANNEL_USERNAME || env.TELEGRAM_CHANNEL_USERNAME || 'UchiroStore').replace(/^@/, '');
     const storeWebAppUrl = (process.env.STORE_MINIAPP_URL && process.env.STORE_MINIAPP_URL.startsWith('https://'))
       ? process.env.STORE_MINIAPP_URL
       : (env.STORE_WEBAPP_URL && env.STORE_WEBAPP_URL.startsWith('https://'))
@@ -208,23 +218,81 @@ export class StoreBotService {
           ? env.CLIENT_STORE_URL
           : appUrl;
 
+    // Global middleware: wrap ctx.answerCbQuery (first call wins);
+    // if no handler answered within 1.5s or it ended/threw without answering, answer silently and console.warn callback_data
+    this.bot.use(async (ctx, next) => {
+      if (ctx.callbackQuery) {
+        const cbData = (ctx.callbackQuery as any).data || '';
+        let answered = false;
+        const originalAnswer = ctx.answerCbQuery.bind(ctx);
+
+        (ctx as any).answerCbQuery = async (...args: any[]) => {
+          if (answered) return true;
+          answered = true;
+          try {
+            return await originalAnswer(...args);
+          } catch {
+            return false;
+          }
+        };
+
+        const timer = setTimeout(async () => {
+          if (!answered) {
+            console.warn(`[answerCbQuery middleware] auto-answering timed-out callback: ${cbData}`);
+            try {
+              await ctx.answerCbQuery();
+            } catch {}
+          }
+        }, 1500);
+
+        try {
+          await next();
+        } catch (err) {
+          if (!answered) {
+            console.warn(`[answerCbQuery middleware] auto-answering error in callback: ${cbData}`);
+            try {
+              await ctx.answerCbQuery();
+            } catch {}
+          }
+          throw err;
+        } finally {
+          clearTimeout(timer);
+          if (!answered) {
+            console.warn(`[answerCbQuery middleware] auto-answering unhandled callback: ${cbData}`);
+            try {
+              await ctx.answerCbQuery();
+            } catch {}
+          }
+        }
+        return;
+      }
+      return next();
+    });
+
+    this.bot.catch(async (err: any, ctx) => {
+      console.error(`[STORE BOT ERROR] for ${ctx.updateType}:`, err);
+      if (ctx.callbackQuery) {
+        try {
+          await ctx.reply('Something went wrong, send /start');
+        } catch {}
+      }
+    });
+
     // /start command: Returns English menu directly with standard English welcome copy
     this.bot.start(async (ctx) => {
       const from = ctx.from;
       if (!from) return;
 
-      // Upsert telegram user in DataStore
       DataStore.upsertTelegramUser({
         telegram_id: from.id,
         username: from.username,
         first_name: from.first_name,
         last_name: from.last_name,
-        language_code: from.language_code || 'en',
+        language_code: 'en',
       });
 
-      // Send English welcome & main menu directly
       const welcomeText = getWelcomeMessage('en');
-      const keyboard = buildMainMenuKeyboard();
+      const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
       await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
         parse_mode: 'HTML',
         ...keyboard,
@@ -237,9 +305,8 @@ export class StoreBotService {
         await ctx.answerCbQuery();
       } catch {}
 
-      const userLang = ctx.from ? DataStore.getUserLanguagePreference(ctx.from.id) || 'km' : 'km';
-      const welcomeText = getWelcomeMessage(userLang);
-      const keyboard = getMainMenuKeyboard(storeWebAppUrl, userLang, supportUsername);
+      const welcomeText = getWelcomeMessage('en');
+      const keyboard = getMainMenuKeyboard(storeWebAppUrl, 'en', supportUsername);
 
       try {
         await ctx.editMessageText(formatTelegramHtml(welcomeText), {
@@ -253,77 +320,40 @@ export class StoreBotService {
       }
     });
 
-    // Language selection callback query: set_lang:km or set_lang:en
-    this.bot.action(/^set_lang:(km|en)$/, async (ctx) => {
+    // Legacy Language selection callbacks answer with English menu
+    this.bot.action(['cb_lang_menu', 'select_language', /^set_lang:(.*)$/], async (ctx) => {
       try {
         await ctx.answerCbQuery();
       } catch {}
 
-      const lang = ctx.match[1];
       const fromId = ctx.from?.id;
       if (fromId) {
-        DataStore.setUserLanguagePreference(fromId, lang);
+        DataStore.setUserLanguagePreference(fromId, 'en');
       }
 
-      const confirmText =
-        lang === 'km'
-          ? '✅ បានជ្រើសរើស <b>ភាសាខ្មែរ</b> រួចរាល់!'
-          : '✅ Language preference set to <b>English</b>!';
+      const welcomeText = getWelcomeMessage('en');
+      const keyboard = getMainMenuKeyboard(storeWebAppUrl, 'en', supportUsername);
 
       try {
-        await ctx.editMessageText(
-          formatTelegramHtml(confirmText + '\n\n' + getWelcomeMessage(lang)),
-          {
-            parse_mode: 'HTML',
-            ...getMainMenuKeyboard(storeWebAppUrl, lang, supportUsername),
-          }
-        );
-      } catch {
-        await ctx.reply(formatTelegramHtml(confirmText), { parse_mode: 'HTML' });
-        await ctx.reply(
-          formatTelegramHtml(getWelcomeMessage(lang)),
-          {
-            parse_mode: 'HTML',
-            ...getMainMenuKeyboard(storeWebAppUrl, lang, supportUsername),
-          }
-        );
-      }
-    });
-
-    // Language change prompt callback & command
-    this.bot.action(['cb_lang_menu', 'select_language'], async (ctx) => {
-      try {
-        await ctx.answerCbQuery();
-      } catch {}
-
-      const promptText =
-        `🌐 <b>ជ្រើសរើសភាសា / CHANGE LANGUAGE</b>\n\n` +
-        `សូមជ្រើសរើសភាសាដែលអ្នកចង់ប្រើ / Select your preferred language:`;
-
-      try {
-        await ctx.editMessageText(formatTelegramHtml(promptText), {
+        await ctx.editMessageText(formatTelegramHtml(welcomeText), {
           parse_mode: 'HTML',
-          ...getLanguageSelectionKeyboard(),
+          ...keyboard,
         });
       } catch {
-        await ctx.reply(formatTelegramHtml(promptText), {
+        await ctx.reply(formatTelegramHtml(welcomeText), {
           parse_mode: 'HTML',
-          ...getLanguageSelectionKeyboard(),
+          ...keyboard,
         });
       }
     });
 
     this.bot.command(['language', 'lang'], async (ctx) => {
-      await ctx.reply(
-        formatTelegramHtml(
-          `🌐 <b>ជ្រើសរើសភាសា / CHANGE LANGUAGE</b>\n\n` +
-          `សូមជ្រើសរើសភាសាដែលអ្នកចង់ប្រើ / Select your preferred language:`
-        ),
-        {
-          parse_mode: 'HTML',
-          ...getLanguageSelectionKeyboard(),
-        }
-      );
+      const welcomeText = getWelcomeMessage('en');
+      const keyboard = getMainMenuKeyboard(storeWebAppUrl, 'en', supportUsername);
+      await ctx.reply(formatTelegramHtml(welcomeText), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
     });
 
     // MODULE 2: PROFILE DASHBOARD
@@ -336,7 +366,7 @@ export class StoreBotService {
     this.bot.action('cb_points_ledger', async (ctx) => {
       await handlePointsLedger(ctx);
     });
-    this.bot.action('cb_redeem_pts', async (ctx) => {
+    this.bot.action(['cb_redeem_pts', 'cb_redeem_menu'], async (ctx) => {
       await handleRedeemPoints(ctx);
     });
 
@@ -347,13 +377,13 @@ export class StoreBotService {
     this.bot.command('rules', async (ctx) => {
       await handleMainRules(ctx);
     });
-    this.bot.action('cb_gacha_rules', async (ctx) => {
+    this.bot.action(['cb_gacha_rules', 'cb_rules_gacha'], async (ctx) => {
       await handleGachaRules(ctx);
     });
     this.bot.action('cb_daily_rules', async (ctx) => {
       await handleDailyRules(ctx);
     });
-    this.bot.action('cb_warranty_policy', async (ctx) => {
+    this.bot.action(['cb_warranty_policy', 'cb_rules_warranty'], async (ctx) => {
       await handleWarrantyPolicy(ctx);
     });
 
@@ -364,11 +394,17 @@ export class StoreBotService {
     this.bot.command('help', async (ctx) => {
       await handleMainHelp(ctx, supportUsername);
     });
-    this.bot.action('cb_guide_2fa', async (ctx) => {
+    this.bot.action(['cb_guide_2fa', 'cb_help_2fa'], async (ctx) => {
       await handleGuide2fa(ctx, supportUsername);
     });
     this.bot.action('cb_guide_payment', async (ctx) => {
       await handleGuidePayment(ctx, supportUsername);
+    });
+    this.bot.action('cb_how_to_buy', async (ctx) => {
+      await handleHowToBuy(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_guide_khqr', async (ctx) => {
+      await handleGuideKhqr(ctx);
     });
 
     // MODULE 3: REAL-TIME GACHA
@@ -378,29 +414,14 @@ export class StoreBotService {
     this.bot.command('gacha', async (ctx) => {
       await handleGachaMenu(ctx, storeWebAppUrl);
     });
-    this.bot.action('cb_gacha_buy_ticket', async (ctx) => {
+    this.bot.action(['cb_gacha_buy_ticket', 'cb_buy_ticket_pts'], async (ctx) => {
       await handleBuyGachaTicket(ctx, storeWebAppUrl);
     });
     this.bot.action('cb_gacha_prizes', async (ctx) => {
       await handleGachaPrizes(ctx, storeWebAppUrl);
     });
-    this.bot.action('cb_gacha_odds', async (ctx) => {
+    this.bot.action(['cb_gacha_odds', 'cb_gacha_rates'], async (ctx) => {
       await handleGachaOdds(ctx, storeWebAppUrl);
-    });
-    this.bot.action('cb_gacha_rates', async (ctx) => {
-      await handleGachaOdds(ctx, storeWebAppUrl);
-    });
-    this.bot.action('cb_claim_daily', async (ctx) => {
-      await handleClaimDailyInstant(ctx);
-    });
-    this.bot.action('cb_rules_warranty', async (ctx) => {
-      await handleWarrantyPolicy(ctx);
-    });
-    this.bot.action('cb_rules_gacha', async (ctx) => {
-      await handleGachaRules(ctx);
-    });
-    this.bot.action('cb_help_2fa', async (ctx) => {
-      await handleGuide2fa(ctx);
     });
 
     // MODULE 3: REAL-TIME DAILY POINTS & IN-CHAT CLAIM
@@ -410,7 +431,7 @@ export class StoreBotService {
     this.bot.command('daily', async (ctx) => {
       await handleDailyMenu(ctx);
     });
-    this.bot.action('cb_claim_daily_instant', async (ctx) => {
+    this.bot.action(['cb_claim_daily', 'cb_claim_daily_instant'], async (ctx) => {
       await handleClaimDailyInstant(ctx);
     });
     this.bot.action('cb_daily_shop', async (ctx) => {
@@ -432,15 +453,34 @@ export class StoreBotService {
     });
 
     // MODULE 4: IN-CHAT ACCOUNT VAULT & LIVE 2FA GENERATOR
-    this.bot.action(['cb_vault_menu', 'menu_vault', 'cb_vault_accounts', 'cb_vault_2fa'], async (ctx) => {
+    this.bot.action(['cb_vault_menu', 'menu_vault'], async (ctx) => {
       await handleVaultMenu(ctx, storeWebAppUrl);
     });
-    this.bot.action(['cb_orders_menu', 'menu_orders', 'cb_orders_recent', 'cb_orders_track'], async (ctx) => {
+    this.bot.action('cb_vault_accounts', async (ctx) => {
+      await handleVaultAccounts(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_vault_2fa', async (ctx) => {
+      await handleVault2fa(ctx, storeWebAppUrl);
+    });
+    this.bot.action(/^cb_vault_2fa_acc:(.+)$/, async (ctx) => {
+      const accountId = ctx.match[1];
+      await handleGen2fa(ctx, accountId, storeWebAppUrl);
+    });
+    this.bot.command('vault', async (ctx) => {
       await handleVaultMenu(ctx, storeWebAppUrl);
     });
-    this.bot.command(['vault', 'orders'], async (ctx) => {
-      await handleVaultMenu(ctx, storeWebAppUrl);
+
+    // MODULE 4b: ORDER HISTORY & TRACKING
+    this.bot.action(['cb_orders_menu', 'menu_orders', 'cb_orders_recent'], async (ctx) => {
+      await handleOrdersRecent(ctx, storeWebAppUrl);
     });
+    this.bot.action('cb_orders_track', async (ctx) => {
+      await handleOrdersTrack(ctx, storeWebAppUrl);
+    });
+    this.bot.command('orders', async (ctx) => {
+      await handleOrdersRecent(ctx, storeWebAppUrl);
+    });
+
     this.bot.action(/^cb_view_acc_(.+)$/, async (ctx) => {
       const accountId = ctx.match[1];
       await handleViewAccount(ctx, accountId, storeWebAppUrl);
@@ -459,13 +499,13 @@ export class StoreBotService {
       const webAppUrl = `${storeWebAppUrl}?tab=orders&orderId=${orderId}`;
       await ctx.reply(
         formatTelegramHtml(
-          `📦 <b>ព័ត៌មានលម្អិតការកុម្ម៉ង់ #${orderId}</b>\n\n` +
-          `ចុចប៊ូតុងខាងក្រោមដើម្បីបើកមើលក្នុង Mini App:`
+          `📦 <b>Order Details #${orderId}</b>\n\n` +
+          `Tap below to view full details in the Mini App:`
         ),
         {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([
-            [createWebAppOrUrlButton('📱 បើកក្នុង Mini App', webAppUrl)],
+            [createWebAppOrUrlButton('📱 Open in Mini App', webAppUrl, 'PACKAGE')],
           ]),
         }
       );

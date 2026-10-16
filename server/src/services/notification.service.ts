@@ -774,7 +774,7 @@ export class NotificationService {
     }
 
     const text =
-      `⚠️ <b>ការទូទាត់ត្រូវបានទទួល ប៉ុន្តែកូដ QR បានផុតកំណត់។ Admin កំពុងត្រួតពិនិត្យ និងប្រគល់ទំនិញជូនលោកអ្នកក្នុងពេលបន្តិចទៀតនេះ។</b>`;
+      `⚠️ <b>Payment was received, but the QR code had expired. Our admin team is reviewing and will fulfill your delivery shortly.</b>`;
 
     await this.sendStoreBotMessage(telegramId, text);
   }
@@ -797,14 +797,14 @@ export class NotificationService {
 
     const cleanId = orderNumber || orderId.slice(0, 8);
     const text =
-      `⚠️ <b>ការទូទាត់លើ QR ផុតកំណត់ - Order #UCH-${cleanId} ($${amount.toFixed(2)})។</b>\n` +
-      `សូមពិនិត្យមើល និងចុចបញ្ជាក់ការដឹកជូន។`;
+      `⚠️ <b>Payment on Expired QR - Order #UCH-${cleanId} ($${amount.toFixed(2)})</b>\n` +
+      `Please review and tap below to fulfill delivery.`;
 
     await this.sendAdminBotAlert(text, {
       inline_keyboard: [
         [
           {
-            text: '🚀 បញ្ជាក់ និងប្រគល់ទំនិញភ្លាមៗ',
+            text: '🚀 Confirm & Fulfill Delivery Now',
             callback_data: `admin_fulfill_expired:${orderId}`,
           },
         ],

@@ -234,11 +234,11 @@ export class PaymentService {
    * When KHQR payment arrives or is confirmed for an order that timed out / expired:
    * - DO NOT mark as failed or drop it.
    * - Set order status to pending_admin_review.
-   * - Notify customer in Khmer:
-   *   "⚠️ ការទូទាត់ត្រូវបានទទួល ប៉ុន្តែកូដ QR បានផុតកំណត់។ Admin កំពុងត្រួតពិនិត្យ និងប្រគល់ទំនិញជូនលោកអ្នកក្នុងពេលបន្តិចទៀតនេះ។"
+   * - Notify customer in English:
+   *   "⚠️ Payment was received, but the QR code had expired. Our admin team is reviewing and will fulfill your delivery shortly."
    * - Alert Admin Bot (@uchiro_v2_admin_bot):
-   *   "⚠️ ការទូទាត់លើ QR ផុតកំណត់ - Order #UCH-{ID} (${AMOUNT})។ សូមពិនិត្យមើល និងចុចបញ្ជាក់ការដឹកជូន។"
-   *   Include inline button: admin_fulfill_expired:{ORDER_ID} ("🚀 បញ្ជាក់ និងប្រគល់ទំនិញភ្លាមៗ").
+   *   "⚠️ Payment on Expired QR - Order #UCH-{ID} (${AMOUNT}). Please review and tap below to fulfill delivery."
+   *   Include inline button: admin_fulfill_expired:{ORDER_ID} ("🚀 Confirm & Fulfill Delivery Now").
    */
   public static async handleExpiredQrConfirmedPayment(
     payment: Payment,

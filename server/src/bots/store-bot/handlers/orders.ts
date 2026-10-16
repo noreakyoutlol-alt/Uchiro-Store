@@ -1,5 +1,5 @@
 import { Context } from 'telegraf';
-import { DataStore, DeliveredAccount } from '../../../database/data-store';
+import { DataStore, DeliveredAccount, listOrdersByUser } from '../../../database/data-store';
 import { supabase, isSupabaseConfigured } from '../../../database/supabase';
 import { TOTPService } from '../../../security/totp';
 import {
@@ -8,6 +8,7 @@ import {
   buildTwoFactorKeyboard,
   buildVaultListKeyboard,
   buildOrdersMenuKeyboard,
+  buildOrderHistoryKeyboard,
 } from '../keyboards';
 import { enrichWithTgEmojis } from '../utils/emoji-registry';
 
@@ -32,6 +33,61 @@ function formatDate(iso: string): string {
 export function isMessageNotModifiedError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   return message.toLowerCase().includes('message is not modified');
+}
+
+function getStatusBadge(status: string): string {
+  switch (status.toLowerCase()) {
+    case 'paid':
+      return '🟢 Paid';
+    case 'delivered':
+    case 'completed':
+      return '✅ Delivered';
+    case 'pending':
+      return '⏳ Pending Payment';
+    case 'cancelled':
+      return '❌ Cancelled';
+    case 'refunded':
+      return '↩️ Refunded';
+    case 'fulfillment':
+      return '⚙️ In Fulfillment';
+    default:
+      return `📦 ${status.toUpperCase()}`;
+  }
+}
+
+/**
+ * Fetch last 10 orders for a user via listOrdersByUser or fallback to DataStore
+ */
+export async function fetchUserOrders(telegramId: string | number): Promise<Array<{
+  orderCode: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+}>> {
+  const tid = String(telegramId);
+  const numId = Number(telegramId) || 0;
+  try {
+    const pgOrders = await listOrdersByUser(tid);
+    if (pgOrders && pgOrders.length > 0) {
+      return pgOrders.slice(0, 10).map((o) => ({
+        orderCode: o.orderCode || o.id,
+        status: o.status,
+        totalAmount: Number(o.totalAmount || 0),
+        createdAt: o.createdAt,
+      }));
+    }
+  } catch (err: any) {
+    console.warn('[Orders] listOrdersByUser warning:', err?.message);
+  }
+
+  // Fallback to DataStore
+  const memOrders = DataStore.getOrdersByCustomer(numId);
+  return memOrders.slice(0, 10).map((o: any) => ({
+    orderCode: o.order_number || o.id,
+    status: o.status,
+    totalAmount: Number(o.total_amount ?? o.total_price ?? 0),
+    createdAt: o.created_at,
+  }));
 }
 
 /**
@@ -85,16 +141,19 @@ export async function getCustomerDeliveredAccountById(
     accounts.find(
       (a) =>
         a.account_id === accountId ||
-        a.account_id.startsWith(accountId) ||
-        accountId.startsWith(a.account_id)
+        a.account_id === `acc_${accountId}` ||
+        `acc_${a.account_id}` === accountId
     ) || null
   );
 }
 
 /**
- * Step 1: Render and send/edit Vault & Orders List
+ * Step 1: Render and send/edit Vault Accounts List View
  */
-export async function handleVaultMenu(ctx: Context, storeUrl: string): Promise<void> {
+export async function handleVaultMenu(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
@@ -106,10 +165,10 @@ export async function handleVaultMenu(ctx: Context, storeUrl: string): Promise<v
 
   if (accounts.length === 0) {
     const text =
-      `🎒 <b>កាតាបឥវ៉ាន់ &amp; គណនីរបស់អ្នក (MY VAULT)</b>\n` +
+      `🎒 <b>MY VAULT &amp; GAME ACCOUNTS</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `អ្នកមិនទាន់មានគណនីហ្គេមដែលបានទិញនៅឡើយទេ។\n\n` +
-      `👉 ចុចប៊ូតុងខាងក្រោមដើម្បីចូលមើលហាងទំនិញ៖`;
+      `You don't have any delivered game accounts yet.\n\n` +
+      `👉 Tap below to explore the store catalog:`;
 
     const keyboard = buildEmptyVaultKeyboard(storeUrl);
     try {
@@ -126,10 +185,10 @@ export async function handleVaultMenu(ctx: Context, storeUrl: string): Promise<v
   }
 
   const text =
-    `🎒 <b>កាតាបឥវ៉ាន់ &amp; គណនីរបស់អ្នក (MY VAULT)</b>\n` +
+    `🎒 <b>MY VAULT &amp; GAME ACCOUNTS</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `អ្នកមានគណនីហ្គេមសរុប: <b>${accounts.length}</b> គណនី\n\n` +
-    `👇 <i>ចុចលើគណនីខាងក្រោមដើម្បីមើល Password និងកូដសុវត្ថិភាព 2FA៖</i>`;
+    `You have <b>${accounts.length}</b> game accounts in your vault:\n\n` +
+    `👇 <i>Tap an account below to view credentials & live 2FA code:</i>`;
 
   const keyboard = buildVaultListKeyboard(accounts, storeUrl);
 
@@ -163,7 +222,7 @@ export async function handleViewAccount(
   const account = await getCustomerDeliveredAccountById(telegramId, accountId);
   if (!account) {
     try {
-      await ctx.answerCbQuery('រកមិនឃើញគណនីនេះទេ / Account not found', { show_alert: true });
+      await ctx.answerCbQuery('Account not found', { show_alert: true });
     } catch {}
     return;
   }
@@ -178,20 +237,20 @@ export async function handleViewAccount(
       : '—';
 
   const text =
-    `🔐 <b>ព័ត៌មានលម្អិតគណនី (ACCOUNT CREDENTIALS)</b>\n` +
+    `🔐 <b>ACCOUNT CREDENTIALS &amp; VAULT</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎮 <b>ទំនិញ:</b> ${escapeHtml(account.game_title)}\n` +
-    `📦 <b>លេខកូដ:</b> <code>${escapeHtml(account.order_code)}</code>\n` +
-    `📅 <b>កាលបរិច្ឆេទ:</b> ${escapeHtml(formatDate(account.delivered_at))}\n\n` +
+    `🎮 <b>Item:</b> ${escapeHtml(account.game_title)}\n` +
+    `📦 <b>Order Code:</b> <code>${escapeHtml(account.order_code)}</code>\n` +
+    `📅 <b>Delivered At:</b> ${escapeHtml(formatDate(account.delivered_at))}\n\n` +
     `👤 <b>Username / ID:</b>\n` +
-    `<code>${escapeHtml(account.username)}</code> <i>(ចុចលើអក្សរដើម្បី Copy)</i>\n\n` +
-    `🔑 <b>Password / ពាក្យសម្ងាត់:</b>\n` +
-    `<tg-spoiler><b>${escapeHtml(account.password)}</b></tg-spoiler> <i>(ចុចលើប្រអប់ខ្មៅដើម្បីបើកមើល)</i>\n\n` +
+    `<code>${escapeHtml(account.username)}</code> <i>(Tap to copy)</i>\n\n` +
+    `🔑 <b>Password:</b>\n` +
+    `<tg-spoiler><b>${escapeHtml(account.password)}</b></tg-spoiler> <i>(Tap spoiler to reveal)</i>\n\n` +
     `🛡️ <b>2FA Authenticator Key:</b>\n` +
     `${twoFactorSecret}\n\n` +
     `📑 <b>Backup / Recovery Codes:</b>\n` +
     `${backupCodesList}\n\n` +
-    `⚠️ <b>ចំណាំសំខាន់:</b> សូមប្តូរពាក្យសម្ងាត់ និងចងភ្ជាប់ Email ផ្ទាល់ខ្លួនរបស់អ្នកភ្លាមៗដើម្បីសុវត្ថិភាព ១០០%។\n` +
+    `⚠️ <b>Security Notice:</b> Please link your personal email and change the password immediately for 100% protection.\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildAccountDetailKeyboard(account, storeUrl);
@@ -222,7 +281,7 @@ export async function handleGen2fa(
   const account = await getCustomerDeliveredAccountById(telegramId, accountId);
   if (!account || !account.two_factor_secret) {
     try {
-      await ctx.answerCbQuery('គណនីនេះមិនមានកូដ 2FA ទេ / No 2FA configured', { show_alert: true });
+      await ctx.answerCbQuery('No 2FA key configured for this account', { show_alert: true });
     } catch {}
     return;
   }
@@ -235,16 +294,16 @@ export async function handleGen2fa(
   // 1. Show interactive Telegram alert popup for instant view
   try {
     await ctx.answerCbQuery(
-      `🔢 កូដ 2FA បច្ចុប្បន្នរបស់អ្នកគឺ: [ ${totpCode} ] (នៅសល់ ${remainingSeconds} វិនាទី)`,
+      `🔢 Live 2FA Code: [ ${totpCode} ] (${remainingSeconds}s remaining)`,
       { show_alert: true }
     );
   } catch {}
 
   // 2. Also update panel text for convenient 1-tap copy
   const text =
-    `🔢 <b>កូដ 2FA បច្ចុប្បន្នរបស់អ្នកគឺ:</b>\n\n` +
-    `[ <b>${totpCode.slice(0, 3)} ${totpCode.slice(3)}</b> ] <i>(នៅសល់ ${remainingSeconds} វិនាទី)</i>\n` +
-    `<code>${totpCode}</code> <i>(ចុចលើលេខដើម្បី Copy)</i>\n\n` +
+    `🔢 <b>YOUR LIVE 2FA CODE:</b>\n\n` +
+    `[ <b>${totpCode.slice(0, 3)} ${totpCode.slice(3)}</b> ] <i>(${remainingSeconds}s remaining)</i>\n` +
+    `<code>${totpCode}</code> <i>(Tap to copy code)</i>\n\n` +
     `🎮 ${escapeHtml(account.game_title)} (@${escapeHtml(account.username)})`;
 
   const keyboard = buildTwoFactorKeyboard(account.account_id);
@@ -262,12 +321,13 @@ export async function handleGen2fa(
 }
 
 /**
- * Orders Menu:
- * 📜 Order History (cb_orders_recent)
- * 🔍 Track Order ID (cb_orders_track)
- * 🔙 Back Home (cb_main_menu)
+ * Order History (cb_orders_recent):
+ * Shows a REAL list of the customer's last 10 orders via listOrdersByUser
  */
-export async function handleOrdersMenu(ctx: Context, _storeUrl: string): Promise<void> {
+export async function handleOrdersRecent(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
@@ -275,60 +335,100 @@ export async function handleOrdersMenu(ctx: Context, _storeUrl: string): Promise
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `📜 <b>ប្រវត្តិបញ្ជាទិញ &amp; តាមដានទំនិញ (ORDERS &amp; HISTORY)</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `ស្វែងរក និងតាមដានរាល់ការកុម្ម៉ង់ទិញគណនី និងទំនិញរបស់អ្នក៖\n\n` +
-    `• <b>📜 Order History:</b> មើលប្រវត្តិ និងទិន្នន័យបញ្ជាទិញថ្មីៗ\n` +
-    `• <b>🔍 Track Order ID:</b> ស្វែងរកស្ថានភាពកុម្ម៉ង់តាមលេខកូដទំនិញ\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const orders = await fetchUserOrders(telegramId);
 
-  const keyboard = buildOrdersMenuKeyboard();
+  let ordersContent = '';
+  if (orders.length === 0) {
+    ordersContent = `<i>No orders found. Once you place an order, it will appear here.</i>\n`;
+  } else {
+    ordersContent = orders
+      .map((o) => {
+        const badge = getStatusBadge(o.status);
+        const code = escapeHtml(o.orderCode);
+        const dateStr = formatDate(o.createdAt);
+        const amount = `$${o.totalAmount.toFixed(2)}`;
+        return `📦 <b>#${code}</b> — ${badge}\n` +
+               `  💰 <b>Amount:</b> ${amount} | 🗓️ <i>${dateStr}</i>`;
+      })
+      .join('\n\n');
+  }
+
+  const text =
+    `📜 <b>RECENT ORDER HISTORY (LAST 10)</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    ordersContent + `\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `<i>Tap "Open Orders" to view full account details, 2FA keys, and warranty status in Mini App.</i>`;
+
+  const keyboard = buildOrderHistoryKeyboard(storeUrl);
+  const formattedHtml = enrichWithTgEmojis(text);
 
   try {
     if (ctx.callbackQuery) {
-      await ctx.editMessageText(enrichWithTgEmojis(text), {
+      await ctx.editMessageText(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
     } else {
-      await ctx.reply(enrichWithTgEmojis(text), {
+      await ctx.reply(formattedHtml, {
         parse_mode: 'HTML',
         ...keyboard,
       });
     }
   } catch (err) {
     if (!isMessageNotModifiedError(err)) {
-      console.warn('[Orders Menu] Render warning:', err);
+      console.warn('[Orders Recent] Render warning:', err);
     }
   }
 }
 
 /**
+ * Orders Menu: cb_orders_menu / /orders
+ */
+export async function handleOrdersMenu(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
+  await handleOrdersRecent(ctx, storeUrl);
+}
+
+/**
  * Handle Track Order ID (cb_orders_track)
  */
-export async function handleOrdersTrack(ctx: Context, _storeUrl: string): Promise<void> {
+export async function handleOrdersTrack(
+  ctx: Context,
+  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+): Promise<void> {
   try {
     await ctx.answerCbQuery();
   } catch {}
 
   const text =
-    `🔍 <b>តាមដានស្ថានភាពបញ្ជាទិញ (TRACK ORDER ID)</b>\n` +
+    `🔍 <b>TRACK YOUR ORDER</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `ដើម្បីស្វែងរកទំនិញរបស់អ្នក សូមវាយបញ្ចូលលេខកូដបញ្ជាទិញ (ឧទាហរណ៍៖ <code>ORD-123456</code>) ឬផ្ញើទៅកាន់ផ្នែក Support ដើម្បីឱ្យ Admin ជួយត្រួតពិនិត្យជូនភ្លាមៗ។\n` +
+    `To track an order or check fulfillment status:\n\n` +
+    `• View your 10 most recent orders in <b>Order History</b> below.\n` +
+    `• Or contact our 24/7 Support with your Order ID (e.g. <code>ORD-123456</code>).\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildOrdersMenuKeyboard();
+  const keyboard = buildOrderHistoryKeyboard(storeUrl);
+  const formattedHtml = enrichWithTgEmojis(text);
 
   try {
-    await ctx.editMessageText(enrichWithTgEmojis(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  } catch {
-    await ctx.reply(enrichWithTgEmojis(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(formattedHtml, {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(formattedHtml, {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[Orders Track] Render warning:', err);
+    }
   }
 }

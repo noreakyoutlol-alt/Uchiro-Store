@@ -4,6 +4,7 @@ const rawUrl = process.env.SUPABASE_URL;
 const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export function isSupabaseConfigured(): boolean {
+  if (process.env.NODE_ENV === 'test') return false;
   return Boolean(rawUrl && rawKey && rawUrl !== 'https://placeholder.supabase.co');
 }
 

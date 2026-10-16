@@ -26,6 +26,7 @@ export interface ReceiptFormatOptions {
   liveCode?: string | null;
   supportUsername?: string;
   warrantyDays?: number;
+  lang?: string;
 }
 
 export class DeliveryService {
@@ -73,6 +74,7 @@ export class DeliveryService {
 
     const has2FA = opts.has2FA !== false && Boolean(opts.twoFactorSecret && opts.twoFactorSecret.trim().length > 0);
 
+    const isEn = opts.lang === 'en';
     let twoFaBlock = '';
     if (has2FA && opts.twoFactorSecret) {
       const secret = opts.twoFactorSecret.trim();
@@ -84,23 +86,36 @@ export class DeliveryService {
           liveCode = null;
         }
       }
-      twoFaBlock = `• កូដសម្ងាត់ 2FA: <code>${secret}</code>\n` +
-        (liveCode ? `• កូដផ្ទៀងផ្ទាត់ 2FA: <code>${liveCode}</code>\n` : '');
+      twoFaBlock = isEn
+        ? `• 2FA Secret Key: <code>${secret}</code>\n` + (liveCode ? `• Current 2FA OTP: <code>${liveCode}</code>\n` : '')
+        : `• កូដសម្ងាត់ 2FA: <code>${secret}</code>\n` + (liveCode ? `• កូដផ្ទៀងផ្ទាត់ 2FA: <code>${liveCode}</code>\n` : '');
     }
 
-    const text =
-      `🧾 <b>វិក្កយបត្របញ្ជាទិញ UCHIRO STORE</b>\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🆔 <b>លេខកូដបញ្ជាទិញ:</b> #UCH-${cleanOrderId}\n` +
-      `📦 <b>ទំនិញ:</b> ${opts.productName}\n` +
-      `💵 <b>តម្លៃសរុប:</b> $${opts.amount.toFixed(2)} USD\n` +
-      `⏱️ <b>កាលបរិច្ឆេទ:</b> ${dateTime}\n` +
-      `🔐 <b>ព័ត៌មានគណនី / ទំនិញ:</b>\n` +
-      `• គណនី: <code>${opts.username}</code>\n` +
-      `• ពាក្យសម្ងាត់: <code>${opts.password}</code>\n` +
-      twoFaBlock +
-      `🛡️ <b>ការធានា:</b> ១៤ ថ្ងៃពេញ (ជំនួយ: @${supportHandle})\n` +
-      `━━━━━━━━━━━━━━━━━━━━`;
+    const text = isEn
+      ? `🧾 <b>UCHIRO STORE ORDER INVOICE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🆔 <b>Order ID:</b> #UCH-${cleanOrderId}\n` +
+        `📦 <b>Product:</b> ${opts.productName}\n` +
+        `💵 <b>Total Amount:</b> $${opts.amount.toFixed(2)} USD\n` +
+        `⏱️ <b>Date:</b> ${dateTime}\n` +
+        `🔐 <b>Account Credentials:</b>\n` +
+        `• Username: <code>${opts.username}</code>\n` +
+        `• Password: <code>${opts.password}</code>\n` +
+        twoFaBlock +
+        `🛡️ <b>Warranty:</b> Full 14-Day Guarantee (Support: @${supportHandle})\n` +
+        `━━━━━━━━━━━━━━━━━━━━`
+      : `🧾 <b>វិក្កយបត្របញ្ជាទិញ UCHIRO STORE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🆔 <b>លេខកូដបញ្ជាទិញ:</b> #UCH-${cleanOrderId}\n` +
+        `📦 <b>ទំនិញ:</b> ${opts.productName}\n` +
+        `💵 <b>តម្លៃសរុប:</b> $${opts.amount.toFixed(2)} USD\n` +
+        `⏱️ <b>កាលបរិច្ឆេទ:</b> ${dateTime}\n` +
+        `🔐 <b>ព័ត៌មានគណនី / ទំនិញ:</b>\n` +
+        `• គណនី: <code>${opts.username}</code>\n` +
+        `• ពាក្យសម្ងាត់: <code>${opts.password}</code>\n` +
+        twoFaBlock +
+        `🛡️ <b>ការធានា:</b> ១៤ ថ្ងៃពេញ (ជំនួយ: @${supportHandle})\n` +
+        `━━━━━━━━━━━━━━━━━━━━`;
 
     return text;
   }
@@ -197,13 +212,13 @@ export class DeliveryService {
         inline_keyboard: [
           [
             {
-              text: '🛡️ ពិនិត្យការធានា (Check Warranty)',
+              text: '🛡️ Check Warranty',
               callback_data: `sub_warranty:${orderId}`,
             },
           ],
           [
             {
-              text: '💬 ទាក់ទងផ្នែកជំនួយ (Contact Support)',
+              text: '💬 Contact Support',
               url: `https://t.me/${cleanSupport}`,
             },
           ],

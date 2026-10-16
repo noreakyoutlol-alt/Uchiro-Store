@@ -253,24 +253,33 @@ export const handleDailyRewardClaim = async (req: RequestWithAuth, res: any) => 
   if (!claimRes.success) {
     const secondsRemaining = (claimRes as any).seconds_remaining ?? Math.ceil(((claimRes as any).remainingMs ?? 0) / 1000);
     const nextClaimAt = new Date(Date.now() + secondsRemaining * 1000).toISOString();
-    return res.status(429).json({
+    return res.status(200).json({
       success: false,
       error: claimRes.error || 'ALREADY_CLAIMED_TODAY',
+      pointsAwarded: 0,
       seconds_remaining: secondsRemaining,
       next_claim_at: nextClaimAt,
     });
   }
 
+  const pointsAwarded = (claimRes as any).pointsAwarded ?? 5;
+  const newBalance = Number(claimRes.points);
+
   return res.json({
     success: true,
-    points: Number(claimRes.points),
+    points: newBalance,
     streak: Number(claimRes.streak),
+    pointsAwarded,
+    newBalance,
+    message: '🎉 ទទួលបាន +5 ពិន្ទុជោគជ័យ!',
     seconds_remaining: claimRes.seconds_remaining ?? 86400,
     next_claim_at: claimRes.nextClaimAt,
     data: {
       success: true,
-      points: Number(claimRes.points),
+      points: newBalance,
       streak: Number(claimRes.streak),
+      pointsAwarded,
+      newBalance,
       seconds_remaining: claimRes.seconds_remaining ?? 86400,
       next_claim_at: claimRes.nextClaimAt,
     },

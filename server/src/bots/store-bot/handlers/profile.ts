@@ -37,15 +37,15 @@ export async function fetchUserProfileData(telegramId: number | string): Promise
   const streak_count = snap.streak || 0;
   const total_orders = snap.ordersCount || 0;
 
-  let tier_name = '🌟 Standard Member';
+  let tier_name = '🌟 សមាជិកទូទៅ (Standard Member)';
   if (total_orders >= 10 || points >= 1000) {
-    tier_name = '👑 VIP Mythic Member';
+    tier_name = '👑 សមាជិក VIP (VIP Mythic Member)';
   } else if (total_orders >= 5 || points >= 500) {
-    tier_name = '⭐ Diamond Member';
+    tier_name = '⭐ សមាជិក Diamond (Diamond Member)';
   } else if (total_orders >= 2 || points >= 200) {
-    tier_name = '🔥 Platinum Member';
+    tier_name = '🔥 សមាជិក Platinum (Platinum Member)';
   } else if (total_orders >= 1 || points >= 50) {
-    tier_name = '💎 Gold Member';
+    tier_name = '💎 សមាជិក Gold (Gold Member)';
   }
 
   return {

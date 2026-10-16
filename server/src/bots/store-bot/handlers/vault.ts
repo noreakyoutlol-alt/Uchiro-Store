@@ -1,7 +1,6 @@
 import { Context } from 'telegraf';
 import {
   getCustomerDeliveredAccounts,
-  getCustomerDeliveredAccountById,
   isMessageNotModifiedError,
   escapeHtml,
 } from './orders';
@@ -16,10 +15,6 @@ import { enrichWithTgEmojis } from '../utils/emoji-registry';
 
 /**
  * Vault & Accounts Menu (cb_vault_menu / /vault)
- * Buttons:
- * 🔑 Get Live 2FA Code (cb_vault_2fa)
- * 🎒 View Delivered Accounts (cb_vault_accounts)
- * 🔙 Back Home (cb_main_menu)
  */
 export async function handleVaultDashboard(ctx: Context, storeUrl: string): Promise<void> {
   const telegramId = ctx.from?.id;
@@ -30,11 +25,11 @@ export async function handleVaultDashboard(ctx: Context, storeUrl: string): Prom
   } catch {}
 
   const text =
-    `🎒 <b>កាតាបឥវ៉ាន់ &amp; គណនីសុវត្ថិភាព (VAULT &amp; 2FA)</b>\n` +
+    `🎒 <b>MY VAULT &amp; GAME ACCOUNTS</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `គ្រប់គ្រងគណនីហ្គេមដែលបានទិញ និងស្នើសុំលេខកូដសុវត្ថិភាព 2FA៖\n\n` +
-    `• <b>🔑 Get Live 2FA Code:</b> បង្កើតលេខកូដ 6 ខ្ទង់ OTP ភ្លាមៗ\n` +
-    `• <b>🎒 View Delivered Accounts:</b> បញ្ជីគណនី និងពាក្យសម្ងាត់ទាំងអស់\n` +
+    `Manage your delivered game accounts and access live 2FA OTP codes:\n\n` +
+    `• <b>🔑 Get Live 2FA Code:</b> Instant 6-digit TOTP generator\n` +
+    `• <b>🎒 View Delivered Accounts:</b> Full credentials &amp; recovery codes\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildVaultMenuKeyboard();
@@ -74,10 +69,10 @@ export async function handleVault2fa(ctx: Context, storeUrl: string): Promise<vo
 
   if (twoFaAccounts.length === 0) {
     const text =
-      `🔑 <b>កូដសុវត្ថិភាព 2FA (LIVE 2FA GENERATOR)</b>\n` +
+      `🔑 <b>LIVE 2FA CODE GENERATOR</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `អ្នកមិនទាន់មានគណនីដែលបានភ្ជាប់ 2FA នៅឡើយទេ។\n\n` +
-      `👉 ចូលទៅកាន់បញ្ជីគណនីដើម្បីពិនិត្យទំនិញរបស់អ្នក៖`;
+      `You don't have any accounts with 2FA protection yet.\n\n` +
+      `👉 Check your delivered accounts list:`;
 
     const keyboard = buildVaultMenuKeyboard();
     try {
@@ -99,13 +94,13 @@ export async function handleVault2fa(ctx: Context, storeUrl: string): Promise<vo
     const remainingSeconds = generated.secondsRemaining;
 
     const text =
-      `🔑 <b>កូដសុវត្ថិភាព 2FA បច្ចុប្បន្ន (LIVE OTP)</b>\n` +
+      `🔑 <b>CURRENT 2FA CODE (LIVE OTP)</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🎮 <b>គណនី:</b> ${escapeHtml(account.game_title)} (@${escapeHtml(account.username)})\n` +
-      `📦 <b>កូដកុម្ម៉ង់:</b> <code>${escapeHtml(account.order_code)}</code>\n\n` +
-      `⚡ <b>កូដ 2FA OTP របស់អ្នក:</b>\n` +
-      `<code>${code}</code> <i>(ចុចលើលេខដើម្បី Copy)</i>\n\n` +
-      `⏳ <b>ផុតកំណត់ក្នុងរយៈពេល:</b> <b>${remainingSeconds} វិនាទី</b>\n` +
+      `🎮 <b>Account:</b> ${escapeHtml(account.game_title)} (@${escapeHtml(account.username)})\n` +
+      `📦 <b>Order Code:</b> <code>${escapeHtml(account.order_code)}</code>\n\n` +
+      `⚡ <b>Your Live 2FA Code:</b>\n` +
+      `<code>${code}</code> <i>(Tap code to copy)</i>\n\n` +
+      `⏳ <b>Expires in:</b> <b>${remainingSeconds}s</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━━`;
 
     const keyboard = buildTwoFactorKeyboard(account.account_id);
@@ -120,12 +115,12 @@ export async function handleVault2fa(ctx: Context, storeUrl: string): Promise<vo
     return;
   }
 
-  // If multiple, show account picker
+  // Multiple 2FA accounts: show selection list
   const text =
-    `🔑 <b>ជ្រើសរើសគណនីដើម្បីយកកូដ 2FA:</b>\n` +
+    `🔑 <b>SELECT AN ACCOUNT FOR 2FA CODE:</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `អ្នកមាន <b>${twoFaAccounts.length}</b> គណនីដែលប្រើប្រាស់ 2FA Authenticator:\n\n` +
-    `👇 <i>ចុចលើគណនីដែលអ្នកចង់ Login៖</i>`;
+    `You have <b>${twoFaAccounts.length}</b> accounts configured with 2FA Authenticator:\n\n` +
+    `👇 <i>Tap an account below to view its live OTP code:</i>`;
 
   const keyboard = buildVaultListKeyboard(twoFaAccounts, storeUrl);
   try {
@@ -138,3 +133,51 @@ export async function handleVault2fa(ctx: Context, storeUrl: string): Promise<vo
   }
 }
 
+/**
+ * Handle Delivered Accounts List (cb_vault_accounts)
+ */
+export async function handleVaultAccounts(ctx: Context, storeUrl: string): Promise<void> {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const accounts = await getCustomerDeliveredAccounts(telegramId);
+
+  if (accounts.length === 0) {
+    const text =
+      `🎒 <b>MY VAULT &amp; GAME ACCOUNTS</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `You don't have any delivered game accounts yet.\n\n` +
+      `👉 Tap below to explore the store catalog:`;
+
+    const keyboard = buildEmptyVaultKeyboard(storeUrl);
+    try {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } catch {
+      await ctx.reply(enrichWithTgEmojis(text), { parse_mode: 'HTML', ...keyboard });
+    }
+    return;
+  }
+
+  const text =
+    `🎒 <b>MY VAULT &amp; GAME ACCOUNTS</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `You have <b>${accounts.length}</b> game accounts in your vault:\n\n` +
+    `👇 <i>Tap an account below to view credentials & live 2FA code:</i>`;
+
+  const keyboard = buildVaultListKeyboard(accounts, storeUrl);
+  try {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  } catch {
+    await ctx.reply(enrichWithTgEmojis(text), { parse_mode: 'HTML', ...keyboard });
+  }
+}

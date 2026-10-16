@@ -2,6 +2,7 @@ import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
 import { handleAdminStart, handleAdminCallback, isMessageNotModifiedError } from './admin-actions';
 import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
+import { applyTelegramOutboundGuard } from '../telegram-guard';
 
 export function isAuthorizedAdmin(telegramId: string | number): boolean {
   const id = String(telegramId).trim();
@@ -21,6 +22,7 @@ export type AdminBotInstance = Omit<Telegraf, 'startPolling'> & {
 };
 
 export const adminBot: AdminBotInstance = new Telegraf(token) as unknown as AdminBotInstance;
+applyTelegramOutboundGuard(adminBot as any);
 
 export const STORE_URL =
   (process.env.STORE_MINIAPP_URL && process.env.STORE_MINIAPP_URL.startsWith('https://'))

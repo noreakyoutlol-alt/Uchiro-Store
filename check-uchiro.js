@@ -161,7 +161,7 @@ try {
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'locales' || entry.name === 'i18n' || entry.name === '.git') {
+        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'locales' || entry.name === 'i18n' || entry.name === 'tests' || entry.name === '__tests__' || entry.name === '.git') {
           continue;
         }
         results.push(...getKhmerFiles(fullPath));
@@ -200,7 +200,11 @@ try {
   const ordersHandler = fs.readFileSync(path.join(rootDir, 'server/src/bots/store-bot/handlers/orders.ts'), 'utf8');
 
   const iconEmoji = keyboardsFile.includes('icon_custom_emoji_id') || indexFile.includes('icon_custom_emoji_id');
-  const callApiGuard = indexFile.includes('callApi') && indexFile.includes('enrichWithTgEmojis');
+  const guardFile = fs.existsSync(path.join(rootDir, 'server/src/bots/telegram-guard.ts'))
+    ? fs.readFileSync(path.join(rootDir, 'server/src/bots/telegram-guard.ts'), 'utf8')
+    : '';
+  const callApiGuard = (indexFile.includes('callApi') || indexFile.includes('applyTelegramOutboundGuard')) &&
+                       (guardFile.includes('callApi') || indexFile.includes('callApi'));
   const answerCbGuard = indexFile.includes('answerCbQuery');
   const realOrderHistory = ordersHandler.includes('listOrdersByUser');
 
