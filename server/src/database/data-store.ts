@@ -2211,6 +2211,10 @@ export class DataStore {
       existingUser.last_daily_claim_at = lastClaim;
 
       let profile = this.profiles.get(numId);
+      if (!profile) {
+        this.findOrCreateTelegramUser({ telegram_id: numId, first_name: 'Customer' });
+        profile = this.profiles.get(numId);
+      }
       if (profile) {
         profile.points = pts;
         profile.reward_points = pts;
@@ -2485,6 +2489,7 @@ export class DataStore {
       created_at: new Date().toISOString(),
     });
     this.saveToDisk();
+    persistPointsDelta(telegramId, delta, reason).catch(() => {});
     return newBal;
   }
 
@@ -3989,6 +3994,10 @@ export async function getUserSnapshot(telegramId: string | number): Promise<User
         existingUser.last_daily_claim_at = lastDailyClaimAt;
 
         let profile = DataStore.getProfile(numId);
+        if (!profile) {
+          DataStore.findOrCreateTelegramUser({ telegram_id: numId, first_name: 'Customer' });
+          profile = DataStore.getProfile(numId);
+        }
         if (profile) {
           profile.points = points;
           profile.reward_points = points;
@@ -4024,6 +4033,21 @@ export async function getUserSnapshot(telegramId: string | number): Promise<User
   const nextClaimAt = lastDailyClaimAt
     ? new Date(new Date(lastDailyClaimAt).getTime() + 86400000).toISOString()
     : null;
+  if (user) {
+    user.points = pts;
+    user.reward_points = pts;
+    user.streak_count = streak;
+    user.gacha_tickets = tickets;
+    user.last_daily_claim_at = lastDailyClaimAt;
+  }
+  if (profile) {
+    profile.points = pts;
+    profile.reward_points = pts;
+    profile.loyalty_points = pts;
+    profile.streak_count = streak;
+    profile.gacha_tickets = tickets;
+    profile.last_daily_claim_at = lastDailyClaimAt;
+  }
   const userOrders = DataStore.getOrdersByCustomer(numId).filter(
     (o) => o.status === 'paid' || (o.status as string) === 'completed'
   );

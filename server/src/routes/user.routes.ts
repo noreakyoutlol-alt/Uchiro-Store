@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { DataStore, getUserSnapshot } from '../database/data-store';
+import { DataStore, getUserSnapshot, claimDailyReward } from '../database/data-store';
 import { validateTelegramInitData } from '../security/telegram-validator';
 import { env } from '../config/env';
+import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
 
 export const userRouter = Router();
 
@@ -107,24 +108,28 @@ userRouter.get(['/profile', '/me'], async (req: Request, res: Response) => {
  * POST /api/user/daily-claim
  * Atomic daily claim persisting to Supabase users table and points_ledger.
  */
-userRouter.post(['/daily-claim', '/claim-daily'], async (req: Request, res: Response) => {
+userRouter.post(['/daily-claim', '/claim-daily'], requireTelegramAuth, async (req: RequestWithAuth, res: Response) => {
   try {
-    const telegramId = extractTelegramId(req);
+    const telegramId = req.user?.telegram_id || extractTelegramId(req);
     if (!telegramId) {
-      res.status(400).json({
+      res.status(401).json({
         success: false,
-        error: { code: 'MISSING_TELEGRAM_ID', message: 'Telegram ID is required for daily claim' },
+        error: { code: 'UNAUTHORIZED', message: 'Telegram authentication is required for daily claim' },
       });
       return;
     }
 
     const numId = Number(telegramId);
-    const result = DataStore.claimDailyReward(numId);
+    const result = await claimDailyReward(numId);
     if (!result.success) {
-      res.status(400).json({
+      const secondsRemaining = (result as any).seconds_remaining ?? Math.ceil(((result as any).remainingMs ?? 0) / 1000);
+      const nextClaimAt = new Date(Date.now() + secondsRemaining * 1000).toISOString();
+      res.status(429).json({
         ...result,
         success: false,
-        error: { code: result.error || 'ALREADY_CLAIMED', message: result.message },
+        error: result.error || 'ALREADY_CLAIMED_TODAY',
+        seconds_remaining: secondsRemaining,
+        next_claim_at: nextClaimAt,
       });
       return;
     }
@@ -132,6 +137,10 @@ userRouter.post(['/daily-claim', '/claim-daily'], async (req: Request, res: Resp
     res.json({
       ...result,
       success: true,
+      points: Number(result.points),
+      streak: Number(result.streak),
+      seconds_remaining: result.seconds_remaining ?? 86400,
+      next_claim_at: result.nextClaimAt,
       data: result,
     });
   } catch (err: any) {

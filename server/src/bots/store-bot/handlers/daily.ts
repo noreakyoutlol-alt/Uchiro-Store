@@ -1,6 +1,5 @@
 import { Context } from 'telegraf';
-import { DataStore, claimDailyReward } from '../../../database/data-store';
-import { pgPool, isPostgresConfigured } from '../../../database/postgres';
+import { DataStore, claimDailyReward, getUserSnapshot } from '../../../database/data-store';
 import {
   buildDailyKeyboard,
   buildSubDailyShopKeyboard,
@@ -26,47 +25,13 @@ export function formatCooldownSeconds(totalSec: number): string {
 
 export async function fetchDailyLiveInfo(telegramId: number | string): Promise<DailyLiveInfo> {
   const tid = String(telegramId);
-  const numId = Number(telegramId);
+  const snap = await getUserSnapshot(tid);
   const now = Date.now();
   const cooldownMs = 24 * 60 * 60 * 1000;
 
-  let streak_count = 0;
-  let points = 0;
-  let last_claimed_at: string | null = null;
-
-  // 1. Fetch from PostgreSQL if configured
-  if (isPostgresConfigured()) {
-    try {
-      const { rows } = await pgPool.query(
-        'SELECT points, streak_count, last_daily_claim_at FROM users WHERE telegram_id = $1 LIMIT 1',
-        [tid]
-      );
-      if (rows.length > 0) {
-        points = Number(rows[0].points || 0);
-        streak_count = Number(rows[0].streak_count || 0);
-        last_claimed_at = rows[0].last_daily_claim_at
-          ? new Date(rows[0].last_daily_claim_at).toISOString()
-          : null;
-      }
-    } catch (err: any) {
-      console.warn('[fetchDailyLiveInfo] Postgres query warning:', err?.message);
-    }
-  }
-
-  // 2. Fallback / merge with DataStore
-  if (!last_claimed_at && !points) {
-    const dsUser = DataStore.getTelegramUser(numId);
-    const dsProfile = DataStore.getProfile(numId);
-    if (dsUser) {
-      points = Number(dsUser.points || 0);
-      last_claimed_at = dsUser.last_daily_claim_at || null;
-      streak_count = Number(dsUser.streak_count || 1);
-    } else if (dsProfile) {
-      points = Number(dsProfile.points || 0);
-      last_claimed_at = dsProfile.last_daily_claim_at || null;
-      streak_count = Number(dsProfile.streak_count || 1);
-    }
-  }
+  const streak_count = snap.streak || 0;
+  const points = snap.points || 0;
+  const last_claimed_at = snap.lastDailyClaimAt;
 
   let is_claimable = true;
   let seconds_remaining = 0;

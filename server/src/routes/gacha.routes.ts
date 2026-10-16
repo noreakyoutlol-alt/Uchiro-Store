@@ -6,8 +6,8 @@ import { handleDailyRewardStatus, handleDailyRewardClaim } from './store.routes'
 export const gachaRouter = Router();
 
 // Daily Reward Support in Gacha Router
-gachaRouter.get('/daily-status', handleDailyRewardStatus);
-gachaRouter.post('/daily-claim', handleDailyRewardClaim);
+gachaRouter.get('/daily-status', requireTelegramAuth, handleDailyRewardStatus);
+gachaRouter.post('/daily-claim', requireTelegramAuth, handleDailyRewardClaim);
 
 // List Active Gacha Pools & Prizes
 gachaRouter.get('/pools', (_req, res) => {

@@ -1,6 +1,5 @@
 import { Context } from 'telegraf';
-import { DataStore } from '../../../database/data-store';
-import { supabase, isSupabaseConfigured } from '../../../database/supabase';
+import { DataStore, getUserSnapshot } from '../../../database/data-store';
 import {
   buildProfileKeyboard,
   buildPointsLedgerKeyboard,
@@ -21,61 +20,24 @@ export interface UserProfileData {
 
 export async function fetchUserProfileData(telegramId: number | string): Promise<UserProfileData> {
   const tid = String(telegramId);
-  const numId = Number(telegramId);
+  const numId = Number(telegramId) || 0;
 
-  let points = 0;
-  let streak_count = 0;
-  let tickets = 0;
+  const snap = await getUserSnapshot(tid);
   let username = 'Member';
-  let total_orders = 0;
 
-  // 1. Fetch from Supabase if configured
-  if (isSupabaseConfigured()) {
-    try {
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('*')
-        .eq('telegram_id', tid)
-        .maybeSingle();
-
-      if (userRow) {
-        points = userRow.points ?? 0;
-        streak_count = userRow.streak_count ?? 0;
-        username = userRow.username || userRow.first_name || 'Member';
-        tickets = (userRow.extra as any)?.gacha_tickets ?? 0;
-      }
-
-      const { count } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('telegram_id', tid);
-
-      total_orders = count || 0;
-    } catch {
-      // Fallback on error
-    }
+  const dsUser = DataStore.getTelegramUser(numId);
+  if (dsUser?.username) {
+    username = dsUser.username;
+  } else if (dsUser?.first_name) {
+    username = dsUser.first_name;
   }
 
-  // 2. Fallback / Merge with DataStore
-  if (!points && !total_orders) {
-    const dsUser = DataStore.getTelegramUser(numId);
-    const dsProfile = DataStore.getProfile(numId);
-    if (dsUser) {
-      username = dsUser.username || dsUser.first_name || username;
-      points = dsUser.points || points;
-    }
-    if (dsProfile) {
-      points = dsProfile.points || points;
-      tickets = dsProfile.gacha_tickets || tickets;
-    }
-    const dsOrders = DataStore.getOrdersByTelegramId(numId);
-    if (dsOrders && dsOrders.length > 0) {
-      total_orders = dsOrders.length;
-    }
-  }
+  const points = snap.points;
+  const tickets = snap.gachaTickets || 0;
+  const streak_count = snap.streak || 0;
+  const total_orders = snap.ordersCount || 0;
 
-  // Calculate Tier Name based on order count and activity
-  let tier_name = '🌟 សមាជិកទូទៅ (Standard)';
+  let tier_name = '🌟 Standard Member';
   if (total_orders >= 10 || points >= 1000) {
     tier_name = '👑 VIP Mythic Member';
   } else if (total_orders >= 5 || points >= 500) {
@@ -109,21 +71,20 @@ export async function handleProfileMenu(ctx: Context, storeUrl: string): Promise
   } catch {}
 
   const profile = await fetchUserProfileData(telegramId);
-  const userLang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const text =
-    `👤 <b>ព័ត៌មានគណនី UCHIRO (MY PROFILE)</b>\n` +
+    `👤 <b>UCHIRO ACCOUNT PROFILE</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `🆔 <b>Telegram ID:</b> <code>${profile.telegram_id}</code>\n` +
-    `👤 <b>ឈ្មោះគណនី:</b> @${escapeHtml(profile.username)}\n` +
-    `⭐ <b>កម្រិតសមាជិក:</b> ${profile.tier_name}\n` +
-    `🪙 <b>ពិន្ទុសន្សំ:</b> <code>${profile.points}</code> Pts\n` +
-    `🎟️ <b>សំបុត្រ Gacha:</b> <code>${profile.tickets}</code> សំបុត្រ\n` +
-    `🔥 <b>Streak ប្រចាំថ្ងៃ:</b> <code>${profile.streak_count}</code> / 7 ថ្ងៃ\n` +
-    `📦 <b>ការទិញសរុប:</b> <code>${profile.total_orders}</code> កញ្ចប់\n` +
+    `👤 <b>Account Name:</b> @${escapeHtml(profile.username)}\n` +
+    `⭐ <b>Membership Tier:</b> ${profile.tier_name}\n` +
+    `🪙 <b>Points Balance:</b> <code>${profile.points}</code> Pts\n` +
+    `🎟️ <b>Gacha Tickets:</b> <code>${profile.tickets}</code> Tickets\n` +
+    `🔥 <b>Daily Streak:</b> <code>${profile.streak_count}</code> / 7 Days\n` +
+    `📦 <b>Total Orders:</b> <code>${profile.total_orders}</code> Orders\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildProfileKeyboard(storeUrl, userLang);
+  const keyboard = buildProfileKeyboard(storeUrl, 'en');
   const formattedHtml = enrichWithTgEmojis(text);
 
   try {
@@ -156,7 +117,6 @@ export async function handlePointsLedger(ctx: Context): Promise<void> {
     await ctx.answerCbQuery();
   } catch {}
 
-  const userLang = DataStore.getUserLanguagePreference(telegramId) || 'km';
   const profile = await fetchUserProfileData(telegramId);
 
   // Fetch recent ledger entries from DataStore
@@ -164,24 +124,24 @@ export async function handlePointsLedger(ctx: Context): Promise<void> {
   let ledgerText = '';
 
   if (ledger.length === 0) {
-    ledgerText = `<i>មិនទាន់មានប្រវត្តិប្រតិបត្តិការនៅឡើយទេ។</i>\n`;
+    ledgerText = `<i>No transaction history recorded yet.</i>\n`;
   } else {
     const recent = ledger.slice(0, 5);
     ledgerText = recent
       .map((entry) => {
         const sign = entry.amount >= 0 ? '+' : '';
-        return `• <b>${sign}${entry.amount} Pts</b> — ${escapeHtml(entry.description || entry.type)} (សមតុល្យ: ${entry.balance_after})`;
+        return `• <b>${sign}${entry.amount} Pts</b> — ${escapeHtml(entry.description || entry.type)} (Balance: ${entry.balance_after})`;
       })
       .join('\n');
   }
 
   const text =
-    `📜 <b>ប្រវត្តិពិន្ទុសន្សំ (POINTS LEDGER)</b>\n` +
+    `📜 <b>POINTS LEDGER &amp; HISTORY</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🪙 <b>ពិន្ទុបច្ចុប្បន្ន:</b> <code>${profile.points}</code> Pts\n\n` +
-    `<b>ប្រតិបត្តិការ 5 ចុងក្រោយ:</b>\n` +
+    `🪙 <b>Current Balance:</b> <code>${profile.points}</code> Pts\n\n` +
+    `<b>Last 5 Transactions:</b>\n` +
     ledgerText + `\n` +
-    `💡 <i>ចំណាំ: អ្នកអាចទទួលបានពិន្ទុដោយឥតគិតថ្លៃតាមរយៈការ Claim ប្រចាំថ្ងៃ ឬការទិញទំនិញក្នុងហាង។</i>\n` +
+    `💡 <i>Tip: Earn free points via daily check-ins or by shopping in our store!</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildPointsLedgerKeyboard('en');
@@ -209,19 +169,19 @@ export async function handleRedeemPoints(ctx: Context): Promise<void> {
     await ctx.answerCbQuery();
   } catch {}
 
-  const userLang = DataStore.getUserLanguagePreference(telegramId) || 'km';
   const profile = await fetchUserProfileData(telegramId);
+  const ticketCost = DataStore.getStoreSettings().gacha_ticket_points_cost || 100;
 
   const text =
-    `🎁 <b>ប្តូរពិន្ទុយករង្វាន់ (REDEEM POINTS)</b>\n` +
+    `🎁 <b>REDEEM REWARD POINTS</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🪙 <b>ពិន្ទុរបស់អ្នក:</b> <code>${profile.points}</code> Pts\n\n` +
-    `<b>តារាងតម្លៃប្តូរយករង្វាន់:</b>\n` +
-    `🎟️ <b>សំបុត្រ Gacha 1 សន្លឹក:</b> <code>50 Pts</code>\n` +
-    `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $0.50:</b> <code>100 Pts</code> (កុម្ម៉ង់ចាប់ពី $3)\n` +
-    `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $1.20:</b> <code>200 Pts</code> (កុម្ម៉ង់ចាប់ពី $6)\n` +
-    `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $3.50:</b> <code>500 Pts</code> (កុម្ម៉ង់ចាប់ពី $15)\n\n` +
-    `👇 ចុចប្តូរសំបុត្រ Gacha ភ្លាមៗ ឬចូលទៅកាន់កម្មវិធី Store ដើម្បីប្តូរប័ណ្ណបញ្ចុះតម្លៃ:\n` +
+    `🪙 <b>Your Points Balance:</b> <code>${profile.points}</code> Pts\n\n` +
+    `<b>Available Redemptions:</b>\n` +
+    `🎟️ <b>1x Gacha Ticket:</b> <code>${ticketCost} Pts</code>\n` +
+    `🏷️ <b>$0.50 Discount Voucher:</b> <code>100 Pts</code> (Orders from $3)\n` +
+    `🏷️ <b>$1.20 Discount Voucher:</b> <code>200 Pts</code> (Orders from $6)\n` +
+    `🏷️ <b>$3.50 Discount Voucher:</b> <code>500 Pts</code> (Orders from $15)\n\n` +
+    `👇 Exchange for Gacha Tickets below or open Mini App to redeem vouchers:\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildRedeemPointsKeyboard('en');
