@@ -51,7 +51,7 @@ export interface RobuxOrder {
 export class RobuxService {
   // Canonical supported Robux denominations
   public static readonly DENOMINATIONS: number[] = [
-    100, 200, 400, 800, 1000, 1700, 2000, 4500, 10000,
+    100, 200, 400, 500, 800, 1000, 1700, 2000, 4500, 10000,
   ];
 
   // In-memory state for development / test harness
@@ -140,7 +140,9 @@ export class RobuxService {
     const availableRobux = Math.max(0, stock.total_balance - stock.reserved_balance);
 
     return this.DENOMINATIONS.map((denomination) => {
-      const price_usd = Number(((denomination / 1000) * stock.rate_per_1000).toFixed(2));
+      // Calculate price using exact integer cents to eliminate JavaScript floating-point errors
+      const price_cents = Math.round((denomination * stock.rate_per_1000 * 100) / 1000);
+      const price_usd = price_cents / 100;
       const available_packs = Math.floor(availableRobux / denomination);
       const is_sold_out = available_packs <= 0;
 
@@ -228,6 +230,223 @@ export class RobuxService {
     });
 
     return { ...this.memStock };
+  }
+
+  /**
+   * Atomically add Robux stock to pool with audit ledger entry.
+   */
+  static async addStock(
+    adminId: string,
+    deltaAmount: number,
+    reason: string
+  ): Promise<RobuxStockConfig> {
+    if (deltaAmount <= 0 || !Number.isInteger(deltaAmount)) {
+      throw new Error('INVALID_DELTA: Added stock must be a positive integer');
+    }
+
+    if (isPostgresConfigured()) {
+      const client = await pgPool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows } = await client.query(
+          `SELECT * FROM robux_stock ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`
+        );
+
+        let newTotal = deltaAmount;
+        let oldTotal = 0;
+        let stockId = '';
+        if (rows.length > 0) {
+          stockId = rows[0].id;
+          oldTotal = Number(rows[0].total_balance);
+          newTotal = oldTotal + deltaAmount;
+          await client.query(
+            `UPDATE robux_stock SET total_balance = $1, updated_at = NOW() WHERE id = $2`,
+            [newTotal, stockId]
+          );
+        } else {
+          const insertRes = await client.query(
+            `INSERT INTO robux_stock (total_balance, reserved_balance, rate_per_1000, is_active, updated_at)
+             VALUES ($1, 0, 3.50, false, NOW()) RETURNING *`,
+            [newTotal]
+          );
+          stockId = insertRes.rows[0].id;
+        }
+
+        await client.query(
+          `INSERT INTO robux_stock_ledger (admin_id, delta_amount, old_total, new_total, reason, created_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [adminId, deltaAmount, oldTotal, newTotal, reason]
+        );
+
+        await client.query('COMMIT');
+        return this.getStockConfig();
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+
+    const oldTotal = this.memStock.total_balance;
+    this.memStock.total_balance += deltaAmount;
+    this.memStock.updated_at = new Date().toISOString();
+    this.memLedger.push({
+      adminId,
+      delta: deltaAmount,
+      oldTotal,
+      newTotal: this.memStock.total_balance,
+      reason,
+      createdAt: new Date().toISOString(),
+    });
+    return { ...this.memStock };
+  }
+
+  /**
+   * Set Robux rate per 1,000 Robux with audit ledger entry.
+   */
+  static async setRate(
+    adminId: string,
+    newRate: number,
+    reason: string
+  ): Promise<RobuxStockConfig> {
+    if (newRate <= 0 || isNaN(newRate)) {
+      throw new Error('INVALID_RATE: Rate per 1000 Robux must be a positive number');
+    }
+
+    if (isPostgresConfigured()) {
+      const client = await pgPool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows } = await client.query(
+          `SELECT * FROM robux_stock ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`
+        );
+
+        if (rows.length > 0) {
+          await client.query(
+            `UPDATE robux_stock SET rate_per_1000 = $1, updated_at = NOW() WHERE id = $2`,
+            [newRate, rows[0].id]
+          );
+        } else {
+          await client.query(
+            `INSERT INTO robux_stock (total_balance, reserved_balance, rate_per_1000, is_active, updated_at)
+             VALUES (0, 0, $1, false, NOW())`,
+            [newRate]
+          );
+        }
+
+        await client.query(
+          `INSERT INTO robux_stock_ledger (admin_id, delta_amount, old_total, new_total, reason, created_at)
+           VALUES ($1, 0, 0, 0, $2, NOW())`,
+          [adminId, `RATE_CHANGE_TO_${newRate}_REASON_${reason}`]
+        );
+
+        await client.query('COMMIT');
+        return this.getStockConfig();
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+
+    this.memStock.rate_per_1000 = newRate;
+    this.memStock.updated_at = new Date().toISOString();
+    this.memLedger.push({
+      adminId,
+      delta: 0,
+      oldTotal: 0,
+      newTotal: 0,
+      reason: `RATE_CHANGE_TO_${newRate}_REASON_${reason}`,
+      createdAt: new Date().toISOString(),
+    });
+    return { ...this.memStock };
+  }
+
+  /**
+   * Update Robux settings (is_active, min_order_robux, max_order_robux).
+   */
+  static async updateSettings(
+    adminId: string,
+    settings: { is_active?: boolean; min_order_robux?: number; max_order_robux?: number },
+    reason: string = 'ADMIN_SETTINGS_UPDATE'
+  ): Promise<RobuxStockConfig> {
+    if (isPostgresConfigured()) {
+      const client = await pgPool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows } = await client.query(
+          `SELECT * FROM robux_stock ORDER BY updated_at DESC LIMIT 1 FOR UPDATE`
+        );
+        if (rows.length > 0) {
+          const updates: string[] = [];
+          const values: any[] = [];
+          let idx = 1;
+
+          if (typeof settings.is_active === 'boolean') {
+            updates.push(`is_active = $${idx++}`);
+            values.push(settings.is_active);
+          }
+          if (typeof settings.min_order_robux === 'number') {
+            updates.push(`min_order_robux = $${idx++}`);
+            values.push(settings.min_order_robux);
+          }
+          if (typeof settings.max_order_robux === 'number') {
+            updates.push(`max_order_robux = $${idx++}`);
+            values.push(settings.max_order_robux);
+          }
+
+          if (updates.length > 0) {
+            updates.push(`updated_at = NOW()`);
+            values.push(rows[0].id);
+            await client.query(
+              `UPDATE robux_stock SET ${updates.join(', ')} WHERE id = $${idx}`,
+              values
+            );
+          }
+        }
+
+        await client.query(
+          `INSERT INTO robux_stock_ledger (admin_id, delta_amount, old_total, new_total, reason, created_at)
+           VALUES ($1, 0, 0, 0, $2, NOW())`,
+          [adminId, reason]
+        );
+
+        await client.query('COMMIT');
+        return this.getStockConfig();
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
+
+    if (typeof settings.is_active === 'boolean') this.memStock.is_active = settings.is_active;
+    if (typeof settings.min_order_robux === 'number') this.memStock.min_order_robux = settings.min_order_robux;
+    if (typeof settings.max_order_robux === 'number') this.memStock.max_order_robux = settings.max_order_robux;
+    return { ...this.memStock };
+  }
+
+  /**
+   * Get recent Robux orders for admin view.
+   */
+  static async getRecentOrders(limit: number = 10): Promise<RobuxOrder[]> {
+    if (isPostgresConfigured()) {
+      try {
+        const { rows } = await pgPool.query(
+          `SELECT * FROM robux_orders ORDER BY created_at DESC LIMIT $1`,
+          [limit]
+        );
+        return rows as RobuxOrder[];
+      } catch (err: any) {
+        console.warn('[RobuxService] getRecentOrders DB error:', err?.message);
+      }
+    }
+    return Array.from(this.memOrders.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, limit);
   }
 
   /**

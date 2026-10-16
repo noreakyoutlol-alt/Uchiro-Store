@@ -93,6 +93,128 @@ const StoreAppContent: React.FC = () => {
   const [vaultAccountId, setVaultAccountId] = useState<string | undefined>();
 
   useEffect(() => {
+    let isMounted = true;
+
+    const initializeApp = async () => {
+      try {
+        const tg = (window as any).Telegram?.WebApp;
+        if (tg) {
+          tg.ready();
+          tg.expand();
+        }
+
+        const initData = tg?.initData || '';
+        try {
+          const authData = await StoreAPI.authenticateTelegram(initData);
+          if (authData && isMounted) {
+            const mergedUser = {
+              ...authData.user,
+              photo_url: authData.user?.photo_url || tg?.initDataUnsafe?.user?.photo_url || null,
+            };
+            setUser(mergedUser);
+            setProfile(authData.profile);
+          }
+        } catch (authErr) {
+          console.warn('Telegram auth fallback:', authErr);
+          if (tg?.initDataUnsafe?.user && isMounted) {
+            const u = tg.initDataUnsafe.user;
+            setUser({
+              id: String(u.id),
+              telegram_id: u.id,
+              username: u.username || null,
+              first_name: u.first_name || '',
+              last_name: u.last_name || null,
+              photo_url: u.photo_url || null,
+              language_code: u.language_code || 'en',
+            });
+          }
+        }
+
+        // Fetch Catalog, Categories, In-Stock Products & Gacha Pools
+        const [cats, inStock, shopProducts, pools] = await Promise.all([
+          StoreAPI.getCategories().catch(() => []),
+          StoreAPI.getHomeInStockProducts().catch(() => []),
+          StoreAPI.getShopProducts({}).catch(() => []),
+          StoreAPI.getGachaPools().catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        setCategories(cats);
+        setHomeInStockProducts(inStock);
+        setAllShopProducts(shopProducts);
+        setGachaPools(pools);
+
+        // Fetch User's Orders
+        let userOrders: Order[] = [];
+        try {
+          userOrders = await StoreAPI.getOrders();
+          if (isMounted) setOrders(userOrders);
+        } catch {
+          if (isMounted) setOrders([]);
+        }
+
+        if (!isMounted) return;
+
+        // Handle Telegram Deep Link query parameters: ?tab=vault&orderId=...&accountId=...
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam === 'vault') {
+          setActiveTab('vault');
+          const deepOrderId = urlParams.get('orderId') || urlParams.get('order');
+          const deepAccountId = urlParams.get('accountId');
+          if (deepOrderId) setVaultOrderId(deepOrderId);
+          if (deepAccountId) setVaultAccountId(deepAccountId);
+        } else if (tabParam === 'orders' || tabParam === 'shop' || tabParam === 'gacha' || tabParam === 'profile') {
+          setActiveTab(tabParam as TabType);
+        }
+
+        const orderParam = urlParams.get('order');
+        const viewParam = urlParams.get('view');
+        if (orderParam && tabParam !== 'vault') {
+          let targetOrder = userOrders.find((o) => o.order_number === orderParam || o.id === orderParam);
+          if (!targetOrder) {
+            try {
+              targetOrder = await StoreAPI.getOrder(orderParam);
+            } catch {
+              // non-fatal
+            }
+          }
+          if (targetOrder && isMounted) {
+            if (viewParam === 'receipt') {
+              setReceiptOrderModal(targetOrder);
+            } else {
+              setDeliveredOrderModal(targetOrder);
+            }
+          }
+        }
+
+        // Check if URL path starts with /product/:id
+        const currentPath = window.location.pathname;
+        if (currentPath.startsWith('/product/')) {
+          const prodId = currentPath.replace('/product/', '').split('/')[0].split('?')[0];
+          if (prodId) {
+            const found =
+              inStock.find((p: Product) => p.id === prodId) ||
+              shopProducts.find((p: Product) => p.id === prodId);
+            if (found && isMounted) {
+              setSelectedProduct(found);
+            } else {
+              StoreAPI.getProductById(prodId).then((p: Product) => {
+                if (p && isMounted) setSelectedProduct(p);
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to initialize Uchiro Store app:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     initializeApp();
 
     // Session heartbeat tracking for honest live shopper metrics (throttled to 25s, pauses on background)
@@ -123,126 +245,13 @@ const StoreAppContent: React.FC = () => {
     }
 
     return () => {
+      isMounted = false;
       clearInterval(hbInterval);
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
   }, []);
-
-  const initializeApp = async () => {
-    try {
-      const tg = (window as any).Telegram?.WebApp;
-      if (tg) {
-        tg.ready();
-        tg.expand();
-      }
-
-      const initData = tg?.initData || '';
-      try {
-        const authData = await StoreAPI.authenticateTelegram(initData);
-        if (authData) {
-          const mergedUser = {
-            ...authData.user,
-            photo_url: authData.user?.photo_url || tg?.initDataUnsafe?.user?.photo_url || null,
-          };
-          setUser(mergedUser);
-          setProfile(authData.profile);
-        }
-      } catch (authErr) {
-        console.warn('Telegram auth fallback:', authErr);
-        if (tg?.initDataUnsafe?.user) {
-          const u = tg.initDataUnsafe.user;
-          setUser({
-            id: String(u.id),
-            telegram_id: u.id,
-            username: u.username || null,
-            first_name: u.first_name || '',
-            last_name: u.last_name || null,
-            photo_url: u.photo_url || null,
-            language_code: u.language_code || 'en',
-          });
-        }
-      }
-
-      // Fetch Catalog, Categories, In-Stock Products & Gacha Pools
-      const [cats, inStock, shopProducts, pools] = await Promise.all([
-        StoreAPI.getCategories().catch(() => []),
-        StoreAPI.getHomeInStockProducts().catch(() => []),
-        StoreAPI.getShopProducts({}).catch(() => []),
-        StoreAPI.getGachaPools().catch(() => []),
-      ]);
-
-      setCategories(cats);
-      setHomeInStockProducts(inStock);
-      setAllShopProducts(shopProducts);
-      setGachaPools(pools);
-
-      // Fetch User's Orders
-      let userOrders: Order[] = [];
-      try {
-        userOrders = await StoreAPI.getOrders();
-        setOrders(userOrders);
-      } catch {
-        setOrders([]);
-      }
-
-      // Handle Telegram Deep Link query parameters: ?tab=vault&orderId=...&accountId=...
-      const urlParams = new URLSearchParams(window.location.search);
-      const tabParam = urlParams.get('tab');
-      if (tabParam === 'vault') {
-        setActiveTab('vault');
-        const deepOrderId = urlParams.get('orderId') || urlParams.get('order');
-        const deepAccountId = urlParams.get('accountId');
-        if (deepOrderId) setVaultOrderId(deepOrderId);
-        if (deepAccountId) setVaultAccountId(deepAccountId);
-      } else if (tabParam === 'orders' || tabParam === 'shop' || tabParam === 'gacha' || tabParam === 'profile') {
-        setActiveTab(tabParam as TabType);
-      }
-
-      const orderParam = urlParams.get('order');
-      const viewParam = urlParams.get('view');
-      if (orderParam && tabParam !== 'vault') {
-        let targetOrder = userOrders.find((o) => o.order_number === orderParam || o.id === orderParam);
-        if (!targetOrder) {
-          try {
-            targetOrder = await StoreAPI.getOrder(orderParam);
-          } catch {
-            // non-fatal
-          }
-        }
-        if (targetOrder) {
-          if (viewParam === 'receipt') {
-            setReceiptOrderModal(targetOrder);
-          } else {
-            setDeliveredOrderModal(targetOrder);
-          }
-        }
-      }
-
-      // Check if URL path starts with /product/:id
-      const currentPath = window.location.pathname;
-      if (currentPath.startsWith('/product/')) {
-        const prodId = currentPath.replace('/product/', '').split('/')[0].split('?')[0];
-        if (prodId) {
-          const found =
-            inStock.find((p: Product) => p.id === prodId) ||
-            shopProducts.find((p: Product) => p.id === prodId);
-          if (found) {
-            setSelectedProduct(found);
-          } else {
-            StoreAPI.getProductById(prodId).then((p: Product) => {
-              if (p) setSelectedProduct(p);
-            }).catch(() => {});
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to initialize Uchiro Store app:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Sync browser popstate navigation for /product/:id
   useEffect(() => {

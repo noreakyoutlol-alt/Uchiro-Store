@@ -33,13 +33,48 @@ export async function handleRobuxMenu(ctx: Context) {
   if (!telegramId) return;
 
   const stock = await RobuxService.getStockConfig();
+
+  // Compliance gate: Direct third-party Robux transfer held pending platform licensing verification
+  if (!stock.is_active) {
+    const text =
+      `💎 <b>BUY ROBUX SERVICES</b>\n\n` +
+      `🛡️ <b>Compliance Notice: Direct Fulfillment Verification in Progress</b>\n\n` +
+      `In adherence to digital asset platform terms of service and Roblox commercial guidelines, direct automated third-party Robux resale or transfer flows require official authorized distribution clearance.\n\n` +
+      `Direct in-chat transfers are temporarily held pending platform compliance clearance. You may browse our full verified catalog of accounts and items in the Store Mini App or contact support.\n\n` +
+      `💬 <b>Support:</b> https://t.me/uchirosupport`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('💬 Contact Support', 'https://t.me/uchirosupport')],
+      [Markup.button.callback('🏠 Back Home', 'cb_main_menu')],
+    ]);
+
+    try {
+      if (ctx.callbackQuery) {
+        await ctx.editMessageText(formatTelegramHtml(text), {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      } else {
+        await ctx.reply(formatTelegramHtml(text), {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      }
+    } catch {
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+    return;
+  }
+
   const tiers = RobuxService.calculateTiers(stock);
 
   const diamond = tgEmoji('DIAMOND', '💎');
-  const fire = tgEmoji('FIRE', '🔥');
 
   let text =
-    `${diamond} <b>BUY ROBUX (INSTANT DELIVERY) / ទិញ ROBUX</b>\n\n` +
+    `${diamond} <b>BUY ROBUX (INSTANT DELIVERY)</b>\n\n` +
     `📦 <b>Current Shared Stock Pool:</b> ${stock.total_balance - stock.reserved_balance} R$\n` +
     `💵 <b>Current Rate:</b> $${stock.rate_per_1000.toFixed(2)} per 1,000 R$\n\n` +
     `<i>Choose your desired Robux pack below:</i>`;
@@ -65,7 +100,7 @@ export async function handleRobuxMenu(ctx: Context) {
     buttons.push(row);
   }
 
-  buttons.push([Markup.button.callback('🔙 Back to Main Menu', 'cb_back_home')]);
+  buttons.push([Markup.button.callback('🏠 Back Home', 'cb_main_menu')]);
 
   const keyboard = Markup.inlineKeyboard(buttons);
 

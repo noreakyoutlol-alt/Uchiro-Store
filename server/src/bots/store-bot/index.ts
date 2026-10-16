@@ -30,6 +30,7 @@ import {
   handleGuidePayment,
   handleHowToBuy,
   handleGuideKhqr,
+  handleGuideStepByStep,
 } from './handlers/help';
 import {
   handleVault2fa,
@@ -136,11 +137,18 @@ export function createEmojiInlineButton(opts: {
   const customEmojiId = opts.customEmojiId || emojiDef?.customEmojiId;
   const fallback = emojiDef?.fallback;
 
-  // Enforce strictly ONE emoji per button:
-  // If customEmojiId is present or text already has an emoji, do NOT prepend fallback.
-  // Otherwise, prepend fallback if available.
-  const hasEmoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(opts.text);
-  const finalText = (customEmojiId || hasEmoji) ? opts.text : (fallback ? `${fallback} ${opts.text}` : opts.text);
+  const cleanText = opts.text
+    .replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE0F}\u{200D}\u{2300}-\u{23FF}\u{2B50}\u{20E3}]+\s*/u, '')
+    .trim();
+  const hasCustom = Boolean(customEmojiId && customEmojiId.trim() !== '');
+
+  let finalText: string;
+  if (hasCustom) {
+    finalText = cleanText;
+  } else {
+    const hasLeading = opts.text !== cleanText;
+    finalText = hasLeading ? opts.text : (fallback ? `${fallback} ${cleanText}` : cleanText);
+  }
 
   let btn: any;
   if (opts.targetUrl) {
@@ -352,7 +360,7 @@ export class StoreBotService {
       } catch {}
 
       const welcomeText = getWelcomeMessage('en');
-      const keyboard = getMainMenuKeyboard(storeWebAppUrl, 'en', supportUsername);
+      const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
 
       try {
         await ctx.editMessageText(formatTelegramHtml(welcomeText), {
@@ -378,7 +386,7 @@ export class StoreBotService {
       }
 
       const welcomeText = getWelcomeMessage('en');
-      const keyboard = getMainMenuKeyboard(storeWebAppUrl, 'en', supportUsername);
+      const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
 
       try {
         await ctx.editMessageText(formatTelegramHtml(welcomeText), {
@@ -395,7 +403,7 @@ export class StoreBotService {
 
     this.bot.command(['language', 'lang'], async (ctx) => {
       const welcomeText = getWelcomeMessage('en');
-      const keyboard = getMainMenuKeyboard(storeWebAppUrl, 'en', supportUsername);
+      const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
       await ctx.reply(formatTelegramHtml(welcomeText), {
         parse_mode: 'HTML',
         ...keyboard,
@@ -448,6 +456,9 @@ export class StoreBotService {
     });
     this.bot.action('cb_how_to_buy', async (ctx) => {
       await handleHowToBuy(ctx, storeWebAppUrl);
+    });
+    this.bot.action('cb_guide_step_by_step', async (ctx) => {
+      await handleGuideStepByStep(ctx, storeWebAppUrl);
     });
     this.bot.action('cb_guide_khqr', async (ctx) => {
       await handleGuideKhqr(ctx);

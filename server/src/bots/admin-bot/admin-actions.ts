@@ -73,7 +73,7 @@ export async function handleAdminCallback(
     };
   }
 
-  if (data === 'admin:robux:pool') {
+  if (data === 'admin:robux:pool' || data === 'admin:robux:view_stock') {
     const stock = await RobuxService.getStockConfig();
     const tiers = RobuxService.calculateTiers(stock);
     const available = stock.total_balance - stock.reserved_balance;
@@ -83,23 +83,166 @@ export async function handleAdminCallback(
       .join('\n');
 
     const text =
-      `💎 <b>Shared Robux Stock Pool</b>\n\n` +
+      `💎 <b>Robux Management &amp; Stock Pool</b>\n\n` +
       `• Total Balance: <b>${stock.total_balance} R$</b>\n` +
       `• Reserved in Checkout: <b>${stock.reserved_balance} R$</b>\n` +
       `• Available for Purchase: <b>${available} R$</b>\n` +
-      `• Current Rate: <b>$${stock.rate_per_1000.toFixed(2)} / 1,000 R$</b>\n\n` +
+      `• Current Rate: <b>$${stock.rate_per_1000.toFixed(2)} per 1,000 R$</b>\n` +
+      `• Service Status: <b>${stock.is_active ? '🟢 ACTIVE' : '🔴 DISABLED (Compliance Gate)'}</b>\n\n` +
       `<b>Derived Pack Availability:</b>\n${tierLines}\n\n` +
-      `<i>To adjust total stock, use command: <code>/setrobux &lt;amount&gt;</code></i>`;
+      `<i>Commands: <code>/setrate &lt;usd&gt;</code> | <code>/addrobux &lt;amount&gt;</code> | <code>/setrobux &lt;total&gt;</code></i>`;
 
     return {
       text,
       replyMarkup: {
         inline_keyboard: [
-          row({ text: '🔄 Refresh Pool', callback_data: 'admin:robux:pool' }),
-          back,
+          [
+            { text: '💲 Set Robux Rate', callback_data: 'admin:robux:set_rate' },
+            { text: '➕ Add Robux Stock', callback_data: 'admin:robux:add_stock' },
+          ],
+          [
+            { text: '📦 View Available Stock', callback_data: 'admin:robux:view_stock' },
+            { text: '📋 View Robux Orders', callback_data: 'admin:robux:orders' },
+          ],
+          [
+            { text: '⚙️ Manage Robux Settings', callback_data: 'admin:robux:settings' },
+            { text: stock.is_active ? '🔴 Disable Service' : '🟢 Enable Service', callback_data: 'admin:robux:toggle_active' },
+          ],
+          [
+            { text: '🔄 Refresh Pool', callback_data: 'admin:robux:pool' },
+            back[0],
+          ],
         ],
       },
     };
+  }
+
+  if (data === 'admin:robux:set_rate') {
+    const stock = await RobuxService.getStockConfig();
+    const text =
+      `💲 <b>Set Robux Pricing Rate</b>\n\n` +
+      `Current Rate: <b>$${stock.rate_per_1000.toFixed(2)} per 1,000 R$</b>\n\n` +
+      `Select a quick preset below or send command:\n` +
+      `<code>/setrate &lt;price_per_1000&gt;</code> (e.g. <code>/setrate 3.50</code>)`;
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [
+          [
+            { text: '$3.00 / 1k', callback_data: 'admin:robux:set_rate_preset:3.00' },
+            { text: '$3.50 / 1k', callback_data: 'admin:robux:set_rate_preset:3.50' },
+          ],
+          [
+            { text: '$4.00 / 1k', callback_data: 'admin:robux:set_rate_preset:4.00' },
+            { text: '$4.50 / 1k', callback_data: 'admin:robux:set_rate_preset:4.50' },
+          ],
+          [
+            { text: '« Back to Robux Pool', callback_data: 'admin:robux:pool' },
+          ],
+        ],
+      },
+    };
+  }
+
+  if (data.startsWith('admin:robux:set_rate_preset:')) {
+    const newRate = parseFloat(data.replace('admin:robux:set_rate_preset:', ''));
+    if (!isNaN(newRate) && newRate > 0) {
+      await RobuxService.setRate(String(from.id), newRate, 'ADMIN_BOT_PRESET');
+    }
+    return handleAdminCallback('admin:robux:pool', from, storeUrl);
+  }
+
+  if (data === 'admin:robux:add_stock') {
+    const stock = await RobuxService.getStockConfig();
+    const text =
+      `➕ <b>Add Robux Stock</b>\n\n` +
+      `Current Total: <b>${stock.total_balance} R$</b>\n` +
+      `Available: <b>${stock.total_balance - stock.reserved_balance} R$</b>\n\n` +
+      `Select a quick amount to add to the pool or send command:\n` +
+      `<code>/addrobux &lt;amount&gt;</code> (e.g. <code>/addrobux 5000</code>)`;
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [
+          [
+            { text: '+1,000 R$', callback_data: 'admin:robux:add_stock_preset:1000' },
+            { text: '+5,000 R$', callback_data: 'admin:robux:add_stock_preset:5000' },
+          ],
+          [
+            { text: '+10,000 R$', callback_data: 'admin:robux:add_stock_preset:10000' },
+            { text: '+25,000 R$', callback_data: 'admin:robux:add_stock_preset:25000' },
+          ],
+          [
+            { text: '« Back to Robux Pool', callback_data: 'admin:robux:pool' },
+          ],
+        ],
+      },
+    };
+  }
+
+  if (data.startsWith('admin:robux:add_stock_preset:')) {
+    const addAmt = parseInt(data.replace('admin:robux:add_stock_preset:', ''), 10);
+    if (!isNaN(addAmt) && addAmt > 0) {
+      await RobuxService.addStock(String(from.id), addAmt, 'ADMIN_BOT_PRESET');
+    }
+    return handleAdminCallback('admin:robux:pool', from, storeUrl);
+  }
+
+  if (data === 'admin:robux:orders') {
+    const orders = await RobuxService.getRecentOrders(8);
+    const lines = orders.length === 0
+      ? ['<i>No Robux orders recorded yet</i>']
+      : orders.map(o =>
+          `• <code>${o.order_code}</code> | ${o.robux_amount} R$ ($${o.price_usd.toFixed(2)})\n` +
+          `   Roblox: <code>${o.roblox_username}</code> | Status: <b>${o.status.toUpperCase()}</b>`
+        );
+    const text = `📋 <b>Recent Robux Orders</b>\n\n${lines.join('\n\n')}`;
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [
+          [
+            { text: '🔄 Refresh Orders', callback_data: 'admin:robux:orders' },
+            { text: '« Back to Robux Pool', callback_data: 'admin:robux:pool' },
+          ],
+        ],
+      },
+    };
+  }
+
+  if (data === 'admin:robux:settings') {
+    const stock = await RobuxService.getStockConfig();
+    const text =
+      `⚙️ <b>Robux Service Settings &amp; Compliance</b>\n\n` +
+      `• Active Status: <b>${stock.is_active ? '🟢 ACTIVE' : '🔴 DISABLED (Compliance Gate)'}</b>\n` +
+      `• Min Order: <b>${stock.min_order_robux} R$</b>\n` +
+      `• Max Order: <b>${stock.max_order_robux} R$</b>\n` +
+      `• Current Rate: <b>$${stock.rate_per_1000.toFixed(2)} / 1,000 R$</b>\n\n` +
+      `🛡️ <b>Compliance Policy Note:</b>\n` +
+      `Direct payment-for-Robux transfers require official partner / group distribution licensing per Roblox terms. When disabled, buyers are shown compliance notices.`;
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [
+          [
+            { text: stock.is_active ? '🔴 Disable Service' : '🟢 Enable Service', callback_data: 'admin:robux:toggle_active' },
+          ],
+          [
+            { text: '« Back to Robux Pool', callback_data: 'admin:robux:pool' },
+          ],
+        ],
+      },
+    };
+  }
+
+  if (data === 'admin:robux:toggle_active') {
+    const stock = await RobuxService.getStockConfig();
+    await RobuxService.updateSettings(
+      String(from.id),
+      { is_active: !stock.is_active },
+      `TOGGLE_ACTIVE_TO_${!stock.is_active}`
+    );
+    return handleAdminCallback('admin:robux:settings', from, storeUrl);
   }
 
   if (data === 'admin:orders:recent') {

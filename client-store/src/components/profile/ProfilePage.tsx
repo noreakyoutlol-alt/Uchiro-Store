@@ -804,6 +804,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             </p>
           )}
         </form>
+
+        <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
+          <p className="text-[11px] text-slate-400 text-center">
+            Prefer direct messaging?
+          </p>
+          <a
+            href="https://t.me/uchirosupport"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-98"
+          >
+            <Headphones className="w-3.5 h-3.5 text-[#FFD166]" />
+            <span>Chat with Admin / Support (24/7)</span>
+          </a>
+        </div>
       </div>
     </div>
   );

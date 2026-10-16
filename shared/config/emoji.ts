@@ -93,6 +93,10 @@ export const TELEGRAM_EMOJIS: Record<string, TelegramEmojiDef> = {
   PURPLE_CIRCLE: { fallback: '🟣', customEmojiId: '5915954581338068740' },
   EGG:           { fallback: '🥚', customEmojiId: '5208541530310065351' },
   COPYRIGHT:     { fallback: '©', customEmojiId: '5323442290708985472' },
+  HOUSE:         { fallback: '🏠' },
+  BACK:          { fallback: '🔙' },
+  COMPASS:       { fallback: '🧭' },
+  QUESTION:      { fallback: '❓' },
 };
 
 export type TelegramEmojiKey = keyof typeof TELEGRAM_EMOJIS;

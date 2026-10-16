@@ -14,7 +14,7 @@ const ThemeContext = createContext<ThemeContextType>({
   themeMode: 'dark',
   activeTheme: 'dark',
   setThemeMode: () => {},
-  patternUrl: '/pattern-black.jpg',
+  patternUrl: '/pattern.svg',
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -61,10 +61,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Original Project Pattern Assets
-  const patternUrl = activeTheme === 'dark'
-    ? '/pattern-black.jpg'
-    : '/pattern-white.jpg';
+  // Project Pattern Asset: pattern.svg
+  const patternUrl = '/pattern.svg';
 
   return (
     <ThemeContext.Provider value={{ themeMode, activeTheme, setThemeMode, patternUrl }}>

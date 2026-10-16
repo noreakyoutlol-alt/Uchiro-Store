@@ -102,6 +102,87 @@ adminBot.command('setrobux', async (ctx) => {
   }
 });
 
+// /addrobux <amount> command for authorized admins
+adminBot.hears(/^\/addrobux(?:\s+(.+))?$/i, async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = String(ctx.from?.id || '');
+  if (!isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  const parts = ctx.message.text.trim().split(/\s+/);
+  if (parts.length < 2) {
+    return ctx.reply('Usage: <code>/addrobux &lt;amount&gt;</code>\nExample: <code>/addrobux 5000</code>', { parse_mode: 'HTML' });
+  }
+
+  const delta = Number(parts[1]);
+  if (isNaN(delta) || delta <= 0 || !Number.isInteger(delta)) {
+    return ctx.reply('❌ Error: Amount to add must be a positive integer.');
+  }
+
+  try {
+    const updated = await RobuxService.addStock(senderId, delta, 'Manual Telegram Admin /addrobux');
+    const available = updated.total_balance - updated.reserved_balance;
+    return ctx.reply(
+      `✅ <b>Added ${delta.toLocaleString()} R$ to Robux Stock!</b>\n\n` +
+      `• Total Balance: <b>${updated.total_balance.toLocaleString()} R$</b>\n` +
+      `• Available Balance: <b>${available.toLocaleString()} R$</b>\n` +
+      `• Rate: <b>$${updated.rate_per_1000.toFixed(2)} per 1,000 R$</b>`,
+      { parse_mode: 'HTML' }
+    );
+  } catch (err: any) {
+    return ctx.reply(`❌ Failed to add Robux stock: ${err?.message}`);
+  }
+});
+
+// /setrate <rate> command for authorized admins
+adminBot.hears(/^\/setrate(?:\s+(.+))?$/i, async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = String(ctx.from?.id || '');
+  if (!isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  const parts = ctx.message.text.trim().split(/\s+/);
+  if (parts.length < 2) {
+    return ctx.reply('Usage: <code>/setrate &lt;price_per_1000&gt;</code>\nExample: <code>/setrate 3.50</code>', { parse_mode: 'HTML' });
+  }
+
+  const rate = parseFloat(parts[1]);
+  if (isNaN(rate) || rate <= 0) {
+    return ctx.reply('❌ Error: Rate must be a positive number (USD per 1,000 Robux).');
+  }
+
+  try {
+    const updated = await RobuxService.setRate(senderId, rate, 'Manual Telegram Admin /setrate');
+    return ctx.reply(
+      `✅ <b>Robux Rate Updated to $${updated.rate_per_1000.toFixed(2)} per 1,000 R$!</b>\n\n` +
+      `• 100 R$: <b>$${((100 * updated.rate_per_1000) / 1000).toFixed(2)}</b>\n` +
+      `• 200 R$: <b>$${((200 * updated.rate_per_1000) / 1000).toFixed(2)}</b>\n` +
+      `• 500 R$: <b>$${((500 * updated.rate_per_1000) / 1000).toFixed(2)}</b>\n` +
+      `• 1,000 R$: <b>$${((1000 * updated.rate_per_1000) / 1000).toFixed(2)}</b>\n` +
+      `• 10,000 R$: <b>$${((10000 * updated.rate_per_1000) / 1000).toFixed(2)}</b>`,
+      { parse_mode: 'HTML' }
+    );
+  } catch (err: any) {
+    return ctx.reply(`❌ Failed to update Robux rate: ${err?.message}`);
+  }
+});
+
+// /robux command for authorized admins
+adminBot.command('robux', async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = String(ctx.from?.id || '');
+  if (!isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  const view = await handleAdminCallback('admin:robux:pool', ctx.from, STORE_URL);
+  if (view) {
+    return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });
+  }
+});
+
 // Handle callback queries
 adminBot.on('callback_query', async (ctx) => {
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;

@@ -425,13 +425,13 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 </div>
 
                 <a
-                  href={`https://t.me/uchiro_support?text=Hello%20Admin,%20Order%20${encodeURIComponent(formatShortOrderId(order.order_number || order.id))}%20(In-Game%20Trade)`}
+                  href={`https://t.me/uchirosupport?text=Hello%20Admin,%20Order%20${encodeURIComponent(formatShortOrderId(order.order_number || order.id))}%20(In-Game%20Trade)`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#E63946] to-[#D90429] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#E63946]/20 hover:brightness-110 active:scale-98 transition-all"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  <span>Contact Admin (Order {formatShortOrderId(order.order_number || order.id)})</span>
+                  <span>Contact Support (Order {formatShortOrderId(order.order_number || order.id)})</span>
                 </a>
               </div>
             </div>
@@ -497,7 +497,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 </div>
 
                 <a
-                  href={`https://t.me/uchiro_support?text=Hello%20Admin,%20Order%20${encodeURIComponent(formatShortOrderId(order.order_number || order.id))}%20(Roblox%20Gift)`}
+                  href={`https://t.me/uchirosupport?text=Hello%20Admin,%20Order%20${encodeURIComponent(formatShortOrderId(order.order_number || order.id))}%20(Roblox%20Gift)`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 hover:brightness-110 active:scale-98 transition-all"

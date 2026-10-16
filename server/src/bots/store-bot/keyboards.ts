@@ -29,9 +29,16 @@ export function makeButton(
   const fallback = emojiDef?.fallback || '';
 
   const cleanLabel = stripLeadingEmoji(label);
-  const buttonText = label;
-  let btn: any;
+  const hasCustomId = Boolean(customId && customId.trim() !== '');
 
+  // If button has a custom emoji icon, do not prepend fallback emoji.
+  // If no custom emoji and no leading emoji in label, add single fallback.
+  let buttonText = label;
+  if (!hasCustomId && cleanLabel === label && fallback) {
+    buttonText = `${fallback} ${label}`.trim();
+  }
+
+  let btn: any;
   if (type === 'callback') {
     btn = Markup.button.callback(buttonText, target);
   } else if (type === 'url') {
@@ -40,8 +47,8 @@ export function makeButton(
     btn = Markup.button.webApp(buttonText, target);
   }
 
-  if (customId && customId.trim() !== '') {
-    btn.icon_custom_emoji_id = customId.trim();
+  if (hasCustomId) {
+    btn.icon_custom_emoji_id = customId!.trim();
   }
 
   Object.defineProperty(btn, '__fallback', {
@@ -100,53 +107,53 @@ export function createWebAppOrUrlButton(text: string, targetUrl: string, iconKey
 }
 
 /**
- * 4-Row Authoritative Main Menu In-Chat Keyboard (Specification 2, 100% English):
- * Row 1: 🛍️ Open Store (Shop Now)
- * Row 2: 🇰🇭 How to Buy & Pay | 🔑 Get 2FA Code
- * Row 3: 🎁 Claim Free Points (or ⏳ Cooldown (Wait 24h)) | 📦 My Orders & Vault
- * Row 4: 💬 Chat with Admin / Support (24/7)
+ * 4-Row Authoritative Main Menu In-Chat Keyboard (100% English):
+ * Row 1: 🛍️ Open Store
+ * Row 2: 💎 Buy Robux | 🔑 Get 2FA Code
+ * Row 3: 🇰🇭 How to Buy & Pay | 📦 My Orders & Vault
+ * Row 4: 🎁 Claim Free Points (or ⏳ Cooldown (Wait 24h)) | 💬 Chat with Admin / Support
  */
 export function buildMainMenuKeyboard(
   storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app',
-  supportUsername: string = 'UchiroSupport',
+  supportUsername: string = 'uchirosupport',
   opts?: { onCooldown?: boolean }
 ) {
-  const cleanSupport = supportUsername.replace(/^@/, '') || 'UchiroSupport';
+  const cleanSupport = (supportUsername || 'uchirosupport').replace(/^@/, '');
   const supportUrl = `https://t.me/${cleanSupport}`;
   const claimText = opts?.onCooldown ? '⏳ Cooldown (Wait 24h)' : '🎁 Claim Free Points';
 
   return Markup.inlineKeyboard([
-    [createWebAppOrUrlButton('🛍️ Open Store (Shop Now)', storeUrl, 'PACKAGE')],
+    [createWebAppOrUrlButton('🛍️ Open Store', storeUrl, 'SHOPPING_BAGS')],
     [
-      cb('💎 Buy Robux (Direct)', 'cb_buy_robux', 'DIAMOND'),
+      cb('💎 Buy Robux', 'cb_buy_robux', 'DIAMOND'),
       cb('🔑 Get 2FA Code', 'cb_vault_2fa', 'KEY'),
     ],
     [
-      cb('🇰🇭 How to Buy & Pay', 'cb_how_to_buy'),
+      cb('🇰🇭 How to Buy & Pay', 'cb_how_to_buy', 'FLAG_CAMBODIA'),
       cb('📦 My Orders & Vault', 'cb_orders_menu', 'PACKAGE'),
     ],
     [
       cb(claimText, 'cb_claim_daily', opts?.onCooldown ? 'CLOCK' : 'GIFT'),
-      urlBtn('💬 Chat with Admin / Support (24/7)', supportUrl, 'SUPPORT'),
+      urlBtn('💬 Chat with Admin / Support', supportUrl, 'SUPPORT'),
     ],
   ]);
 }
 
 /**
- * 5-Row Main Menu In-Chat Keyboard (Specification 1 & 2):
- * Row 1: 🎰 លេង Gacha (cb_gacha_menu) | 🎁 ពិន្ទុប្រចាំថ្ងៃ (cb_daily_menu)
- * Row 2: 🎒 កាតាបឥវ៉ាន់ & Vault (cb_vault_menu) | 📜 ប្រវត្តិបញ្ជាទិញ (cb_orders_menu)
- * Row 3: 👤 ព័ត៌មានគណនី (Profile) (cb_profile_menu) | 🌐 ភាសា / Language (cb_lang_menu)
- * Row 4: 📜 ច្បាប់ទូទៅ (Rules) (cb_main_rules) | ❓ ជំនួយ & FAQ (Help) (cb_main_help)
- * Row 5: 🛍️ បើកហាង Mini App (ស្រេចចិត្ត) (WebApp) | 💬 ឆាតទៅ Admin 24/7 (Link)
+ * 5-Row Main Menu In-Chat Keyboard (Grid format):
+ * Row 1: Gacha & Daily Points
+ * Row 2: Vault & Orders
+ * Row 3: Profile & Language
+ * Row 4: Rules & Help
+ * Row 5: Open Mini App & Support
  */
 export function getMainMenuKeyboard(
   storeUrl: string,
-  lang: string = 'km',
+  lang: string = 'en',
   supportUsername: string = 'UchiroSupport'
 ) {
   const loc = getLocale(lang);
-  const cleanSupport = supportUsername.replace(/^@/, '') || 'UchiroSupport';
+  const cleanSupport = (supportUsername || 'UchiroSupport').replace(/^@/, '');
   const supportUrl = `https://t.me/${cleanSupport}`;
 
   return Markup.inlineKeyboard([
@@ -315,39 +322,39 @@ export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', 
 }
 
 /**
- * How to Buy & Pay In-Chat Keyboard (Specification 3.1):
+ * How to Buy & Pay In-Chat Keyboard:
  * [ 📖 Step-by-Step Guide ]
  * [ 💳 KHQR Payment Guide ]
  * [ 🛍️ Open Store Now ]
- * [ 🔙 Back Home ]
+ * [ 🏠 Back Home ]
  */
 export function buildHowToBuyKeyboard(
   storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
 ) {
   return Markup.inlineKeyboard([
     [
-      cb('📖 Step-by-Step Guide', 'cb_guide_2fa', 'DOCUMENT'),
+      cb('📖 Step-by-Step Guide', 'cb_guide_step_by_step', 'DOCUMENT'),
       cb('💳 KHQR Payment Guide', 'cb_guide_khqr', 'CREDIT_CARD'),
     ],
     [
-      createWebAppOrUrlButton('🛍️ Open Store Now', storeUrl, 'PACKAGE'),
+      createWebAppOrUrlButton('🛍️ Open Store Now', storeUrl, 'SHOPPING_BAGS'),
     ],
     [
-      cb('🔙 Back Home', 'cb_main_menu', 'HOUSE'),
+      cb('🏠 Back Home', 'cb_main_menu', 'HOUSE'),
     ],
   ]);
 }
 
 /**
- * KHQR Payment Guide Sub-Keyboard (Specification 3.2):
+ * KHQR / Step-by-Step Payment Guide Sub-Keyboard:
  * [ 🔙 Back to How to Buy ]
- * [ 🔙 Back Home ]
+ * [ 🏠 Back Home ]
  */
 export function buildKhqrGuideKeyboard() {
   return Markup.inlineKeyboard([
     [
       cb('🔙 Back to How to Buy', 'cb_how_to_buy', 'BACK'),
-      cb('🔙 Back Home', 'cb_main_menu', 'HOUSE'),
+      cb('🏠 Back Home', 'cb_main_menu', 'HOUSE'),
     ],
   ]);
 }

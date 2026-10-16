@@ -133,15 +133,15 @@ export async function handleHowToBuy(
   } catch {}
 
   const text =
-    `🇰🇭 <b>HOW TO BUY &amp; PAY AT UCHIRO STORE</b>\n` +
+    `🛒 <b>HOW TO BUY &amp; PAY AT UCHIRO STORE</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `Purchasing accounts and items is 100% automated 24/7:\n\n` +
-    `1️⃣ <b>Step 1:</b> Tap <b>🛍️ Open Store</b> to browse our catalog.\n` +
-    `2️⃣ <b>Step 2:</b> Pick your desired account or item and tap <b>Buy Now</b>.\n` +
-    `3️⃣ <b>Step 3:</b> Scan the <b>Bakong KHQR</b> using ABA, ACLEDA, Wing, or any banking app.\n` +
-    `4️⃣ <b>Step 4:</b> Within 2 seconds of payment, your <b>Username, Password &amp; Live 2FA</b> are delivered right here in chat and inside <b>📦 My Orders &amp; Vault</b>!\n` +
+    `Purchasing accounts, items, and tickets is fully automated 24/7:\n\n` +
+    `1️⃣ <b>Step 1:</b> Open the Store Mini App.\n` +
+    `2️⃣ <b>Step 2:</b> Select a product, package, or ticket and choose <b>Buy Now</b>.\n` +
+    `3️⃣ <b>Step 3:</b> Follow the KHQR / Bakong payment prompt on screen.\n` +
+    `4️⃣ <b>Step 4:</b> Wait for independent payment verification and automatic credential/order delivery in chat and in <b>My Orders &amp; Vault</b>!\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `👇 <i>Select a detailed guide below:</i>`;
+    `👇 <i>Select a guide below:</i>`;
 
   const keyboard = buildHowToBuyKeyboard(storeUrl);
 
@@ -160,6 +160,43 @@ export async function handleHowToBuy(
   } catch (err) {
     if (!isMessageNotModifiedError(err)) {
       console.warn('[HowToBuy] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle Step-by-Step Purchase Guide (cb_guide_step_by_step)
+ */
+export async function handleGuideStepByStep(ctx: Context, _storeUrl?: string): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `📖 <b>STEP-BY-STEP PURCHASE GUIDE</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `1️⃣ <b>Step 1: Open the Store Mini App</b>\n` +
+    `• Tap <b>Open Store</b> from the main menu or click the store link.\n\n` +
+    `2️⃣ <b>Step 2: Select &amp; Buy Now</b>\n` +
+    `• Browse accounts, items, or tickets. Select your desired item and tap <b>Buy Now</b>.\n\n` +
+    `3️⃣ <b>Step 3: Follow KHQR / Bakong Payment</b>\n` +
+    `• A standardized Bakong KHQR code displays with the exact USD amount.\n` +
+    `• Scan with your bank app (ABA, ACLEDA, Wing, Canadia, etc.).\n\n` +
+    `4️⃣ <b>Step 4: Independent Verification &amp; Delivery</b>\n` +
+    `• Our system independently verifies payment within seconds.\n` +
+    `• Credentials and 2FA are delivered automatically here in chat and into <b>My Orders &amp; Vault</b>!\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildKhqrGuideKeyboard();
+
+  try {
+    await ctx.editMessageText(text, {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[GuideStepByStep] Render warning:', err);
     }
   }
 }
