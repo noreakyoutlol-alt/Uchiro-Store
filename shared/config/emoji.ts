@@ -93,7 +93,9 @@ export const TELEGRAM_EMOJIS: Record<string, TelegramEmojiDef> = {
   PURPLE_CIRCLE: { fallback: '🟣', customEmojiId: '5915954581338068740' },
   EGG:           { fallback: '🥚', customEmojiId: '5208541530310065351' },
   COPYRIGHT:     { fallback: '©', customEmojiId: '5323442290708985472' },
+  ROBUX:         { fallback: '💎', customEmojiId: '5406705291213417505' },
   HOUSE:         { fallback: '🏠' },
+  HOME:          { fallback: '🏠' },
   BACK:          { fallback: '🔙' },
   COMPASS:       { fallback: '🧭' },
   QUESTION:      { fallback: '❓' },
@@ -115,10 +117,10 @@ export function renderTgEmoji(key: keyof typeof TELEGRAM_EMOJIS | string): strin
 
 /**
  * Enriches plain text with `<tg-emoji>` tags STRICTLY for Telegram Bot chat HTML messages.
+ * Idempotent: safe to run multiple times, never produces nested tags or duplicate rendering.
  */
 export function enrichWithTgEmojis(text: string): string {
   if (!text) return '';
-  let enriched = text;
 
   const activeEntries = Object.values(TELEGRAM_EMOJIS)
     .filter((item): item is TelegramEmojiDef & { customEmojiId: string } =>
@@ -126,18 +128,26 @@ export function enrichWithTgEmojis(text: string): string {
     )
     .sort((a, b) => b.fallback.length - a.fallback.length);
 
-  const seenFallbacks = new Set<string>();
-
+  const emojiMap = new Map<string, { id: string; rawFallback: string }>();
   for (const item of activeEntries) {
-    if (seenFallbacks.has(item.fallback)) continue;
-    seenFallbacks.add(item.fallback);
-
-    const tgTag = `<tg-emoji emoji-id="${item.customEmojiId.trim()}">${item.fallback}</tg-emoji>`;
-    const escapedFallback = item.fallback.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(?<!<tg-emoji[^>]*>)${escapedFallback}(?!<\\/tg-emoji>)`, 'g');
-    enriched = enriched.replace(regex, tgTag);
+    const baseGlyph = item.fallback.replace(/️/g, '');
+    if (!emojiMap.has(baseGlyph)) {
+      emojiMap.set(baseGlyph, { id: item.customEmojiId.trim(), rawFallback: item.fallback });
+    }
   }
-  return enriched;
+
+  return text.replace(/(<tg-emoji[^>]*>[\s\S]*?<\/tg-emoji>|<[^>]+>)|([^<]+)/gi, (match, tag, textChunk) => {
+    if (tag) return tag;
+    if (!textChunk) return match;
+
+    let enrichedChunk = textChunk;
+    for (const [baseGlyph, { id, rawFallback }] of emojiMap.entries()) {
+      const escaped = baseGlyph.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`${escaped}(?:\\uFE0F)?`, 'gu');
+      enrichedChunk = enrichedChunk.replace(regex, `<tg-emoji emoji-id="${id}">${rawFallback}</tg-emoji>`);
+    }
+    return enrichedChunk;
+  });
 }
 
 /**
@@ -153,6 +163,8 @@ export function getWebEmojiChar(keyOrFallback: string): string {
 // ─── Semantic Key Registry (Backwards Compatibility) ──────────────────────────
 export const EMOJI = {
   HOME: TELEGRAM_EMOJIS.HOUSE?.customEmojiId || null,
+  HOUSE: TELEGRAM_EMOJIS.HOUSE?.customEmojiId || null,
+  ROBUX: '5406705291213417505',
   SHOP: TELEGRAM_EMOJIS.SHOPPING_BAGS?.customEmojiId || null,
   GACHA: TELEGRAM_EMOJIS.SPARKLES?.customEmojiId || null,
   POINTS: TELEGRAM_EMOJIS.MONEY?.customEmojiId || null,

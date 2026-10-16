@@ -5,22 +5,26 @@ export const GamingDoodlePattern: React.FC = () => {
   const { activeTheme, patternUrl } = useTheme();
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none bg-[#070A12]">
       {/*
-        Store Mini App Background Pattern Asset: pattern.svg
-        Scales proportionally without geometric distortion.
-        Filter invert(1) in dark mode provides crisp light lines; subtle opacity guarantees readability.
+        Store Mini App Space-Doodle Pattern Asset: pattern.svg
+        Seamless tiling on near-black/deep-navy base with restrained muted indigo/lavender strokes.
+        Hardware-accelerated, zero-lag rendering on iOS & Android WebViews.
       */}
       <div
         key={patternUrl}
-        className={`absolute inset-0 bg-cover bg-top bg-no-repeat transition-opacity duration-500 ${
+        className={`absolute inset-0 transition-opacity duration-500 ${
           activeTheme === 'dark'
-            ? 'opacity-20 sm:opacity-25 invert'
-            : 'opacity-10 sm:opacity-15'
+            ? 'opacity-85'
+            : 'opacity-40 invert'
         }`}
         style={{
           backgroundImage: `url("${patternUrl}")`,
-          backgroundAttachment: 'fixed',
+          backgroundRepeat: 'repeat',
+          backgroundSize: '420px 420px',
+          backgroundPosition: '0 0',
+          transform: 'translateZ(0)',
+          willChange: 'opacity',
         }}
       />
 
@@ -30,8 +34,8 @@ export const GamingDoodlePattern: React.FC = () => {
       <div
         className={`absolute inset-0 transition-colors duration-500 ${
           activeTheme === 'dark'
-            ? 'bg-gradient-to-b from-[#0B0E14]/85 via-[#0B0E14]/70 to-[#0B0E14]/90'
-            : 'bg-gradient-to-b from-[#F8F9FA]/85 via-[#F8F9FA]/70 to-[#F8F9FA]/90'
+            ? 'bg-gradient-to-b from-[#070A12]/40 via-transparent to-[#070A12]/70'
+            : 'bg-gradient-to-b from-[#F8F9FA]/75 via-[#F8F9FA]/60 to-[#F8F9FA]/80'
         }`}
       />
     </div>

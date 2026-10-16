@@ -125,7 +125,7 @@ export function buildMainMenuKeyboard(
   return Markup.inlineKeyboard([
     [createWebAppOrUrlButton('🛍️ Open Store', storeUrl, 'SHOPPING_BAGS')],
     [
-      cb('💎 Buy Robux', 'cb_buy_robux', 'DIAMOND'),
+      cb('💎 Buy Robux', 'cb_buy_robux', 'ROBUX'),
       cb('🔑 Get 2FA Code', 'cb_vault_2fa', 'KEY'),
     ],
     [
@@ -183,19 +183,22 @@ export function getMainMenuKeyboard(
 /**
  * Language selection inline keyboard:
  * 🇰🇭 ភាសាខ្មែរ | 🇬🇧 English
- * 🔙 ត្រឡប់ទៅដើម (Back Home)
+ * (Language selection explicitly requires Khmer and English options per Requirement 4)
  */
-export function getLanguageSelectionKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
-  return Markup.inlineKeyboard([
+export function getLanguageSelectionKeyboard(langOrShowBackHome: string | boolean = false) {
+  const isKm = langOrShowBackHome === 'km';
+  const showBackHome = typeof langOrShowBackHome === 'boolean' ? langOrShowBackHome : Boolean(langOrShowBackHome);
+  const rows: any[][] = [
     [
-      cb('🇰🇭 ភាសាខ្មែរ', 'set_lang:km'),
-      cb('🇬🇧 English', 'set_lang:en'),
+      Markup.button.callback('🇰🇭 ភាសាខ្មែរ', 'set_lang:km'),
+      Markup.button.callback('🇬🇧 English', 'set_lang:en'),
     ],
-    [
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
-    ],
-  ]);
+  ];
+  if (showBackHome) {
+    const backLabel = isKm ? '🔙 ត្រឡប់ទៅដើម (Back Home)' : '🏠 Back Home';
+    rows.push([Markup.button.callback(backLabel, 'cb_main_menu')]);
+  }
+  return Markup.inlineKeyboard(rows);
 }
 
 /**
@@ -233,7 +236,7 @@ export function buildPointsLedgerKeyboard(lang: string = 'km') {
       cb(loc.btn_redeem_pts, 'cb_redeem_pts', 'GIFT'),
     ],
     [
-      cb(lang === 'en' ? '🔙 Back to Profile' : '🔙 ត្រឡប់ទៅ Profile', 'cb_profile_menu', 'BACK'),
+      cb('Back to Profile', 'cb_profile_menu', 'BACK'),
       cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
     ],
   ]);
@@ -243,10 +246,10 @@ export function buildRedeemPointsKeyboard(lang: string = 'km') {
   const loc = getLocale(lang);
   return Markup.inlineKeyboard([
     [
-      cb(lang === 'en' ? '🎟️ Exchange Gacha Ticket (-50 Pts)' : '🎟️ ប្តូរសំបុត្រ Gacha (-50 Pts)', 'cb_gacha_buy_ticket', 'TICKET'),
+      cb('Exchange Gacha Ticket (-100 Pts)', 'cb_gacha_buy_ticket', 'TICKET'),
     ],
     [
-      cb(lang === 'en' ? '🔙 Back to Profile' : '🔙 ត្រឡប់ទៅ Profile', 'cb_profile_menu', 'BACK'),
+      cb('Back to Profile', 'cb_profile_menu', 'BACK'),
       cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
     ],
   ]);
@@ -266,6 +269,15 @@ export function buildMainRulesKeyboard(lang: string = 'km') {
       cb(loc.btn_warranty_policy, 'cb_warranty_policy', 'SHIELD'),
     ],
     [
+      cb(loc.btn_payment_delivery, 'cb_payment_delivery', 'RECEIPT'),
+      cb(loc.btn_refund_policy, 'cb_refund_policy', 'MONEY_BACK'),
+    ],
+    [
+      cb(loc.btn_points_coupons, 'cb_points_coupons', 'TICKETS'),
+      cb(loc.btn_faq_help, 'cb_faq_help', 'QUESTION'),
+    ],
+    [
+      cb(loc.btn_contact_support, 'cb_contact_support', 'HEADSET'),
       cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
     ],
   ]);
@@ -456,7 +468,7 @@ export function buildDailyShopKeyboard(lang: string = 'km') {
   const loc = getLocale(lang);
   return Markup.inlineKeyboard([
     [
-      cb(lang === 'en' ? '🎟️ Exchange Gacha Ticket (-50 Pts)' : '🎟️ ប្តូរសំបុត្រ Gacha (-50 Pts)', 'cb_gacha_buy_ticket', 'TICKET'),
+      cb(lang === 'en' ? '🎟️ Exchange Gacha Ticket (-100 Pts)' : '🎟️ ប្តូរសំបុត្រ Gacha (-100 Pts)', 'cb_gacha_buy_ticket', 'TICKET'),
     ],
     [
       cb(loc.btn_back_to_daily, 'cb_daily_menu', 'BACK'),
@@ -512,8 +524,8 @@ export function buildVaultListKeyboard(
       ),
     ]);
     const webAppVaultUrl = storeUrl.includes('?') ? `${storeUrl}&tab=vault` : `${storeUrl}?tab=vault`;
-    buttons.push([createWebAppOrUrlButton('📱 បើក Vault ក្នុង Mini App', webAppVaultUrl)]);
-    buttons.push([Markup.button.callback('🔙 ត្រឡប់ទៅដើម (Back Home)', 'cb_main_menu')]);
+    buttons.push([createWebAppOrUrlButton('Open Vault in Mini App', webAppVaultUrl, 'PACKAGE')]);
+    buttons.push([cb('Back Home', 'cb_main_menu', 'HOUSE')]);
     return Markup.inlineKeyboard(buttons);
   }
 
@@ -562,13 +574,13 @@ export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: 
   const buttons: any[][] = [];
 
   if (account.two_factor_secret) {
-    buttons.push([Markup.button.callback('🔑 បង្កើតកូដ 2FA ផ្ទាល់ (Live OTP)', `cb_gen_2fa_${accountId}`)]);
+    buttons.push([cb('Get Live 2FA Code', `cb_gen_2fa_${accountId}`, 'KEY')]);
   }
 
-  buttons.push([createWebAppOrUrlButton('📱 មើលព័ត៌មានលម្អិតក្នុង Mini App', webAppDetailUrl)]);
+  buttons.push([createWebAppOrUrlButton('View Details in Mini App', webAppDetailUrl, 'PACKAGE')]);
   buttons.push([
-    Markup.button.callback('🎒 ត្រឡប់ទៅ Vault', 'cb_vault_menu'),
-    Markup.button.callback('🏠 ដើម', 'cb_main_menu'),
+    cb('Back to Vault', 'cb_vault_menu', 'BACKPACK'),
+    cb('Back Home', 'cb_main_menu', 'HOUSE'),
   ]);
 
   return Markup.inlineKeyboard(buttons);

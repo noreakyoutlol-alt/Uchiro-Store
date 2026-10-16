@@ -2447,10 +2447,14 @@ export class DataStore {
   }
 
   static setUserLanguagePreference(telegramId: number, lang: string): TelegramUser | null {
-    const user = this.users.get(telegramId);
-    if (!user) return null;
+    let user = this.users.get(telegramId);
+    if (!user) {
+      const res = this.upsertTelegramUser({ telegram_id: telegramId });
+      user = res.user;
+    }
     user.language_preference = lang;
     user.updated_at = new Date().toISOString();
+    this.saveToDisk();
     return user;
   }
 

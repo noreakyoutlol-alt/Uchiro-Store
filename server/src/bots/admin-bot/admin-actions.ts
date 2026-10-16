@@ -2,6 +2,7 @@ import type { InlineKeyboardButton, InlineKeyboardMarkup } from 'telegraf/types'
 import { isAuthorizedAdmin } from './admin-guards';
 import { getLowStockItems, getRecentOrders, getTodayStats } from './admin-data';
 import { RobuxService } from '../../services/robux.service';
+import { ADMIN_BASE_PATH } from '../../config/admin-slug';
 
 export interface AdminView {
   text: string;
@@ -14,13 +15,34 @@ export function unauthorizedView(): AdminView {
   return { text: UNAUTHORIZED_TEXT, replyMarkup: { inline_keyboard: [] } };
 }
 
+function resolveDefaultAdminUrl(): string {
+  const explicit = (process.env.ADMIN_WEBAPP_URL || process.env.ADMIN_URL || process.env.ADMIN_MINIAPP_URL || '').trim();
+  if (explicit && (explicit.startsWith('https://') || explicit.startsWith('http://'))) {
+    try {
+      const parsed = new URL(explicit);
+      if (parsed.pathname && parsed.pathname !== '/') return explicit.replace(/\/$/, '');
+      return `${parsed.origin}${ADMIN_BASE_PATH}`;
+    } catch {
+      return explicit.replace(/\/$/, '');
+    }
+  }
+  const base = (
+    process.env.SERVER_URL ||
+    process.env.PUBLIC_URL ||
+    process.env.APP_URL ||
+    'https://web-production-2d8bd.up.railway.app'
+  ).trim().replace(/\/$/, '');
+  return `${base}${ADMIN_BASE_PATH}`;
+}
+
 function row(...buttons: InlineKeyboardButton[]): InlineKeyboardButton[] {
   return buttons;
 }
 
-export function buildMainMenu(storeUrl: string): InlineKeyboardMarkup {
+export function buildMainMenu(storeUrl: string, adminUrl: string = resolveDefaultAdminUrl()): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
+      row({ text: '🛡️ OPEN ADMIN PORTAL', web_app: { url: adminUrl } }),
       row({ text: '🛒 Open Store (customer view)', url: storeUrl }),
       row({ text: '📊 Today Stats', callback_data: 'admin:stats:today' }),
       row({ text: '💎 Robux Stock & Pool', callback_data: 'admin:robux:pool' }),
@@ -33,26 +55,28 @@ export function buildMainMenu(storeUrl: string): InlineKeyboardMarkup {
 export function handleAdminStart(
   from: { id: number; first_name?: string } | undefined,
   storeUrl: string,
+  adminUrl: string = resolveDefaultAdminUrl(),
 ): AdminView {
   if (!from || !isAuthorizedAdmin(from.id)) return unauthorizedView();
   const name = from.first_name ? ` ${from.first_name}` : '';
   const text =
     `🛡️ <b>Admin Control</b>\n\n` +
-    `Welcome${name}. Select an action below.\n` +
-    `<i>The admin web app is kept private and not linked here.</i>`;
-  return { text, replyMarkup: buildMainMenu(storeUrl) };
+    `Welcome${name}. Select an action below to manage the store and stock:\n\n` +
+    `<i>Tap <b>OPEN ADMIN PORTAL</b> to open your dedicated management dashboard.</i>`;
+  return { text, replyMarkup: buildMainMenu(storeUrl, adminUrl) };
 }
 
 export async function handleAdminCallback(
   data: string,
   from: { id: number } | undefined,
   storeUrl: string,
+  adminUrl: string = resolveDefaultAdminUrl(),
 ): Promise<AdminView | null> {
   if (!from || !isAuthorizedAdmin(from.id)) return unauthorizedView();
   const back = row({ text: '« Back to menu', callback_data: 'admin:menu' });
 
   if (data === 'admin:menu' || data === 'cb_admin_menu') {
-    return handleAdminStart(from, storeUrl);
+    return handleAdminStart(from, storeUrl, adminUrl);
   }
 
   if (data === 'admin:stats:today' || data === 'cb_admin_metrics' || data === 'admin_metrics') {

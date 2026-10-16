@@ -33,6 +33,11 @@ export const en: LocaleStrings = {
   btn_guide_payment: '💳 How to Pay with KHQR',
   btn_contact_admin: '💬 Contact Admin Directly',
   btn_back_to_help: '🔙 Back to Help',
+  btn_payment_delivery: '📦 Payment & Delivery',
+  btn_refund_policy: '💰 Refund Policy',
+  btn_points_coupons: '🏷️ Points & Coupons',
+  btn_faq_help: '❓ FAQ & Help',
+  btn_contact_support: '💬 Contact Support',
 
   // Gacha Buttons
   btn_buy_ticket: '🎟️ Exchange Points for Ticket',

@@ -26,6 +26,7 @@ import {
   Crown,
   Key,
   Shield,
+  Gem,
   LucideProps,
 } from 'lucide-react';
 import { EMOJI } from '../../config/emoji';
@@ -34,6 +35,8 @@ export type SemanticIconKey = keyof typeof EMOJI;
 
 const ICON_MAP: Record<SemanticIconKey, React.ComponentType<LucideProps>> = {
   HOME: Home,
+  HOUSE: Home,
+  ROBUX: Gem,
   SHOP: Compass,
   GACHA: Sparkles,
   POINTS: Coins,

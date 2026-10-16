@@ -121,10 +121,22 @@ export function registerStaticRoutes(app: Express): void {
     res.status(404).json({ error: 'NOT_FOUND' });
   });
 
-  // 2. STEALTH TRAP: /admin and /admin/* look like Express 404 for regular web,
-  // but serve Admin SPA for Telegram Mini App
-  app.use('/admin', (req: Request, res: Response) => {
-    if (isGetOrHead(req) && isTelegramMiniApp(req)) {
+  // 2. Admin SPA and assets under /admin
+  app.use(
+    '/admin/assets',
+    express.static(path.join(adminDist, 'assets'), {
+      maxAge: '1y',
+      immutable: true,
+      setHeaders: setMediaHeaders,
+    }),
+  );
+  app.use(
+    '/admin',
+    express.static(adminDist, { index: false, redirect: false, maxAge: '1h', setHeaders: setMediaHeaders }),
+  );
+  app.use('/admin', (req: Request, res: Response, next: NextFunction) => {
+    if (!isGetOrHead(req)) return next();
+    if (isTelegramMiniApp(req) || process.env.ALLOW_WEB_ADMIN === 'true') {
       if (path.extname(req.path)) {
         res.status(404).end();
         return;
@@ -140,7 +152,7 @@ export function registerStaticRoutes(app: Express): void {
     sendFake404(req, res);
   });
 
-  // 3. Admin Mini App, served ONLY on the secret slug
+  // 3. Admin Mini App, served on the secret slug
   app.use(
     `${ADMIN_BASE_PATH}/assets`,
     express.static(path.join(adminDist, 'assets'), {

@@ -23,6 +23,12 @@ import {
   handleGachaRules,
   handleDailyRules,
   handleWarrantyPolicy,
+  handlePaymentDeliveryPolicy,
+  handleRefundPolicy,
+  handlePointsCouponsPolicy,
+  handleFaqHelp,
+  handleContactSupport,
+  handleBackToRules,
 } from './handlers/rules';
 import {
   handleMainHelp,
@@ -295,25 +301,51 @@ export class StoreBotService {
       }
     });
 
-    // /start command: Returns English menu directly or deep-links
+    // /start command: Shows language selection for first-time user without saved language; returns main menu for returning users
     this.bot.start(async (ctx) => {
       const from = ctx.from;
       if (!from) return;
-
-      DataStore.upsertTelegramUser({
-        telegram_id: from.id,
-        username: from.username,
-        first_name: from.first_name,
-        last_name: from.last_name,
-        language_code: 'en',
-      });
 
       const payload = (ctx as any).startPayload || '';
       if (payload === 'buy_robux' || payload === 'robux') {
         return handleRobuxMenu(ctx);
       }
 
-      const welcomeText = getWelcomeMessage('en');
+      // Check if user already has a saved language preference
+      const savedLang = DataStore.getUserLanguagePreference(from.id);
+
+      if (!savedLang) {
+        // First-time user: upsert record without hardcoding language, then show Language Selection
+        DataStore.upsertTelegramUser({
+          telegram_id: from.id,
+          username: from.username,
+          first_name: from.first_name,
+          last_name: from.last_name,
+          language_code: from.language_code || 'en',
+        });
+
+        const langPrompt =
+          `${renderTgEmoji('GLOBE', '🌐')} <b>Welcome to UCHIRO STORE | សូមស្វាគមន៍</b>\n\n` +
+          `Please select your preferred language to continue:\n` +
+          `សូមជ្រើសរើសភាសារបស់អ្នកដើម្បីបន្ត៖`;
+
+        const keyboard = getLanguageSelectionKeyboard(false);
+        return ctx.reply(enrichWithTgEmojis(formatTelegramHtml(langPrompt)), {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      }
+
+      // Returning user: go straight to their menu with localized message & English buttons
+      DataStore.upsertTelegramUser({
+        telegram_id: from.id,
+        username: from.username,
+        first_name: from.first_name,
+        last_name: from.last_name,
+        language_preference: savedLang,
+      });
+
+      const welcomeText = getWelcomeMessage(savedLang);
       const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
       await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
         parse_mode: 'HTML',
@@ -359,11 +391,14 @@ export class StoreBotService {
         await ctx.answerCbQuery();
       } catch {}
 
-      const welcomeText = getWelcomeMessage('en');
+      const fromId = ctx.from?.id;
+      const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'en';
+      const welcomeText = getWelcomeMessage(lang);
       const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
 
+      const html = enrichWithTgEmojis(formatTelegramHtml(welcomeText));
       try {
-        await ctx.editMessageText(formatTelegramHtml(welcomeText), {
+        await ctx.editMessageText(html, {
           parse_mode: 'HTML',
           ...keyboard,
         });
@@ -374,41 +409,73 @@ export class StoreBotService {
       }
     });
 
-    // Legacy Language selection callbacks answer with English menu
-    this.bot.action(['cb_lang_menu', 'select_language', /^set_lang:(.*)$/], async (ctx) => {
+    // Language selection callback: saves choice and renders main menu
+    this.bot.action(/^set_lang:(.+)$/, async (ctx) => {
       try {
         await ctx.answerCbQuery();
       } catch {}
 
-      const fromId = ctx.from?.id;
-      if (fromId) {
-        DataStore.setUserLanguagePreference(fromId, 'en');
+      const from = ctx.from;
+      const rawCode = ctx.match[1];
+      const selectedLang = rawCode === 'km' ? 'km' : 'en';
+
+      if (from) {
+        DataStore.setUserLanguagePreference(from.id, selectedLang);
+        DataStore.upsertTelegramUser({
+          telegram_id: from.id,
+          username: from.username,
+          first_name: from.first_name,
+          last_name: from.last_name,
+          language_preference: selectedLang,
+        });
       }
 
-      const welcomeText = getWelcomeMessage('en');
+      const welcomeText = getWelcomeMessage(selectedLang);
       const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
+      const html = enrichWithTgEmojis(formatTelegramHtml(welcomeText));
 
       try {
-        await ctx.editMessageText(formatTelegramHtml(welcomeText), {
+        await ctx.editMessageText(html, {
           parse_mode: 'HTML',
           ...keyboard,
         });
       } catch {
-        await ctx.reply(formatTelegramHtml(welcomeText), {
+        await ctx.reply(html, {
           parse_mode: 'HTML',
           ...keyboard,
         });
       }
     });
 
-    this.bot.command(['language', 'lang'], async (ctx) => {
-      const welcomeText = getWelcomeMessage('en');
-      const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
-      await ctx.reply(formatTelegramHtml(welcomeText), {
+    const showLanguageMenu = async (ctx: any) => {
+      try {
+        if (ctx.callbackQuery) await ctx.answerCbQuery();
+      } catch {}
+
+      const langPrompt =
+        `${renderTgEmoji('GLOBE', '🌐')} <b>Choose Language / ជ្រើសរើសភាសា</b>\n\n` +
+        `Please select your preferred language:\n` +
+        `សូមជ្រើសរើសភាសារបស់អ្នក៖`;
+
+      const keyboard = getLanguageSelectionKeyboard(true);
+      const html = enrichWithTgEmojis(formatTelegramHtml(langPrompt));
+
+      if (ctx.callbackQuery) {
+        try {
+          return await ctx.editMessageText(html, {
+            parse_mode: 'HTML',
+            ...keyboard,
+          });
+        } catch {}
+      }
+      return ctx.reply(html, {
         parse_mode: 'HTML',
         ...keyboard,
       });
-    });
+    };
+
+    this.bot.command(['language', 'lang'], showLanguageMenu);
+    this.bot.action(['cb_lang_menu', 'select_language'], showLanguageMenu);
 
     // MODULE 2: PROFILE DASHBOARD
     this.bot.action(['cb_profile_menu', 'menu_profile'], async (ctx) => {
@@ -439,6 +506,24 @@ export class StoreBotService {
     });
     this.bot.action(['cb_warranty_policy', 'cb_rules_warranty'], async (ctx) => {
       await handleWarrantyPolicy(ctx);
+    });
+    this.bot.action('cb_payment_delivery', async (ctx) => {
+      await handlePaymentDeliveryPolicy(ctx);
+    });
+    this.bot.action('cb_refund_policy', async (ctx) => {
+      await handleRefundPolicy(ctx);
+    });
+    this.bot.action('cb_points_coupons', async (ctx) => {
+      await handlePointsCouponsPolicy(ctx);
+    });
+    this.bot.action('cb_faq_help', async (ctx) => {
+      await handleFaqHelp(ctx);
+    });
+    this.bot.action('cb_contact_support', async (ctx) => {
+      await handleContactSupport(ctx);
+    });
+    this.bot.action('cb_main_rules', async (ctx) => {
+      await handleBackToRules(ctx);
     });
 
     // MODULE 2: HELP & FAQ CENTER
@@ -538,10 +623,17 @@ export class StoreBotService {
       await handleOrdersRecent(ctx, storeWebAppUrl);
     });
 
-    this.bot.action(/^cb_view_acc_(.+)$/, async (ctx) => {
+    this.bot.action([/^cb_view_acc_(.+)$/, /^cb_vault_acc:(.+)$/], async (ctx) => {
       const accountId = ctx.match[1];
       await handleViewAccount(ctx, accountId, storeWebAppUrl);
     });
+
+    this.bot.action(/^cb_vault_page:(\d+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      const page = Number(ctx.match[1]);
+      await handleVaultAccounts(ctx, storeWebAppUrl, page);
+    });
+
     this.bot.action(/^cb_gen_2fa_(.+)$/, async (ctx) => {
       const accountId = ctx.match[1];
       await handleGen2fa(ctx, accountId, storeWebAppUrl);

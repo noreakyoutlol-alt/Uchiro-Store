@@ -136,7 +136,7 @@ export async function handleVault2fa(ctx: Context, storeUrl: string): Promise<vo
 /**
  * Handle Delivered Accounts List (cb_vault_accounts)
  */
-export async function handleVaultAccounts(ctx: Context, storeUrl: string): Promise<void> {
+export async function handleVaultAccounts(ctx: Context, storeUrl: string, page: number = 0): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 

@@ -28,7 +28,7 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
   });
 
   describe('1. 5-Row Main Menu Navigation & Emoji Quality', () => {
-    it('builds exactly 5 rows in Khmer with clean singular emojis and single WebApp button', () => {
+    it('builds exactly 5 rows in English with clean singular emojis and single WebApp button', () => {
       const keyboard = getMainMenuKeyboard('https://uchiro.store', 'km', 'UchiroSupport');
       const rows = keyboard.reply_markup.inline_keyboard;
 
@@ -40,33 +40,33 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
       expect(allText).not.toContain('☢');
 
       // Row 1: Gacha & Daily Points
-      expect(rows[0][0].text).toBe('🎰 លេង Gacha');
+      expect(rows[0][0].text).toBe('🎰 Play Gacha');
       expect((rows[0][0] as any).callback_data).toBe('cb_gacha_menu');
-      expect(rows[0][1].text).toBe('🎁 ពិន្ទុប្រចាំថ្ងៃ');
+      expect(rows[0][1].text).toBe('🎁 Daily Points');
       expect((rows[0][1] as any).callback_data).toBe('cb_daily_menu');
 
       // Row 2: Vault & Orders
-      expect(rows[1][0].text).toBe('🎒 កាតាបឥវ៉ាន់ & Vault');
+      expect(rows[1][0].text).toBe('🎒 My Vault & Accounts');
       expect((rows[1][0] as any).callback_data).toBe('cb_vault_menu');
-      expect(rows[1][1].text).toBe('📜 ប្រវត្តិបញ្ជាទិញ');
+      expect(rows[1][1].text).toBe('📜 Order History');
       expect((rows[1][1] as any).callback_data).toBe('cb_orders_menu');
 
       // Row 3: Profile & Language
-      expect(rows[2][0].text).toBe('👤 ព័ត៌មានគណនី (Profile)');
+      expect(rows[2][0].text).toBe('👤 My Profile');
       expect((rows[2][0] as any).callback_data).toBe('cb_profile_menu');
-      expect(rows[2][1].text).toBe('🌐 ភាសា / Language');
+      expect(rows[2][1].text).toBe('🌐 Language');
       expect((rows[2][1] as any).callback_data).toBe('cb_lang_menu');
 
       // Row 4: Rules & Help
-      expect(rows[3][0].text).toBe('📜 ច្បាប់ទូទៅ (Rules)');
+      expect(rows[3][0].text).toBe('📜 Store Rules');
       expect((rows[3][0] as any).callback_data).toBe('cb_main_rules');
-      expect(rows[3][1].text).toBe('❓ ជំនួយ & FAQ (Help)');
+      expect(rows[3][1].text).toBe('❓ Help & FAQ');
       expect((rows[3][1] as any).callback_data).toBe('cb_main_help');
 
       // Row 5: Open Mini App (ONLY WebApp) & Admin Support link
-      expect(rows[4][0].text).toBe('🛍️ បើកហាង Mini App (ស្រេចចិត្ត)');
+      expect(rows[4][0].text).toBe('🛍️ Open Store');
       expect((rows[4][0] as any).web_app?.url).toBe('https://uchiro.store');
-      expect(rows[4][1].text).toBe('💬 ឆាតទៅ Admin 24/7');
+      expect(rows[4][1].text).toBe('💬 Contact Support');
       expect((rows[4][1] as any).url).toBe('https://t.me/UchiroSupport');
 
       // Verify ONLY Row 4 Col 0 has web_app
@@ -128,13 +128,13 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
       const kb = buildProfileKeyboard('https://uchiro.store', 'km');
       const rows = kb.reply_markup.inline_keyboard;
       expect(rows.length).toBe(3);
-      expect(rows[0][0].text).toContain('ប្រវត្តិពិន្ទុ');
+      expect(rows[0][0].text).toContain('Points Ledger');
       expect((rows[0][0] as any).callback_data).toBe('cb_points_ledger');
-      expect(rows[0][1].text).toContain('ប្តូរពិន្ទុ');
+      expect(rows[0][1].text).toContain('Redeem Points');
       expect((rows[0][1] as any).callback_data).toBe('cb_redeem_pts');
-      expect(rows[1][0].text).toContain('មើលកាតាបឥវ៉ាន់');
+      expect(rows[1][0].text).toContain('View Vault');
       expect((rows[1][0] as any).callback_data).toBe('cb_vault_menu');
-      expect(rows[2][1].text).toContain('ត្រឡប់ទៅដើម');
+      expect(rows[2][1].text).toContain('Back Home');
       expect((rows[2][1] as any).callback_data).toBe('cb_main_menu');
     });
   });
@@ -143,15 +143,25 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
     it('builds Rules sub-menu keyboard with Gacha, Daily, and 14-day warranty options', () => {
       const kb = buildMainRulesKeyboard('km');
       const rows = kb.reply_markup.inline_keyboard;
-      expect(rows.length).toBe(3);
-      expect(rows[0][0].text).toContain('ច្បាប់ Gacha');
+      expect(rows.length).toBe(5);
+      expect(rows[0][0].text).toContain('Gacha Rules');
       expect((rows[0][0] as any).callback_data).toBe('cb_gacha_rules');
-      expect(rows[0][1].text).toContain('ច្បាប់ Daily');
+      expect(rows[0][1].text).toContain('Daily Streak Rules');
       expect((rows[0][1] as any).callback_data).toBe('cb_daily_rules');
-      expect(rows[1][0].text).toContain('គោលការណ៍ធានា 14 ថ្ងៃ');
+      expect(rows[1][0].text).toContain('14-Day Warranty');
       expect((rows[1][0] as any).callback_data).toBe('cb_warranty_policy');
-      expect(rows[2][0].text).toContain('ត្រឡប់ទៅដើម');
-      expect((rows[2][0] as any).callback_data).toBe('cb_main_menu');
+      expect(rows[2][0].text).toContain('Payment & Delivery');
+      expect((rows[2][0] as any).callback_data).toBe('cb_payment_delivery');
+      expect(rows[2][1].text).toContain('Refund Policy');
+      expect((rows[2][1] as any).callback_data).toBe('cb_refund_policy');
+      expect(rows[3][0].text).toContain('Points & Coupons');
+      expect((rows[3][0] as any).callback_data).toBe('cb_points_coupons');
+      expect(rows[3][1].text).toContain('FAQ & Help');
+      expect((rows[3][1] as any).callback_data).toBe('cb_faq_help');
+      expect(rows[4][0].text).toContain('Contact Support');
+      expect((rows[4][0] as any).callback_data).toBe('cb_contact_support');
+      expect(rows[4][1].text).toContain('Back Home');
+      expect((rows[4][1] as any).callback_data).toBe('cb_main_menu');
     });
   });
 
@@ -160,13 +170,13 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
       const kb = buildMainHelpKeyboard('UchiroSupport', 'km');
       const rows = kb.reply_markup.inline_keyboard;
       expect(rows.length).toBe(4);
-      expect(rows[0][0].text).toContain('2FA Authenticator');
+      expect(rows[0][0].text).toContain('2FA Authenticator Guide');
       expect((rows[0][0] as any).callback_data).toBe('cb_guide_2fa');
-      expect(rows[1][0].text).toContain('KHQR');
+      expect(rows[1][0].text).toContain('How to Pay with KHQR');
       expect((rows[1][0] as any).callback_data).toBe('cb_guide_payment');
-      expect(rows[2][0].text).toContain('ទាក់ទង Admin');
+      expect(rows[2][0].text).toContain('Contact Support');
       expect((rows[2][0] as any).url).toBe('https://t.me/UchiroSupport');
-      expect(rows[3][0].text).toContain('ត្រឡប់ទៅដើម');
+      expect(rows[3][0].text).toContain('Back Home');
       expect((rows[3][0] as any).callback_data).toBe('cb_main_menu');
     });
   });
@@ -174,7 +184,7 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
   describe('5. Real-Time Gacha In-Chat Module', () => {
     it('fetches live pool information and user ticket balance', async () => {
       const info = await fetchGachaLiveInfo(TEST_TG_ID);
-      expect(info.ticket_price_pts).toBe(50);
+      expect(info.ticket_price_pts).toBe(100);
       expect(info.top_mythical_item).toBeDefined();
       expect(info.mythical_drop_rate).toBeGreaterThan(0);
     });
@@ -183,11 +193,11 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
       const kb = buildGachaKeyboard('https://uchiro.store', 'km');
       const rows = kb.reply_markup.inline_keyboard;
       expect(rows.length).toBe(3);
-      expect(rows[0][0].text).toContain('ប្តូរសំបុត្រ');
+      expect(rows[0][0].text).toContain('Exchange Points for Ticket');
       expect((rows[0][0] as any).callback_data).toBe('cb_gacha_buy_ticket');
-      expect(rows[0][1].text).toContain('រង្វាន់ទាំងអស់');
+      expect(rows[0][1].text).toContain('View All Prizes');
       expect((rows[0][1] as any).callback_data).toBe('cb_gacha_prizes');
-      expect(rows[1][0].text).toContain('អត្រាឈ្នះ');
+      expect(rows[1][0].text).toContain('Drop Rates');
       expect((rows[1][0] as any).callback_data).toBe('cb_gacha_odds');
     });
   });
@@ -224,7 +234,7 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
 
     it('builds dynamic Daily Keyboard showing claim or cooldown state', () => {
       const claimableKb = buildDailyKeyboard(true, 'km');
-      expect(claimableKb.reply_markup.inline_keyboard[0][0].text).toContain('ទទួលពិន្ទុភ្លាមៗ');
+      expect(claimableKb.reply_markup.inline_keyboard[0][0].text).toContain('Claim Daily');
       expect((claimableKb.reply_markup.inline_keyboard[0][0] as any).callback_data).toBe('cb_claim_daily_instant');
 
       const cooldownKb = buildDailyKeyboard(false, 'km');

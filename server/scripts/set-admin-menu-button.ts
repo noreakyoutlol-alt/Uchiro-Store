@@ -2,16 +2,29 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const token = process.env.ADMIN_BOT_TOKEN;
-const serverUrl = (process.env.SERVER_URL ?? process.env.PUBLIC_URL ?? '').replace(/\/+$/, '');
-const slug = (process.env.ADMIN_URL_SLUG ?? '').trim();
+const serverUrl = (
+  process.env.ADMIN_WEBAPP_URL ??
+  process.env.ADMIN_URL ??
+  process.env.SERVER_URL ??
+  process.env.PUBLIC_URL ??
+  process.env.APP_URL ??
+  ''
+).replace(/\/+$/, '');
+const slug = (
+  process.env.ADMIN_URL_SLUG ||
+  process.env.ADMIN_SECRET_SLUG ||
+  process.env.ADMIN_SECRET_PATH ||
+  process.env.ADMIN_BASE_PATH ||
+  'noreakyoutadmindashboard'
+).replace(/^\/+/, '').trim();
 const rawIds = process.env.ADMIN_TELEGRAM_USER_IDS ?? '';
 
 if (!token) {
   console.error('ERROR: ADMIN_BOT_TOKEN is not set.');
   process.exit(1);
 }
-if (!serverUrl || !slug || !/^[A-Za-z0-9_-]{16,64}$/.test(slug)) {
-  console.error('ERROR: SERVER_URL and a valid ADMIN_URL_SLUG (16-64 chars) are required.');
+if (!serverUrl || !slug || !/^[A-Za-z0-9_-]{10,64}$/.test(slug)) {
+  console.error('ERROR: SERVER_URL and a valid admin slug (10-64 chars) are required.');
   process.exit(1);
 }
 

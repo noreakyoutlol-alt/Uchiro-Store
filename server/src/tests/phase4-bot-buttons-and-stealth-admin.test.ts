@@ -27,50 +27,50 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
       // Row 0: Gacha & Daily Points - MUST NOT have web_app
       const gachaBtn = rows[0][0] as any;
       const rewardsBtn = rows[0][1] as any;
-      expect(gachaBtn.text).toBe('🎰 លេង Gacha');
+      expect(gachaBtn.text).toBe('🎰 Play Gacha');
       expect(gachaBtn.web_app).toBeUndefined();
       expect(gachaBtn.callback_data).toBe('cb_gacha_menu');
-      expect(rewardsBtn.text).toBe('🎁 ពិន្ទុប្រចាំថ្ងៃ');
+      expect(rewardsBtn.text).toBe('🎁 Daily Points');
       expect(rewardsBtn.web_app).toBeUndefined();
       expect(rewardsBtn.callback_data).toBe('cb_daily_menu');
 
       // Row 1: Inventory & Orders - MUST NOT have web_app
       const vaultBtn = rows[1][0] as any;
       const ordersBtn = rows[1][1] as any;
-      expect(vaultBtn.text).toBe('🎒 កាតាបឥវ៉ាន់ & Vault');
+      expect(vaultBtn.text).toBe('🎒 My Vault & Accounts');
       expect(vaultBtn.web_app).toBeUndefined();
       expect(vaultBtn.callback_data).toBe('cb_vault_menu');
-      expect(ordersBtn.text).toBe('📜 ប្រវត្តិបញ្ជាទិញ');
+      expect(ordersBtn.text).toBe('📜 Order History');
       expect(ordersBtn.web_app).toBeUndefined();
       expect(ordersBtn.callback_data).toBe('cb_orders_menu');
 
       // Row 2: Profile & Language - MUST NOT have web_app
       const profileBtn = rows[2][0] as any;
       const langBtn = rows[2][1] as any;
-      expect(profileBtn.text).toBe('👤 ព័ត៌មានគណនី (Profile)');
+      expect(profileBtn.text).toBe('👤 My Profile');
       expect(profileBtn.web_app).toBeUndefined();
       expect(profileBtn.callback_data).toBe('cb_profile_menu');
-      expect(langBtn.text).toBe('🌐 ភាសា / Language');
+      expect(langBtn.text).toBe('🌐 Language');
       expect(langBtn.web_app).toBeUndefined();
       expect(langBtn.callback_data).toBe('cb_lang_menu');
 
       // Row 3: Rules & Help - MUST NOT have web_app
       const rulesBtn = rows[3][0] as any;
       const helpBtn = rows[3][1] as any;
-      expect(rulesBtn.text).toBe('📜 ច្បាប់ទូទៅ (Rules)');
+      expect(rulesBtn.text).toBe('📜 Store Rules');
       expect(rulesBtn.web_app).toBeUndefined();
       expect(rulesBtn.callback_data).toBe('cb_main_rules');
-      expect(helpBtn.text).toBe('❓ ជំនួយ & FAQ (Help)');
+      expect(helpBtn.text).toBe('❓ Help & FAQ');
       expect(helpBtn.web_app).toBeUndefined();
       expect(helpBtn.callback_data).toBe('cb_main_help');
 
       // Row 4: Primary WebApp button & Support Link
       const openStoreBtn = rows[4][0] as any;
       const supportBtn = rows[4][1] as any;
-      expect(openStoreBtn.text).toBe('🛍️ បើកហាង Mini App (ស្រេចចិត្ត)');
+      expect(openStoreBtn.text).toBe('🛍️ Open Store');
       expect(openStoreBtn.web_app).toBeDefined();
       expect(openStoreBtn.web_app.url).toBe('https://store.uchiro.com');
-      expect(supportBtn.text).toBe('💬 ឆាតទៅ Admin 24/7');
+      expect(supportBtn.text).toBe('💬 Contact Support');
       expect(supportBtn.web_app).toBeUndefined();
       expect(supportBtn.url).toMatch(/^https:\/\/t\.me\//);
     });

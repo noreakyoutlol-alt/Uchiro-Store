@@ -3,8 +3,17 @@ import react from '@vitejs/plugin-react';
 
 const backendTarget = process.env.VITE_API_URL || 'http://127.0.0.1:5000';
 
+const rawSlug =
+  process.env.ADMIN_URL_SLUG ||
+  process.env.ADMIN_SECRET_SLUG ||
+  process.env.ADMIN_SECRET_PATH ||
+  process.env.ADMIN_BASE_PATH ||
+  'noreakyoutadmindashboard';
+const cleanedSlug = rawSlug.replace(/^\/+|\/+$/g, '').replace(/[^a-zA-Z0-9_-]/g, '') || 'noreakyoutadmindashboard';
+const adminBase = `/${cleanedSlug}/`;
+
 export default defineConfig({
-  base: '/noreakyoutadmindashboard/',
+  base: adminBase,
   plugins: [react()],
   build: {
     outDir: 'dist',

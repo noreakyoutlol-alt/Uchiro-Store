@@ -22,6 +22,8 @@ export type AdminBotInstance = Omit<Telegraf, 'startPolling'> & {
   deleteWebhook: () => Promise<{ success: boolean; message?: string }>;
 };
 
+import { ADMIN_BASE_PATH } from '../../config/admin-slug';
+
 export const adminBot: AdminBotInstance = new Telegraf(token) as unknown as AdminBotInstance;
 applyTelegramOutboundGuard(adminBot as any);
 
@@ -34,8 +36,29 @@ export const STORE_URL =
         ? env.CLIENT_STORE_URL
         : ((process.env.PUBLIC_URL || env.PUBLIC_URL || '').replace(/\/$/, '') || 'https://uchiro.store');
 
-const liveDomain = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app';
-const adminPortalUrl = `${liveDomain.replace(/\/$/, '')}/noreakyoutadmindashboard`;
+export function resolveAdminPortalUrl(): string {
+  const explicit = (process.env.ADMIN_WEBAPP_URL || process.env.ADMIN_URL || process.env.ADMIN_MINIAPP_URL || '').trim();
+  if (explicit && (explicit.startsWith('https://') || explicit.startsWith('http://'))) {
+    try {
+      const parsed = new URL(explicit);
+      if (parsed.pathname && parsed.pathname !== '/') return explicit.replace(/\/$/, '');
+      return `${parsed.origin}${ADMIN_BASE_PATH}`;
+    } catch {
+      return explicit.replace(/\/$/, '');
+    }
+  }
+
+  const serverBase = (
+    process.env.SERVER_URL ||
+    process.env.PUBLIC_URL ||
+    process.env.APP_URL ||
+    'https://web-production-2d8bd.up.railway.app'
+  ).trim().replace(/\/$/, '');
+
+  return `${serverBase}${ADMIN_BASE_PATH}`;
+}
+
+export const adminPortalUrl = resolveAdminPortalUrl();
 
 // Handle /start and /menu
 adminBot.command(['start', 'menu'], async (ctx) => {
@@ -177,7 +200,7 @@ adminBot.command('robux', async (ctx) => {
     return ctx.reply('⛔ Access denied. You are not an authorized admin.');
   }
 
-  const view = await handleAdminCallback('admin:robux:pool', ctx.from, STORE_URL);
+  const view = await handleAdminCallback('admin:robux:pool', ctx.from, STORE_URL, adminPortalUrl);
   if (view) {
     return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });
   }
@@ -187,7 +210,7 @@ adminBot.command('robux', async (ctx) => {
 adminBot.on('callback_query', async (ctx) => {
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
   if (!data || ctx.chat?.type !== 'private') return;
-  const view = await handleAdminCallback(data, ctx.callbackQuery.from, STORE_URL);
+  const view = await handleAdminCallback(data, ctx.callbackQuery.from, STORE_URL, adminPortalUrl);
   if (!view) return;
   try {
     await ctx.editMessageText(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });

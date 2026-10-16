@@ -178,9 +178,9 @@ export async function handleRedeemPoints(ctx: Context): Promise<void> {
     `🪙 <b>Your Points Balance:</b> <code>${profile.points}</code> Pts\n\n` +
     `<b>Available Redemptions:</b>\n` +
     `🎟️ <b>1x Gacha Ticket:</b> <code>${ticketCost} Pts</code>\n` +
-    `🏷️ <b>$0.50 Discount Voucher:</b> <code>100 Pts</code> (Orders from $3)\n` +
-    `🏷️ <b>$1.20 Discount Voucher:</b> <code>200 Pts</code> (Orders from $6)\n` +
-    `🏷️ <b>$3.50 Discount Voucher:</b> <code>500 Pts</code> (Orders from $15)\n\n` +
+    `🏷️ <b>$0.50 Discount Voucher:</b> <code>50 Pts</code> (Orders from $1.50)\n` +
+    `🏷️ <b>$1.00 Discount Voucher:</b> <code>100 Pts</code> (Orders from $3)\n` +
+    `🏷️ <b>$2.00 Discount Voucher:</b> <code>200 Pts</code> (Orders from $5)\n\n` +
     `👇 Exchange for Gacha Tickets below or open Mini App to redeem vouchers:\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 

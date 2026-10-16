@@ -32,6 +32,7 @@ export async function handleRobuxMenu(ctx: Context) {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
+  const supportUsername = (process.env.SUPPORT_TELEGRAM_USERNAME || 'uchirosupport').replace(/^@/, '');
   const stock = await RobuxService.getStockConfig();
 
   // Compliance gate: Direct third-party Robux transfer held pending platform licensing verification
@@ -41,10 +42,10 @@ export async function handleRobuxMenu(ctx: Context) {
       `🛡️ <b>Compliance Notice: Direct Fulfillment Verification in Progress</b>\n\n` +
       `In adherence to digital asset platform terms of service and Roblox commercial guidelines, direct automated third-party Robux resale or transfer flows require official authorized distribution clearance.\n\n` +
       `Direct in-chat transfers are temporarily held pending platform compliance clearance. You may browse our full verified catalog of accounts and items in the Store Mini App or contact support.\n\n` +
-      `💬 <b>Support:</b> https://t.me/uchirosupport`;
+      `💬 <b>Contact Support:</b> https://t.me/${supportUsername}`;
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.url('💬 Contact Support', 'https://t.me/uchirosupport')],
+      [Markup.button.url('💬 Contact Support', `https://t.me/${supportUsername}`)],
       [Markup.button.callback('🏠 Back Home', 'cb_main_menu')],
     ]);
 

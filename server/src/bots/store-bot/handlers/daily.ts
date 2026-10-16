@@ -201,9 +201,9 @@ export async function handleDailyShop(ctx: Context): Promise<void> {
     `🪙 <b>Current Balance:</b> <code>${daily.points}</code> Pts\n\n` +
     `<b>Available Items:</b>\n` +
     `🎟️ <b>Gacha Ticket:</b> <code>100 Pts</code> (1 Spin for Mythical Prizes)\n` +
-    `🏷️ <b>Coupon $0.50 Off:</b> <code>100 Pts</code> (Valid on all games)\n` +
-    `🏷️ <b>Coupon $1.20 Off:</b> <code>200 Pts</code> (Valid on all games)\n` +
-    `🏷️ <b>Coupon $3.50 Off:</b> <code>500 Pts</code> (Valid on all games)\n\n` +
+    `🏷️ <b>Coupon $0.50 Off:</b> <code>50 Pts</code> (Valid on all games)\n` +
+    `🏷️ <b>Coupon $1.00 Off:</b> <code>100 Pts</code> (Valid on all games)\n` +
+    `🏷️ <b>Coupon $2.00 Off:</b> <code>200 Pts</code> (Valid on all games)\n\n` +
     `<i>Exchange points for tickets below or launch the Mini App to redeem coupons!</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 

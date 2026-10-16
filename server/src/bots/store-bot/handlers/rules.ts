@@ -5,6 +5,7 @@ import {
 } from '../keyboards';
 import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { isMessageNotModifiedError } from './orders';
+import { Markup } from 'telegraf';
 
 /**
  * Handle Store Rules & Warranties Main Screen (cb_main_rules / /rules)
@@ -153,4 +154,216 @@ export async function handleWarrantyPolicy(ctx: Context): Promise<void> {
       console.warn('[Warranty Policy] Render warning:', err);
     }
   }
+}
+
+/**
+ * Handle Payment & Delivery Policy (cb_payment_delivery)
+ */
+export async function handlePaymentDeliveryPolicy(ctx: Context): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `📦 <b>PAYMENT &amp; DELIVERY POLICY</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `💳 <b>Accepted Payment Methods:</b>\n` +
+    `• Bakong KHQR (USD &amp; KHR - Instant Verification)\n` +
+    `• Local Bank Transfers (ABA, Wing, ACLEDA)\n` +
+    `• Credit/Debit Cards (Visa, Mastercard)\n` +
+    `• Cryptocurrency (USDT TRC20/BEP20)\n\n` +
+    `🚚 <b>Delivery Methods:</b>\n` +
+    `• Instant Digital Delivery to Telegram &amp; Mini App Vault\n` +
+    `• Credentials unlocked automatically upon payment confirmation\n\n` +
+    `⏱️ <b>Delivery Timeframe:</b>\n` +
+    `• Automated Accounts &amp; Codes: Instant (&lt; 3 seconds)\n` +
+    `• Manual Fulfillment / Verification: Under 15 minutes\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubRulesKeyboard('en');
+
+  try {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[Payment & Delivery Policy] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle Refund Policy (cb_refund_policy)
+ */
+export async function handleRefundPolicy(ctx: Context): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `💰 <b>REFUND &amp; REPLACEMENT POLICY</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🛡️ <b>Eligible for 100% Refund / Replacement:</b>\n` +
+    `• Account locked or credentials invalid upon initial delivery\n` +
+    `• Account reclaimed or recovered within the 14-day warranty period\n` +
+    `• In-game items or ranks not matching catalog description\n` +
+    `• System payment failure or duplicate charge\n\n` +
+    `⚠️ <b>Non-Refundable Circumstances:</b>\n` +
+    `• User violation of third-party game TOS (e.g. cheating, scripting)\n` +
+    `• Password sharing or compromised personal devices\n` +
+    `• Voluntary change of mind after credentials revealed\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubRulesKeyboard('en');
+
+  try {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[Refund Policy] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle Points & Coupons Policy (cb_points_coupons)
+ */
+export async function handlePointsCouponsPolicy(ctx: Context): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `🏷️ <b>POINTS &amp; COUPONS POLICY</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🪙 <b>Points Earning Rules:</b>\n` +
+    `• <b>Daily Check-in:</b> +5 Pts daily (+20 Pts on Day 7 milestone)\n` +
+    `• <b>Shopping Rewards:</b> Earn points on every verified order\n\n` +
+    `🎟️ <b>Gacha Ticket Exchange:</b>\n` +
+    `• <b>100 Points:</b> 1x Mythical Gacha Ticket (Stackable, no expiration)\n\n` +
+    `🏷️ <b>Discount Coupon Exchange:</b>\n` +
+    `• <b>50 Points:</b> $0.50 Discount Voucher (Min. Order $1.50)\n` +
+    `• <b>100 Points:</b> $1.00 Discount Voucher (Min. Order $3.00)\n` +
+    `• <b>200 Points:</b> $2.00 Discount Voucher (Min. Order $5.00)\n\n` +
+    `🔒 <b>Usage Terms:</b>\n` +
+    `• 1 coupon per order, non-transferable, bound to your Telegram ID\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubRulesKeyboard('en');
+
+  try {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[Points & Coupons Policy] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle FAQ & Help (cb_faq_help)
+ */
+export async function handleFaqHelp(ctx: Context): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `❓ <b>FREQUENTLY ASKED QUESTIONS (FAQ)</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `<b>Q: How quickly do I get my account?</b>\n` +
+    `A: Delivery is instant. Credentials and live 2FA OTP are immediately available in 🎒 My Vault.\n\n` +
+    `<b>Q: How do I generate live 2FA codes?</b>\n` +
+    `A: Go to 🎒 My Vault -> Tap 'Get Live 2FA Code' or use the in-bot button to receive a valid 6-digit OTP.\n\n` +
+    `<b>Q: What if the account stops working?</b>\n` +
+    `A: All accounts are covered by our 14-Day Warranty. Contact support for an immediate replacement or refund.\n\n` +
+    `<b>Q: Can I use coupons on any product?</b>\n` +
+    `A: Yes, as long as your cart meets the minimum order threshold.\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubRulesKeyboard('en');
+
+  try {
+    await ctx.editMessageText(enrichWithTgEmojis(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[FAQ & Help] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle Contact Support (cb_contact_support)
+ */
+export async function handleContactSupport(ctx: Context): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `💬 <b>CONTACT 24/7 SUPPORT</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🕐 <b>Support Availability:</b>\n` +
+    `• 24 Hours a Day, 7 Days a Week\n` +
+    `• Average response time: under 5 minutes\n\n` +
+    `📱 <b>Official Channels:</b>\n` +
+    `• <b>Telegram Support:</b> <a href="https://t.me/uchirosupport">@UchiroSupport</a> (https://t.me/uchirosupport)\n` +
+    `• <b>Email Support:</b> support@uchiro.store\n\n` +
+    `📋 <b>Information to Include:</b>\n` +
+    `• Your Order ID or Transaction Number\n` +
+    `• Clear description of the issue\n` +
+    `• Screenshots or video proof if applicable\n\n` +
+    `⚡ <b>Issues Handled:</b>\n` +
+    `• Warranty account replacements & refunds\n` +
+    `• 2FA authentication assistance\n` +
+    `• Payment confirmations\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.url('💬 Open @UchiroSupport', 'https://t.me/uchirosupport')],
+    [
+      Markup.button.callback('🔙 Back to Rules', 'cb_main_rules'),
+      Markup.button.callback('🏠 Back Home', 'cb_main_menu'),
+    ],
+  ]);
+
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[Contact Support] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle Back to Rules (cb_main_rules)
+ */
+export async function handleBackToRules(ctx: Context): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  await handleMainRules(ctx);
 }

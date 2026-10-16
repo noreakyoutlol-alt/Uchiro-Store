@@ -1,3 +1,5 @@
+import { enrichWithTgEmojis as enrichCanonical } from '../../../config/telegram-emojis';
+
 export interface TelegramCustomEmoji {
   name: string;
   emoji: string;
@@ -39,19 +41,8 @@ export const TG_PREMIUM_EMOJI_REGISTRY: Record<string, string> = {
 /**
  * Wraps standard emoji icons with <tg-emoji emoji-id="..."> tags.
  * Preserves text already wrapped and avoids altering button titles.
+ * Uses canonical idempotent implementation.
  */
 export function enrichWithTgEmojis(text: string): string {
-  if (!text) return '';
-  let enriched = text;
-
-  // Sort by emoji string length descending
-  const entries = Object.entries(TG_PREMIUM_EMOJI_REGISTRY).sort((a, b) => b[0].length - a[0].length);
-
-  for (const [emoji, id] of entries) {
-    const escaped = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(?<!<tg-emoji[^>]*>)${escaped}(?!<\\/tg-emoji>)`, 'g');
-    enriched = enriched.replace(regex, `<tg-emoji emoji-id="${id}">${emoji}</tg-emoji>`);
-  }
-
-  return enriched;
+  return enrichCanonical(text);
 }

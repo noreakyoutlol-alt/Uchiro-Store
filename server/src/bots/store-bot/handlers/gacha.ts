@@ -24,7 +24,7 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
 
   let tickets = 0;
   let points = 0;
-  let ticket_price_pts = 50;
+  let ticket_price_pts = 100;
   let top_mythical_item = '🍎 Kitsune Fruit Permanent (Jackpot)';
   let top_legendary_item = '⚔️ Dark Blade (Yoru) Account';
   let mythical_drop_rate = 1.5;
@@ -191,7 +191,6 @@ export async function handleBuyGachaTicket(
   const tid = String(telegramId);
   const numId = Number(telegramId);
 
-  // Use DataStore.getStoreSettings for ticket cost
   const ticketCost = DataStore.getStoreSettings().gacha_ticket_points_cost || 100;
 
   const liveInfo = await fetchGachaLiveInfo(telegramId);
