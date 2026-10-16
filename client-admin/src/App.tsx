@@ -12,6 +12,7 @@ import { AuditLogsPage } from './pages/AuditLogsPage';
 import { GachaPage } from './pages/GachaPage';
 import { BackupPage } from './pages/BackupPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SecurityPage } from './pages/SecurityPage';
 import {
   DashboardStats,
   Order,
@@ -205,6 +206,7 @@ export const App: React.FC = () => {
       )}
       {currentTab === 'users' && <UsersPage users={users} />}
       {currentTab === 'broadcast' && <BroadcastPage />}
+      {currentTab === 'security' && <SecurityPage />}
       {currentTab === 'settings' && <SettingsPage />}
       {currentTab === 'backup' && <BackupPage onRefreshAll={loadData} />}
       {currentTab === 'logs' && <AuditLogsPage logs={logs} />}

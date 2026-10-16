@@ -1,7 +1,7 @@
 import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
 import { DataStore } from '../../database/data-store';
-import { TELEGRAM_EMOJIS, renderTgEmoji, enrichWithTgEmojis, TelegramEmojiKey } from '../../config/telegram-emojis';
+import { TELEGRAM_EMOJIS, renderTgEmoji, tgEmoji, enrichWithTgEmojis, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { FulfillmentService } from '../../services/fulfillment.service';
 import {
   handleVaultMenu,
@@ -50,6 +50,14 @@ import {
   fetchDailyLiveInfo,
 } from './handlers/daily';
 import {
+  handleRobuxMenu,
+  handleSelectPack,
+  handleRobuxUsernameInput,
+  handleConfirmAccount,
+  handleCancelRobuxOrder,
+  clearRobuxSession,
+} from './handlers/robux';
+import {
   buildMainMenuKeyboard,
   getMainMenuKeyboard,
   getLanguageSelectionKeyboard,
@@ -60,6 +68,7 @@ import { getLocale } from './locales';
 export {
   TELEGRAM_EMOJIS,
   renderTgEmoji,
+  tgEmoji,
   enrichWithTgEmojis,
   buildMainMenuKeyboard,
   getMainMenuKeyboard,
@@ -278,7 +287,7 @@ export class StoreBotService {
       }
     });
 
-    // /start command: Returns English menu directly with standard English welcome copy
+    // /start command: Returns English menu directly or deep-links
     this.bot.start(async (ctx) => {
       const from = ctx.from;
       if (!from) return;
@@ -291,12 +300,49 @@ export class StoreBotService {
         language_code: 'en',
       });
 
+      const payload = (ctx as any).startPayload || '';
+      if (payload === 'buy_robux' || payload === 'robux') {
+        return handleRobuxMenu(ctx);
+      }
+
       const welcomeText = getWelcomeMessage('en');
       const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
       await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
         parse_mode: 'HTML',
         ...keyboard,
       });
+    });
+
+    // ─── BUY ROBUX WORKFLOW ──────────────────────────────────────────────────
+    this.bot.command(['robux', 'buyrobux'], async (ctx) => {
+      await handleRobuxMenu(ctx);
+    });
+
+    this.bot.action('cb_buy_robux', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleRobuxMenu(ctx);
+    });
+
+    this.bot.action(/^cb_rbx_pack_(\d+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      const denom = Number(ctx.match[1]);
+      await handleSelectPack(ctx, denom);
+    });
+
+    this.bot.action('cb_rbx_confirm', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleConfirmAccount(ctx);
+    });
+
+    this.bot.action('cb_rbx_cancel', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      if (ctx.from) clearRobuxSession(ctx.from.id);
+      await handleRobuxMenu(ctx);
+    });
+
+    this.bot.action(/^cb_rbx_cancel_order_(.+)$/, async (ctx) => {
+      const orderCode = ctx.match[1];
+      await handleCancelRobuxOrder(ctx, orderCode);
     });
 
     // Universal Back Home Navigation (cb_main_menu)
@@ -557,6 +603,19 @@ export class StoreBotService {
         try {
           await ctx.answerCbQuery('Error loading delivery card.');
         } catch {}
+      }
+    });
+
+    // Handle generic text messages (e.g. Roblox username input)
+    this.bot.on('text', async (ctx, next) => {
+      const text = ctx.message?.text?.trim();
+      if (!text || text.startsWith('/')) {
+        return next();
+      }
+
+      const handled = await handleRobuxUsernameInput(ctx, text);
+      if (!handled) {
+        return next();
       }
     });
 

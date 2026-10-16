@@ -3,6 +3,7 @@ import { env } from '../../config/env';
 import { handleAdminStart, handleAdminCallback, isMessageNotModifiedError } from './admin-actions';
 import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
 import { applyTelegramOutboundGuard } from '../telegram-guard';
+import { RobuxService } from '../../services/robux.service';
 
 export function isAuthorizedAdmin(telegramId: string | number): boolean {
   const id = String(telegramId).trim();
@@ -50,15 +51,55 @@ adminBot.command(['start', 'menu'], async (ctx) => {
         [{ text: '🛡️ OPEN ADMIN PORTAL', web_app: { url: adminPortalUrl } }],
         [
           { text: '📈 Real-Time Metrics', callback_data: 'cb_admin_metrics' },
-          { text: '📦 Live Inventory', callback_data: 'cb_admin_inventory' }
+          { text: '💎 Robux Stock Pool', callback_data: 'admin:robux:pool' }
         ],
         [
-          { text: '📢 Create Broadcast', callback_data: 'cb_admin_broadcast' },
+          { text: '📦 Live Inventory', callback_data: 'cb_admin_inventory' },
+          { text: '📢 Create Broadcast', callback_data: 'cb_admin_broadcast' }
+        ],
+        [
           { text: '⚙️ Store Settings', callback_data: 'cb_admin_settings' }
         ]
       ]
     }
   });
+});
+
+// Admin command: /setrobux <amount>
+adminBot.command('setrobux', async (ctx) => {
+  const senderId = String(ctx.from?.id);
+  if (!isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied.');
+  }
+
+  const parts = ctx.message.text.trim().split(/\s+/);
+  if (parts.length < 2) {
+    return ctx.reply('Usage: <code>/setrobux &lt;total_robux_amount&gt;</code>\nExample: <code>/setrobux 1000</code>', {
+      parse_mode: 'HTML',
+    });
+  }
+
+  const amount = Number(parts[1]);
+  if (isNaN(amount) || amount < 0 || !Number.isInteger(amount)) {
+    return ctx.reply('❌ Error: Amount must be a positive integer.');
+  }
+
+  try {
+    const updated = await RobuxService.setStock(senderId, amount, 'Manual Telegram Admin adjustment');
+    const tiers = RobuxService.calculateTiers(updated);
+    const summary = tiers.map(t => `${t.denomination} R$: ${t.available_packs} packs`).join(', ');
+
+    return ctx.reply(
+      `✅ <b>Shared Robux Stock Updated!</b>\n\n` +
+      `• Total Pool: <b>${updated.total_balance} R$</b>\n` +
+      `• Active Reservations: <b>${updated.reserved_balance} R$</b>\n` +
+      `• Available: <b>${updated.total_balance - updated.reserved_balance} R$</b>\n\n` +
+      `<b>Availability by tier:</b>\n${summary}`,
+      { parse_mode: 'HTML' }
+    );
+  } catch (err: any) {
+    return ctx.reply(`❌ Failed to update Robux stock: ${err?.message}`);
+  }
 });
 
 // Handle callback queries

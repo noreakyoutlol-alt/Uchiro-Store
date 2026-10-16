@@ -1,6 +1,7 @@
 import type { InlineKeyboardButton, InlineKeyboardMarkup } from 'telegraf/types';
 import { isAuthorizedAdmin } from './admin-guards';
 import { getLowStockItems, getRecentOrders, getTodayStats } from './admin-data';
+import { RobuxService } from '../../services/robux.service';
 
 export interface AdminView {
   text: string;
@@ -22,6 +23,7 @@ export function buildMainMenu(storeUrl: string): InlineKeyboardMarkup {
     inline_keyboard: [
       row({ text: '🛒 Open Store (customer view)', url: storeUrl }),
       row({ text: '📊 Today Stats', callback_data: 'admin:stats:today' }),
+      row({ text: '💎 Robux Stock & Pool', callback_data: 'admin:robux:pool' }),
       row({ text: '📦 Recent Orders', callback_data: 'admin:orders:recent' }),
       row({ text: '⚠️ Low Stock', callback_data: 'admin:stock:low' }),
     ],
@@ -65,6 +67,35 @@ export async function handleAdminCallback(
       replyMarkup: {
         inline_keyboard: [
           row({ text: '🔄 Refresh', callback_data: data }),
+          back,
+        ],
+      },
+    };
+  }
+
+  if (data === 'admin:robux:pool') {
+    const stock = await RobuxService.getStockConfig();
+    const tiers = RobuxService.calculateTiers(stock);
+    const available = stock.total_balance - stock.reserved_balance;
+
+    const tierLines = tiers
+      .map(t => `• <b>${t.denomination} R$:</b> ${t.is_sold_out ? '❌ SOLD OUT' : `${t.available_packs} packs ($${t.price_usd.toFixed(2)})`}`)
+      .join('\n');
+
+    const text =
+      `💎 <b>Shared Robux Stock Pool</b>\n\n` +
+      `• Total Balance: <b>${stock.total_balance} R$</b>\n` +
+      `• Reserved in Checkout: <b>${stock.reserved_balance} R$</b>\n` +
+      `• Available for Purchase: <b>${available} R$</b>\n` +
+      `• Current Rate: <b>$${stock.rate_per_1000.toFixed(2)} / 1,000 R$</b>\n\n` +
+      `<b>Derived Pack Availability:</b>\n${tierLines}\n\n` +
+      `<i>To adjust total stock, use command: <code>/setrobux &lt;amount&gt;</code></i>`;
+
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [
+          row({ text: '🔄 Refresh Pool', callback_data: 'admin:robux:pool' }),
           back,
         ],
       },

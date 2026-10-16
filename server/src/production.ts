@@ -27,6 +27,24 @@ import { KHPayService } from './services/khpay.service';
 import { checkSupabaseHealth } from './database/supabase';
 import { registerStaticRoutes } from './static-routes';
 import { initDatabase } from './database/postgres';
+import { ipBlockGuard } from './middleware/ip-block.middleware';
+import { IpSecurityService } from './security/ip-security.service';
+
+// Initialize Database & IP Security State in deterministic sequence
+async function initializeProductionServices(): Promise<void> {
+  try {
+    await initDatabase();
+    await IpSecurityService.init();
+  } catch (err: any) {
+    console.error('[PRODUCTION] Startup initialization error:', err?.message);
+    if (process.env.NODE_ENV === 'production' || env.NODE_ENV === 'production') {
+      console.error('[PRODUCTION] Critical failure: Durable storage initialization failed in production.');
+    }
+  }
+}
+initializeProductionServices().catch((err) => {
+  console.error('[PRODUCTION] Fatal startup service failure:', err);
+});
 
 const app = express();
 app.set('trust proxy', 1);
@@ -90,6 +108,9 @@ app.get('/api/health', async (_req, res) => {
 
 // Rate limiter for API
 app.use('/api', apiRateLimiter);
+// IP Block Guard for Admin and Core Routes
+app.use('/api/admin', ipBlockGuard);
+app.use('/admin', ipBlockGuard);
 
 // 1. Admin API (/api/admin/*)
 app.use('/api', adminAuthRouter);

@@ -13,6 +13,7 @@ import {
   Sparkles,
   Settings,
   Database,
+  ShieldAlert,
 } from 'lucide-react';
 
 export type AdminTab =
@@ -25,6 +26,7 @@ export type AdminTab =
   | 'coupons'
   | 'users'
   | 'broadcast'
+  | 'security'
   | 'settings'
   | 'backup'
   | 'logs';
@@ -52,6 +54,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     { id: 'coupons', label: 'Coupons', icon: Tag },
     { id: 'users', label: 'Customers', icon: Users },
     { id: 'broadcast', label: 'Broadcast', icon: Megaphone },
+    { id: 'security', label: 'Security & IP', icon: ShieldAlert },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'backup', label: 'Backup & Restore', icon: Database },
     { id: 'logs', label: 'Audit Logs', icon: History },

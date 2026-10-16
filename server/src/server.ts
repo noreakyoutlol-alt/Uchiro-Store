@@ -86,6 +86,13 @@ import { adminBot } from './bots/admin-bot';
 import { PaymentWorker } from './workers/payment.worker';
 import { registerStaticRoutes } from './static-routes';
 import { initDatabase } from './database/postgres';
+import { ipBlockGuard } from './middleware/ip-block.middleware';
+import { IpSecurityService } from './security/ip-security.service';
+
+// Initialize IP Security state
+IpSecurityService.init().catch((err) => {
+  console.warn('[SERVER] Failed to initialize IP security service:', err?.message);
+});
 
 function formatMaskedToken(token: string): string {
   const trimmed = token.trim();
@@ -124,6 +131,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Global Rate Limiter
 app.use('/api', apiRateLimiter);
+// IP Block Guard for Admin and Core Routes
+app.use('/api/admin', ipBlockGuard);
+app.use('/admin', ipBlockGuard);
 
 // Health Checks
 app.get('/health', (_req, res) => {

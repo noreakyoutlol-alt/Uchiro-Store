@@ -30,6 +30,8 @@ import {
 } from '../../../shared/config/emoji';
 import { AppIcon } from '../components/common/AppIcon';
 
+export type TelegramEmojiKey = keyof typeof TELEGRAM_EMOJIS;
+
 export {
   EMOJI,
   tgEmoji,

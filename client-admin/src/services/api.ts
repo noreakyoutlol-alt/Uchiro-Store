@@ -291,4 +291,30 @@ export const AdminAPI = {
     const res = await api.post('/restore', bundle);
     return res.data;
   },
+
+  // Security & IP Firewall
+  getSecurityStats: async () => {
+    const res = await api.get('/security/stats');
+    return res.data.data;
+  },
+
+  getBlockedIps: async (params?: { search?: string; status?: string; limit?: number; offset?: number }) => {
+    const res = await api.get('/security/blocked-ips', { params });
+    return res.data;
+  },
+
+  blockIp: async (data: { ip: string; reason: string; durationMinutes?: number; permanent?: boolean }) => {
+    const res = await api.post('/security/block-ip', data);
+    return res.data.data;
+  },
+
+  unbanIp: async (ip: string) => {
+    const res = await api.post('/security/unban-ip', { ip });
+    return res.data;
+  },
+
+  getSecurityAuditLogs: async (params?: { limit?: number; offset?: number }) => {
+    const res = await api.get('/security/audit-logs', { params });
+    return res.data;
+  },
 };

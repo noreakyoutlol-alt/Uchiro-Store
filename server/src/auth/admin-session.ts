@@ -15,7 +15,7 @@ interface SessionPayload {
 }
 
 function getSessionSecret(): Buffer | null {
-  const secret = process.env.ADMIN_SESSION_SECRET;
+  const secret = process.env.ADMIN_SESSION_SECRET || process.env.JWT_SECRET || env.JWT_SECRET;
   return secret && secret.length >= 32 ? Buffer.from(secret, 'utf8') : null;
 }
 
@@ -23,15 +23,15 @@ function sign(payloadB64: string, secret: Buffer): Buffer {
   return createHmac('sha256', secret).update(payloadB64).digest();
 }
 
-/** PIN must be exactly 6 digits and the session secret at least 32 chars; otherwise admin login is disabled. */
+/** Admin PIN is configured when a non-empty PIN and a valid session secret are present. */
 export function isAdminPinConfigured(): boolean {
-  const pin = process.env.ADMIN_SECRET_PIN || process.env.ADMIN_PIN || '';
-  return /^\d{6}$/.test(pin) && getSessionSecret() !== null;
+  const pin = process.env.ADMIN_SECRET_PIN || process.env.ADMIN_PIN || process.env.ADMIN_PANEL_PIN || '';
+  return pin.length > 0 && getSessionSecret() !== null;
 }
 
 export function pinMatches(candidate: string): boolean {
-  const expected = process.env.ADMIN_SECRET_PIN || process.env.ADMIN_PIN || '';
-  if (!/^\d{6}$/.test(expected) || !/^\d{6}$/.test(candidate)) return false;
+  const expected = process.env.ADMIN_SECRET_PIN || process.env.ADMIN_PIN || process.env.ADMIN_PANEL_PIN || '';
+  if (!expected || !candidate) return false;
   const a = createHash('sha256').update(candidate).digest();
   const b = createHash('sha256').update(expected).digest();
   return timingSafeEqual(a, b);

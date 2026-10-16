@@ -2413,6 +2413,7 @@ export class DataStore {
         }
       } catch (err: any) {
         console.error('[DataStore] deductPoints PostgreSQL error:', err?.message);
+        return { success: false, points: currentPoints, error: 'DURABLE_STORAGE_ERROR' };
       }
     }
 

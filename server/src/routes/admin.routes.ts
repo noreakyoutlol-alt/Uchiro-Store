@@ -6,6 +6,9 @@ import { RequestWithAuth } from '../middleware/auth';
 import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
 
+import { handleVerifyPin } from './admin-auth.routes';
+import { IpSecurityService } from '../security/ip-security.service';
+
 export const adminRouter = Router();
 
 // Set req.admin from telegramUser for backwards-compatible route handlers
@@ -22,19 +25,8 @@ adminRouter.use((req: RequestWithAuth, res, next) => {
   next();
 });
 
-// Admin PIN Verification
-adminRouter.post(['/verify-pin', '/api/admin/verify-pin'], (req, res) => {
-  const submittedPin = String(req.body?.pin || '').trim();
-  const envPin = String(process.env.ADMIN_SECRET_PIN || '1686').trim();
-  if (submittedPin === '1686' || submittedPin === envPin) {
-    return res.json({
-      success: true,
-      token: 'uchiro-admin-master-session-token',
-      sessionToken: 'uchiro-admin-master-session-token',
-    });
-  }
-  return res.status(401).json({ success: false, error: 'INVALID_PIN' });
-});
+// Admin PIN Verification (Protected with IP Brute-Force Tracking)
+adminRouter.post(['/verify-pin', '/api/admin/verify-pin'], handleVerifyPin);
 
 // Categories
 adminRouter.get('/categories', (_req, res) => {
@@ -632,6 +624,95 @@ adminRouter.post('/reset-demo', (req: RequestWithAuth, res, next) => {
     const result = AdminService.resetDemoData();
     AdminService.logAdminAction(req.admin!.telegram_id, 'RESET_DEMO_DATA', {});
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 15. Security & IP Firewall Management (Phase 3C & Phase 6)
+adminRouter.get('/security/stats', async (_req, res, next) => {
+  try {
+    const stats = await IpSecurityService.getStats();
+    res.json({ success: true, data: stats });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/security/blocked-ips', async (req, res, next) => {
+  try {
+    const status = req.query.status as any;
+    const search = req.query.search as string;
+    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const offset = req.query.offset ? Number(req.query.offset) : 0;
+
+    const data = await IpSecurityService.listBans({ status, search, limit, offset });
+    res.json({ success: true, data: data.blocks, total: data.total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/security/block-ip', async (req: RequestWithAuth, res, next) => {
+  try {
+    const { ip, reason, durationMinutes, permanent } = req.body;
+    if (!ip || typeof ip !== 'string' || ip.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'INVALID_IP_ADDRESS' });
+    }
+
+    const cleanIp = ip.trim();
+    // Validate IPv4 or IPv6 format
+    const ipPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+    if (!ipPattern.test(cleanIp) && cleanIp !== '127.0.0.1' && cleanIp !== '::1') {
+      return res.status(400).json({ success: false, error: 'INVALID_IP_FORMAT', message: 'Must be a valid IPv4 or IPv6 address' });
+    }
+    const duration = Math.min(Math.max(1, Number(durationMinutes) || 60), 525600); // 1 min to 1 year
+    const blockedUntil = permanent ? null : new Date(Date.now() + duration * 60 * 1000).toISOString();
+
+    const record = await IpSecurityService.applyBlock({
+      ip: cleanIp,
+      reason: reason || 'Manually blocked by administrator',
+      blockedUntil,
+      isPermanent: Boolean(permanent),
+      adminUser: String(req.admin?.username || req.admin?.telegram_id || 'admin'),
+    });
+
+    AdminService.logAdminAction(req.admin!.telegram_id, 'MANUAL_IP_BLOCK', {
+      ip: cleanIp,
+      reason: record.reason,
+      permanent: record.is_permanent,
+    });
+
+    res.json({ success: true, data: record });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/security/unban-ip', async (req: RequestWithAuth, res, next) => {
+  try {
+    const { ip } = req.body;
+    if (!ip || typeof ip !== 'string') {
+      return res.status(400).json({ success: false, error: 'INVALID_IP_ADDRESS' });
+    }
+
+    const cleanIp = ip.trim();
+    await IpSecurityService.unbanIp(cleanIp, String(req.admin?.username || req.admin?.telegram_id || 'admin'));
+
+    AdminService.logAdminAction(req.admin!.telegram_id, 'MANUAL_IP_UNBAN', { ip: cleanIp });
+
+    res.json({ success: true, message: `IP ${cleanIp} has been unbanned successfully` });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.get('/security/audit-logs', async (req, res, next) => {
+  try {
+    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const offset = req.query.offset ? Number(req.query.offset) : 0;
+    const data = await IpSecurityService.getAuditLogs({ limit, offset });
+    res.json({ success: true, data: data.logs, total: data.total });
   } catch (err) {
     next(err);
   }

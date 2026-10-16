@@ -38,4 +38,8 @@ Thumbs.db
 # Testing coverage
 coverage/
 *.lcov
+
+# Prompt specifications (local)
+UCHIRO_STORE_V3_FINAL_COMPLETE_READY_TO_SELL_PROMPT.md
+UCHIRO_STORE_V3_FINAL_MASTER_PROMPT_Claude_Code.md
 server/data/ 

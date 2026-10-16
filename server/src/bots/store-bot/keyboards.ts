@@ -118,14 +118,15 @@ export function buildMainMenuKeyboard(
   return Markup.inlineKeyboard([
     [createWebAppOrUrlButton('🛍️ Open Store (Shop Now)', storeUrl, 'PACKAGE')],
     [
-      cb('🇰🇭 How to Buy & Pay', 'cb_how_to_buy'),
+      cb('💎 Buy Robux (Direct)', 'cb_buy_robux', 'DIAMOND'),
       cb('🔑 Get 2FA Code', 'cb_vault_2fa', 'KEY'),
     ],
     [
-      cb(claimText, 'cb_claim_daily', opts?.onCooldown ? 'CLOCK' : 'GIFT'),
+      cb('🇰🇭 How to Buy & Pay', 'cb_how_to_buy'),
       cb('📦 My Orders & Vault', 'cb_orders_menu', 'PACKAGE'),
     ],
     [
+      cb(claimText, 'cb_claim_daily', opts?.onCooldown ? 'CLOCK' : 'GIFT'),
       urlBtn('💬 Chat with Admin / Support (24/7)', supportUrl, 'SUPPORT'),
     ],
   ]);
