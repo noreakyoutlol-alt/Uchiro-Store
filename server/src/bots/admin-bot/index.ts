@@ -36,26 +36,10 @@ export const STORE_URL =
         ? env.CLIENT_STORE_URL
         : ((process.env.PUBLIC_URL || env.PUBLIC_URL || '').replace(/\/$/, '') || 'https://uchiro.store');
 
+import { resolveDefaultAdminUrl } from './admin-actions';
+
 export function resolveAdminPortalUrl(): string {
-  const explicit = (process.env.ADMIN_WEBAPP_URL || process.env.ADMIN_URL || process.env.ADMIN_MINIAPP_URL || '').trim();
-  if (explicit && (explicit.startsWith('https://') || explicit.startsWith('http://'))) {
-    try {
-      const parsed = new URL(explicit);
-      if (parsed.pathname && parsed.pathname !== '/') return explicit.replace(/\/$/, '');
-      return `${parsed.origin}${ADMIN_BASE_PATH}`;
-    } catch {
-      return explicit.replace(/\/$/, '');
-    }
-  }
-
-  const serverBase = (
-    process.env.SERVER_URL ||
-    process.env.PUBLIC_URL ||
-    process.env.APP_URL ||
-    'https://web-production-2d8bd.up.railway.app'
-  ).trim().replace(/\/$/, '');
-
-  return `${serverBase}${ADMIN_BASE_PATH}`;
+  return resolveDefaultAdminUrl();
 }
 
 export const adminPortalUrl = resolveAdminPortalUrl();
@@ -66,6 +50,13 @@ adminBot.command(['start', 'menu'], async (ctx) => {
   if (!isAuthorizedAdmin(senderId)) {
     return ctx.reply('⛔ Access denied. You are not an authorized admin.');
   }
+
+  // Ensure Telegram bottom-left Menu Button opens the Admin Portal instead of the customer store
+  ctx.setChatMenuButton?.({
+    type: 'web_app',
+    text: 'Admin Portal',
+    web_app: { url: adminPortalUrl },
+  } as any).catch(() => {});
 
   return ctx.reply('👑 <b>UCHIRO STORE ADMINISTRATION</b>\nWelcome Master! Server status: 🟢 Online', {
     parse_mode: 'HTML',

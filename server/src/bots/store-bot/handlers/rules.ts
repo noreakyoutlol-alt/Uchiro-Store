@@ -168,16 +168,14 @@ export async function handlePaymentDeliveryPolicy(ctx: Context): Promise<void> {
     `📦 <b>PAYMENT &amp; DELIVERY POLICY</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `💳 <b>Accepted Payment Methods:</b>\n` +
-    `• Bakong KHQR (USD &amp; KHR - Instant Verification)\n` +
-    `• Local Bank Transfers (ABA, Wing, ACLEDA)\n` +
-    `• Credit/Debit Cards (Visa, Mastercard)\n` +
-    `• Cryptocurrency (USDT TRC20/BEP20)\n\n` +
+    `• Bakong KHQR (USD &amp; KHR - Instant Scan &amp; Pay)\n` +
+    `• Supported Cambodian Banking Apps via KHQR (ABA, Wing, ACLEDA, and Bakong member banks)\n\n` +
     `🚚 <b>Delivery Methods:</b>\n` +
     `• Instant Digital Delivery to Telegram &amp; Mini App Vault\n` +
-    `• Credentials unlocked automatically upon payment confirmation\n\n` +
+    `• Credentials unlocked automatically upon verified payment confirmation\n\n` +
     `⏱️ <b>Delivery Timeframe:</b>\n` +
     `• Automated Accounts &amp; Codes: Instant (&lt; 3 seconds)\n` +
-    `• Manual Fulfillment / Verification: Under 15 minutes\n` +
+    `• Robux &amp; Services: Processed following verified payment\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildSubRulesKeyboard('en');
@@ -353,6 +351,56 @@ export async function handleContactSupport(ctx: Context): Promise<void> {
   } catch (err) {
     if (!isMessageNotModifiedError(err)) {
       console.warn('[Contact Support] Render warning:', err);
+    }
+  }
+}
+
+/**
+ * Handle Store Rules Menu (cb_rules_store) — a single store-rules entry point with source links
+ */
+export async function handleStoreRules(ctx: Context): Promise<void> {
+  try {
+    await ctx.answerCbQuery();
+  } catch {}
+
+  const text =
+    `📜 <b>UCHIRO STORE RULES &amp; POLICIES</b>\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🛡️ <b>14-Day Warranty:</b>\n` +
+    `• Full replacement/refund guarantee on all orders.\n\n` +
+    `📦 <b>Delivery:</b>\n` +
+    `• Instant delivery to your Telegram or Mini App Vault.\n\n` +
+    `💳 <b>Payments:</b>\n` +
+    `• Bakong KHQR, local banking apps, cards & crypto accepted.\n\n` +
+    `⚡ <b>Info:</b>\n` +
+    `• Products: Shop Now | 🎰 Gacha | 💎 Daily Rewards | 🎒 Vault\n` +
+    `• Help: @UchiroSupport • 2FA Guide: cb_guide_2fa\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('🎰 Gacha Rules', 'cb_gacha_rules')],
+    [Markup.button.callback('❓ FAQ & Help', 'cb_faq_help')],
+    [
+      Markup.button.callback('🏠 Back Home', 'cb_main_menu'),
+      Markup.button.callback('💬 Contact Support', 'cb_contact_support'),
+    ],
+  ]);
+
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch (err) {
+    if (!isMessageNotModifiedError(err)) {
+      console.warn('[Store Rules] Render warning:', err);
     }
   }
 }

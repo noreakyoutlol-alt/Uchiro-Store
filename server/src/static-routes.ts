@@ -130,6 +130,17 @@ export function registerStaticRoutes(app: Express): void {
       setHeaders: setMediaHeaders,
     }),
   );
+  // Also guarantee static assets for default bundle build slug
+  if (ADMIN_BASE_PATH.toLowerCase() !== '/noreakyoutadmindashboard') {
+    app.use(
+      '/noreakyoutadmindashboard/assets',
+      express.static(path.join(adminDist, 'assets'), {
+        maxAge: '1y',
+        immutable: true,
+        setHeaders: setMediaHeaders,
+      }),
+    );
+  }
   app.use(
     '/admin',
     express.static(adminDist, { index: false, redirect: false, maxAge: '1h', setHeaders: setMediaHeaders }),
@@ -180,10 +191,18 @@ export function registerStaticRoutes(app: Express): void {
     return undefined;
   });
 
-  // 4. Store: hashed assets immutable, other static files 7 days (emojis), SPA fallback never touches /api, /admin or the slug
+  // 4. Store and Admin hashed assets immutable
   app.use(
     '/assets',
     express.static(path.join(storeDist, 'assets'), {
+      maxAge: '1y',
+      immutable: true,
+      setHeaders: setMediaHeaders,
+    }),
+  );
+  app.use(
+    '/assets',
+    express.static(path.join(adminDist, 'assets'), {
       maxAge: '1y',
       immutable: true,
       setHeaders: setMediaHeaders,

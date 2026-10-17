@@ -15,7 +15,7 @@ export function unauthorizedView(): AdminView {
   return { text: UNAUTHORIZED_TEXT, replyMarkup: { inline_keyboard: [] } };
 }
 
-function resolveDefaultAdminUrl(): string {
+export function resolveDefaultAdminUrl(): string {
   const explicit = (process.env.ADMIN_WEBAPP_URL || process.env.ADMIN_URL || process.env.ADMIN_MINIAPP_URL || '').trim();
   if (explicit && (explicit.startsWith('https://') || explicit.startsWith('http://'))) {
     try {
@@ -26,13 +26,21 @@ function resolveDefaultAdminUrl(): string {
       return explicit.replace(/\/$/, '');
     }
   }
-  const base = (
+  const candidate = (
+    process.env.STORE_URL ||
+    process.env.STORE_MINIAPP_URL ||
     process.env.SERVER_URL ||
     process.env.PUBLIC_URL ||
     process.env.APP_URL ||
     'https://web-production-2d8bd.up.railway.app'
-  ).trim().replace(/\/$/, '');
-  return `${base}${ADMIN_BASE_PATH}`;
+  ).trim();
+
+  try {
+    const origin = new URL(candidate).origin;
+    return `${origin}${ADMIN_BASE_PATH}`;
+  } catch {
+    return `${candidate.replace(/\/$/, '')}${ADMIN_BASE_PATH}`;
+  }
 }
 
 function row(...buttons: InlineKeyboardButton[]): InlineKeyboardButton[] {

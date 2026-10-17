@@ -29,6 +29,7 @@ import {
   handleFaqHelp,
   handleContactSupport,
   handleBackToRules,
+  handleStoreRules,
 } from './handlers/rules';
 import {
   handleMainHelp,
@@ -523,7 +524,7 @@ export class StoreBotService {
       await handleContactSupport(ctx);
     });
     this.bot.action('cb_main_rules', async (ctx) => {
-      await handleBackToRules(ctx);
+      await handleMainRules(ctx);
     });
 
     // MODULE 2: HELP & FAQ CENTER
@@ -549,7 +550,13 @@ export class StoreBotService {
       await handleGuideKhqr(ctx);
     });
 
-    // MODULE 3: REAL-TIME GACHA
+    // MODULE 3: INFO CENTER
+    // Handle store info (product catalog, search) and rules entry points
+    this.bot.action('cb_rules_store', async (ctx) => {
+      await handleStoreRules(ctx);
+    });
+
+    // MODULE 4: REAL-TIME GACHA
     this.bot.action(['cb_gacha_menu', 'menu_gacha'], async (ctx) => {
       await handleGachaMenu(ctx, storeWebAppUrl);
     });

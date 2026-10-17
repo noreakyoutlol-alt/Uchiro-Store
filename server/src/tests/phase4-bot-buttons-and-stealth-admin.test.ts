@@ -57,7 +57,7 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
       // Row 3: Rules & Help - MUST NOT have web_app
       const rulesBtn = rows[3][0] as any;
       const helpBtn = rows[3][1] as any;
-      expect(rulesBtn.text).toBe('📜 Store Rules');
+      expect(rulesBtn.text).toBe('📜 Store Rules & Policies');
       expect(rulesBtn.web_app).toBeUndefined();
       expect(rulesBtn.callback_data).toBe('cb_main_rules');
       expect(helpBtn.text).toBe('❓ Help & FAQ');

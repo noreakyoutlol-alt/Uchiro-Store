@@ -13,7 +13,7 @@ const cleanedSlug = rawSlug.replace(/^\/+|\/+$/g, '').replace(/[^a-zA-Z0-9_-]/g,
 const adminBase = `/${cleanedSlug}/`;
 
 export default defineConfig({
-  base: adminBase,
+  base: './',
   plugins: [react()],
   build: {
     outDir: 'dist',

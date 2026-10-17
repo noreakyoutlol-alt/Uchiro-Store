@@ -68,9 +68,9 @@ describe('UCHIRO SPRINT: BADGE REPOSITION, ADVANCED BOTS, BROADCAST & ZERO-FAKES
       expect(rows[3][0].text).toContain('Rules');
       expect(rows[3][1].text).toContain('Help');
 
-      // Row 5: Open Mini App & Support
+      // Row 5: Open Mini App & Support link
       expect(rows[4][0].text).toContain('Mini App');
-      expect(rows[4][1].text).toContain('Admin');
+      expect(rows[4][1].text).toContain('Support');
     });
 
     it('normalizes custom Telegram emoji tags to tg-emoji emoji-id', () => {

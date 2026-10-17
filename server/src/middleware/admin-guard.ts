@@ -11,8 +11,14 @@ export const ADMIN_404_HTML =
  * Admin access is determined ONLY by env.ADMIN_TELEGRAM_USER_IDS (no hardcoded fallback IDs).
  */
 export function isAuthorizedAdmin(telegramId: string | number): boolean {
-  const envAdminIds = (process.env.ADMIN_TELEGRAM_USER_IDS || '').split(',').map(s => s.trim());
-  if (envAdminIds.includes(String(telegramId))) return true;
+  if (telegramId === undefined || telegramId === null) return false;
+  const id = String(telegramId).trim();
+  const raw = process.env.ADMIN_TELEGRAM_IDS || process.env.ADMIN_TELEGRAM_USER_IDS || '';
+  const adminIds = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  if (adminIds.includes(id)) return true;
+  if (env.ADMIN_TELEGRAM_USER_IDS && env.ADMIN_TELEGRAM_USER_IDS.map(String).includes(id)) {
+    return true;
+  }
   return false;
 }
 export function isAdmin(telegramId: string | number): boolean {

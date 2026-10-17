@@ -31,11 +31,11 @@ export function makeButton(
   const cleanLabel = stripLeadingEmoji(label);
   const hasCustomId = Boolean(customId && customId.trim() !== '');
 
-  // If button has a custom emoji icon, do not prepend fallback emoji.
+  // If button has a custom emoji icon, keep the original label (emoji included as text fallback).
   // If no custom emoji and no leading emoji in label, add single fallback.
   let buttonText = label;
   if (!hasCustomId && cleanLabel === label && fallback) {
-    buttonText = `${fallback} ${label}`.trim();
+    buttonText = `${fallback} ${cleanLabel}`.trim();
   }
 
   let btn: any;
@@ -136,6 +136,9 @@ export function buildMainMenuKeyboard(
       cb(claimText, 'cb_claim_daily', opts?.onCooldown ? 'CLOCK' : 'GIFT'),
       urlBtn('💬 Chat with Admin / Support', supportUrl, 'SUPPORT'),
     ],
+    [
+      cb('📜 Rules & Policies', 'cb_main_rules', 'DOCUMENT'),
+    ],
   ]);
 }
 
@@ -182,21 +185,19 @@ export function getMainMenuKeyboard(
 
 /**
  * Language selection inline keyboard:
- * 🇰🇭 ភាសាខ្មែរ | 🇬🇧 English
+ * 🇰🇭 Khmer | 🇬🇧 English
  * (Language selection explicitly requires Khmer and English options per Requirement 4)
  */
 export function getLanguageSelectionKeyboard(langOrShowBackHome: string | boolean = false) {
-  const isKm = langOrShowBackHome === 'km';
   const showBackHome = typeof langOrShowBackHome === 'boolean' ? langOrShowBackHome : Boolean(langOrShowBackHome);
   const rows: any[][] = [
     [
-      Markup.button.callback('🇰🇭 ភាសាខ្មែរ', 'set_lang:km'),
+      Markup.button.callback('🇰🇭 Khmer', 'set_lang:km'),
       Markup.button.callback('🇬🇧 English', 'set_lang:en'),
     ],
   ];
   if (showBackHome) {
-    const backLabel = isKm ? '🔙 ត្រឡប់ទៅដើម (Back Home)' : '🏠 Back Home';
-    rows.push([Markup.button.callback(backLabel, 'cb_main_menu')]);
+    rows.push([Markup.button.callback('🏠 Back Home', 'cb_main_menu')]);
   }
   return Markup.inlineKeyboard(rows);
 }
@@ -446,8 +447,8 @@ export function buildDailyKeyboard(
 
   const loc = getLocale(lang);
   const claimBtnText = isCooldown
-    ? (lang === 'en' ? '⏳ Cooldown Active...' : '⏳ Cooldown (កំពុងរង់ចាំ 24h)...')
-    : (lang === 'en' ? '🎁 Claim Daily Points Now' : '🎁 ទទួលពិន្ទុភ្លាមៗ (Claim Daily)');
+    ? '⏳ Cooldown Active...'
+    : '🎁 Claim Daily Points Now';
   const claimCallback = isCooldown ? 'cb_noop' : 'cb_claim_daily_instant';
 
   return Markup.inlineKeyboard([
@@ -468,7 +469,7 @@ export function buildDailyShopKeyboard(lang: string = 'km') {
   const loc = getLocale(lang);
   return Markup.inlineKeyboard([
     [
-      cb(lang === 'en' ? '🎟️ Exchange Gacha Ticket (-100 Pts)' : '🎟️ ប្តូរសំបុត្រ Gacha (-100 Pts)', 'cb_gacha_buy_ticket', 'TICKET'),
+      cb('🎟️ Exchange Gacha Ticket (-100 Pts)', 'cb_gacha_buy_ticket', 'TICKET'),
     ],
     [
       cb(loc.btn_back_to_daily, 'cb_daily_menu', 'BACK'),
@@ -608,9 +609,9 @@ export function buildOrdersMenuKeyboard(
 ) {
   const loc = getLocale(lang);
   const openOrdersUrl = storeUrl.includes('?') ? `${storeUrl}&tab=orders` : `${storeUrl}?tab=orders`;
-  const recentOrdersText = lang === 'en' ? '📜 Recent Orders' : '📜 ការបញ្ជាទិញថ្មីៗ';
-  const trackOrderText = lang === 'en' ? '🔍 Track Order' : '🔍 តាមដានការបញ្ជាទិញ';
-  const openOrdersText = lang === 'en' ? '📱 Open Orders in Mini App' : '📱 បើកមើលក្នុង Mini App';
+  const recentOrdersText = '📜 Recent Orders';
+  const trackOrderText = '🔍 Track Order';
+  const openOrdersText = '📱 Open Orders in Mini App';
 
   return Markup.inlineKeyboard([
     [
@@ -632,8 +633,8 @@ export function buildOrderHistoryKeyboard(
 ) {
   const loc = getLocale(lang);
   const openOrdersUrl = storeUrl.includes('?') ? `${storeUrl}&tab=orders` : `${storeUrl}?tab=orders`;
-  const openOrdersText = lang === 'en' ? '📱 Open Orders in Mini App' : '📱 បើកមើលការបញ្ជាទិញក្នុង Mini App';
-  const backToOrdersText = lang === 'en' ? '🔙 Back to Orders' : '🔙 ត្រឡប់ទៅ Orders';
+  const openOrdersText = '📱 Open Orders in Mini App';
+  const backToOrdersText = '🔙 Back to Orders';
 
   return Markup.inlineKeyboard([
     [
