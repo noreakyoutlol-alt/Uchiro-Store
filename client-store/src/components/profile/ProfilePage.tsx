@@ -252,9 +252,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   const totalSpentAmount = profileStats !== null && Number(profileStats.total_spent) > 0 ? Number(profileStats.total_spent) : fallbackTotalSpent;
 
   return (
-    <div className="max-w-md w-full mx-auto p-2.5 sm:p-3 space-y-2.5 pb-20 animate-fadeIn">
+    <div className="max-w-md w-full mx-auto p-2.5 sm:p-3 space-y-3 pb-28 animate-fadeIn">
       {/* 1. Compact User Card (Mobile Friendly) */}
-      <div className="p-3 rounded-2xl bg-[#0F1424] border border-white/10 shadow-xl space-y-2.5">
+      <div className="p-3.5 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 shadow-xl space-y-3">
         {/* User Identity Row */}
         <div className="flex items-center gap-2.5">
           {/* Compact Avatar (w-10 h-10) */}
@@ -386,15 +386,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       />
 
       {/* 3. Uchiro Points & Loyalty Redemption (Requirement 66, Item 25) */}
-      <div className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-[#FFD166]/20 space-y-3">
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-[#FFD166]/25 shadow-xl space-y-3.5">
         {/* Points Hero — large, unmissable reward points display */}
-        <div className="flex flex-col items-center justify-center py-2.5 gap-1 border-b border-[#FFD166]/10 pb-3">
-          <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+        <div className="flex flex-col items-center justify-center py-3 gap-1 border-b border-[#FFD166]/15 pb-3.5">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-400 uppercase tracking-widest">
             <Coins className="w-3.5 h-3.5 text-[#FFD166]" />
             <span>UCHIRO REWARD POINTS</span>
           </div>
-          <div className="text-4xl sm:text-5xl font-black text-[#FFD166] tracking-tight leading-none mt-1">
-            {userPoints}
+          <div className="text-4xl sm:text-5xl font-black text-[#FFD166] tracking-tight leading-none mt-1 drop-shadow-[0_2px_12px_rgba(255,209,102,0.35)]">
+            {userPoints.toLocaleString()}
           </div>
           <span className="text-xs text-slate-400 mt-1">Reward Points Total</span>
         </div>
@@ -629,7 +629,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       )}
 
       {/* 3. Settings: Language & Theme Appearance (Section 16 & 48) */}
-      <div className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-white/10 space-y-2.5">
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 shadow-xl space-y-3">
         <h3 className="text-xs font-black text-white uppercase tracking-wider">
           APP PREFERENCES
         </h3>
@@ -709,7 +709,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
         </div>
 
         {orders.length === 0 ? (
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#121624] border border-white/10 text-center text-xs text-slate-400">
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 text-center text-xs text-slate-400 shadow-sm">
             You haven't placed any orders yet.
           </div>
         ) : (
@@ -718,7 +718,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
               <div
                 key={order.id}
                 onClick={() => onSelectOrder(order)}
-                className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between cursor-pointer active:scale-99"
+                className="p-3 sm:p-3.5 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 hover:border-[#FFD166]/30 transition-all flex items-center justify-between cursor-pointer active:scale-99 shadow-sm"
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -755,7 +755,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       </div>
 
       {/* 5. Support & Ticket Helpdesk */}
-      <div className="p-3 sm:p-3.5 rounded-2xl bg-[#121624] border border-white/10 space-y-2.5">
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 shadow-xl space-y-3">
         <div className="flex items-center gap-2 text-xs font-black text-white uppercase tracking-wider">
           <Headphones className="w-4 h-4 text-[#FFD166]" />
           <span>CUSTOMER SUPPORT & 14-DAY WARRANTY</span>

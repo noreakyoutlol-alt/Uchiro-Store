@@ -57,9 +57,13 @@ const StoreAppContent: React.FC = () => {
   // Store Catalog Data
   const [categories, setCategories] = useState<Category[]>([]);
   const [homeInStockProducts, setHomeInStockProducts] = useState<Product[]>([]);
+  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [allShopProducts, setAllShopProducts] = useState<Product[]>([]);
   const [gachaPools, setGachaPools] = useState<GachaPool[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isOrdersLoading, setIsOrdersLoading] = useState<boolean>(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [shopCategorySlug, setShopCategorySlug] = useState<string | null>(null);
 
   // Modals & Flows
@@ -131,12 +135,31 @@ const StoreAppContent: React.FC = () => {
         }
 
         // Fetch Catalog, Categories, In-Stock Products & Gacha Pools
-        const [cats, inStock, shopProducts, pools] = await Promise.all([
-          StoreAPI.getCategories().catch(() => []),
-          StoreAPI.getHomeInStockProducts().catch(() => []),
-          StoreAPI.getShopProducts({}).catch(() => []),
-          StoreAPI.getGachaPools().catch(() => []),
-        ]);
+        let cats: Category[] = [];
+        let inStock: Product[] = [];
+        let shopProducts: Product[] = [];
+        let pools: GachaPool[] = [];
+
+        try {
+          const results = await Promise.allSettled([
+            StoreAPI.getCategories(),
+            StoreAPI.getHomeInStockProducts(),
+            StoreAPI.getShopProducts({}),
+            StoreAPI.getGachaPools(),
+          ]);
+
+          if (results[0].status === 'fulfilled') cats = results[0].value;
+          if (results[1].status === 'fulfilled') {
+            inStock = results[1].value;
+            if (isMounted) setProductsError(null);
+          } else {
+            if (isMounted) setProductsError('Failed to load products');
+          }
+          if (results[2].status === 'fulfilled') shopProducts = results[2].value;
+          if (results[3].status === 'fulfilled') pools = results[3].value;
+        } catch {
+          if (isMounted) setProductsError('Failed to load products');
+        }
 
         if (!isMounted) return;
 
@@ -149,9 +172,15 @@ const StoreAppContent: React.FC = () => {
         let userOrders: Order[] = [];
         try {
           userOrders = await StoreAPI.getOrders();
-          if (isMounted) setOrders(userOrders);
-        } catch {
-          if (isMounted) setOrders([]);
+          if (isMounted) {
+            setOrders(userOrders);
+            setOrdersError(null);
+          }
+        } catch (err: any) {
+          if (isMounted) {
+            setOrders([]);
+            setOrdersError(err?.response?.data?.error?.message || err?.message || 'Failed to load orders. Please check your network connection.');
+          }
         }
 
         if (!isMounted) return;
@@ -305,10 +334,40 @@ const StoreAppContent: React.FC = () => {
         }
       }
       setOrders(userOrders);
+      setOrdersError(null);
       setHomeInStockProducts(inStock);
+      setProductsError(null);
       setAllShopProducts(shopProducts);
     } catch (err) {
       console.error('Error refreshing state:', err);
+    }
+  };
+
+  const handleRetryProducts = async () => {
+    setIsProductsLoading(true);
+    setProductsError(null);
+    try {
+      const inStock = await StoreAPI.getHomeInStockProducts();
+      setHomeInStockProducts(inStock);
+      setProductsError(null);
+    } catch (err: any) {
+      setProductsError(err?.message || 'Failed to load products');
+    } finally {
+      setIsProductsLoading(false);
+    }
+  };
+
+  const fetchOrders = async () => {
+    setIsOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const userOrders = await StoreAPI.getOrders();
+      setOrders(userOrders);
+      setIsOrdersLoading(false);
+      setOrdersError(null);
+    } catch (err: any) {
+      setIsOrdersLoading(false);
+      setOrdersError(err?.response?.data?.error?.message || err?.message || 'Failed to load orders. Please check your network connection.');
     }
   };
 
@@ -358,9 +417,9 @@ const StoreAppContent: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-[#0B0E14] flex flex-col items-center justify-center gap-3">
+      <div className="fixed inset-0 bg-[#070A14] flex flex-col items-center justify-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E63946] to-[#FFD166] p-0.5 animate-pulse">
-          <div className="w-full h-full bg-[#0B0E14] rounded-[14px] flex items-center justify-center">
+          <div className="w-full h-full bg-[#070A14] rounded-[14px] flex items-center justify-center">
             <span className="font-black text-white text-base">U3</span>
           </div>
         </div>
@@ -373,7 +432,7 @@ const StoreAppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0E14] text-slate-900 dark:text-white flex flex-col relative selection:bg-[#E63946] selection:text-white transition-colors">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#070A14] text-slate-900 dark:text-white flex flex-col relative selection:bg-[#E63946] selection:text-white transition-colors">
       {/* Background Pattern Layer */}
       <GamingDoodlePattern />
 
@@ -389,6 +448,9 @@ const StoreAppContent: React.FC = () => {
         {activeTab === 'home' && (
           <HomePage
             inStockProducts={homeInStockProducts}
+            isLoadingProducts={isProductsLoading}
+            productsError={productsError}
+            onRetryProducts={handleRetryProducts}
             onSelectProduct={handleSelectProduct}
             onQuickBuy={handleSelectProduct}
             onNavigateToShop={(slug?: string) => {
@@ -407,6 +469,9 @@ const StoreAppContent: React.FC = () => {
             onSelectCategory={setShopCategorySlug}
             onSelectProduct={handleSelectProduct}
             onQuickBuy={handleSelectProduct}
+            isLoading={isProductsLoading}
+            error={productsError}
+            onRetry={handleRetryProducts}
           />
         )}
 
@@ -418,9 +483,12 @@ const StoreAppContent: React.FC = () => {
           />
         )}
 
-        {activeTab === 'orders' && (
+                {activeTab === 'orders' && (
           <OrdersPage
             orders={orders}
+            isLoading={isOrdersLoading}
+            error={ordersError}
+            onRetry={fetchOrders}
             onSelectOrder={setDeliveredOrderModal}
             onPayOrder={(order) => {
               setActivePaymentOrder(order);

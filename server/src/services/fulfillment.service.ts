@@ -6,7 +6,52 @@ import { generateReceiptPdf } from '../utils/receipt.util';
 import { TOTPService } from '../security/totp';
 import { env } from '../config/env';
 import { Order } from '../types';
-import { renderTgEmoji } from '../config/telegram-emojis';
+import { renderTgEmoji, TELEGRAM_EMOJIS, TelegramEmojiKey } from '../config/telegram-emojis';
+import { stripLeadingEmoji } from '../bots/store-bot/keyboards';
+
+function makeFulfillmentButton(opts: {
+  text: string;
+  iconKey?: TelegramEmojiKey;
+  callbackData?: string;
+  url?: string;
+}) {
+  const customEmojiDisabled = process.env.BUTTON_CUSTOM_EMOJI === 'off';
+  const emojiDef = opts.iconKey ? TELEGRAM_EMOJIS[opts.iconKey] : undefined;
+  const customId = !customEmojiDisabled ? emojiDef?.customEmojiId : undefined;
+  const fallback = emojiDef?.fallback || '';
+
+  const cleanText = stripLeadingEmoji(opts.text);
+  const hasCustomId = Boolean(customId && customId.trim() !== '');
+
+  let finalText = cleanText;
+  if (!hasCustomId) {
+    if (opts.text !== cleanText) {
+      finalText = opts.text;
+    } else if (fallback) {
+      finalText = `${fallback} ${cleanText}`.trim();
+    }
+  }
+
+  const btn: any = { text: finalText };
+  if (opts.url) {
+    btn.url = opts.url;
+  } else if (opts.callbackData) {
+    btn.callback_data = opts.callbackData;
+  }
+
+  if (hasCustomId) {
+    btn.icon_custom_emoji_id = customId!.trim();
+  }
+
+  Object.defineProperty(btn, '__fallback', {
+    value: fallback,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  });
+
+  return btn;
+}
 
 export class FulfillmentService {
   private static getSupportUrl(): string {
@@ -104,10 +149,10 @@ export class FulfillmentService {
     const supportUrl = this.getSupportUrl();
     return {
       inline_keyboard: [
-        [{ text: '🔢 Live 2FA Code', callback_data: `sub_2fa:${orderId}` }],
-        [{ text: '📷 Show 2FA QR', callback_data: `send_qr:${orderId}` }],
-        [{ text: '🛡️ Check Warranty', callback_data: `sub_warranty:${orderId}` }],
-        [{ text: '💬 Contact Support', url: supportUrl }],
+        [makeFulfillmentButton({ text: 'Live 2FA Code', callbackData: `sub_2fa:${orderId}`, iconKey: 'NUMBERS' })],
+        [makeFulfillmentButton({ text: 'Show 2FA QR', callbackData: `send_qr:${orderId}`, iconKey: 'CAMERA' })],
+        [makeFulfillmentButton({ text: 'Check Warranty', callbackData: `sub_warranty:${orderId}`, iconKey: 'SHIELD' })],
+        [makeFulfillmentButton({ text: 'Contact Support', url: supportUrl, iconKey: 'SUPPORT' })],
       ],
     };
   }
@@ -156,8 +201,8 @@ export class FulfillmentService {
           `${alertEmoji} <i>This account does not have 2-Factor Authentication enabled. You can log in directly using your username and password.</i>`,
         keyboard: {
           inline_keyboard: [
-            [{ text: '« Back to Delivery', callback_data: `sub_main:${orderId}` }],
-            [{ text: '💬 Contact Support', url: this.getSupportUrl() }],
+            [makeFulfillmentButton({ text: 'Back to Delivery', callbackData: `sub_main:${orderId}`, iconKey: 'BACK' })],
+            [makeFulfillmentButton({ text: 'Contact Support', url: this.getSupportUrl(), iconKey: 'SUPPORT' })],
           ],
         },
         code: 'N/A',
@@ -181,13 +226,14 @@ export class FulfillmentService {
     const keyboard = {
       inline_keyboard: [
         [
-          {
-            text: `🔄 Refresh Code (${code})`,
-            callback_data: `sub_2fa:${orderId}`,
-          },
+          makeFulfillmentButton({
+            text: `Refresh Code (${code})`,
+            callbackData: `sub_2fa:${orderId}`,
+            iconKey: 'REFRESH',
+          }),
         ],
-        [{ text: '📲 Auto-Add to Authenticator', url: otpauthUri }],
-        [{ text: '« Back to Delivery', callback_data: `sub_main:${orderId}` }],
+        [makeFulfillmentButton({ text: 'Auto-Add to Authenticator', url: otpauthUri, iconKey: 'PHONE' })],
+        [makeFulfillmentButton({ text: 'Back to Delivery', callbackData: `sub_main:${orderId}`, iconKey: 'BACK' })],
       ],
     };
 
@@ -232,8 +278,8 @@ export class FulfillmentService {
 
     const keyboard = {
       inline_keyboard: [
-        [{ text: '« Back to Delivery', callback_data: `sub_main:${orderId}` }],
-        [{ text: '💬 Contact Support', url: this.getSupportUrl() }],
+        [makeFulfillmentButton({ text: 'Back to Delivery', callbackData: `sub_main:${orderId}`, iconKey: 'BACK' })],
+        [makeFulfillmentButton({ text: 'Contact Support', url: this.getSupportUrl(), iconKey: 'SUPPORT' })],
       ],
     };
 

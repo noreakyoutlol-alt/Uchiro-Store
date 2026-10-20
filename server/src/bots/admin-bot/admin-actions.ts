@@ -3,6 +3,8 @@ import { isAuthorizedAdmin } from './admin-guards';
 import { getLowStockItems, getRecentOrders, getTodayStats } from './admin-data';
 import { RobuxService } from '../../services/robux.service';
 import { ADMIN_BASE_PATH } from '../../config/admin-slug';
+import { TELEGRAM_EMOJIS, TelegramEmojiKey } from '../../config/telegram-emojis';
+import { stripLeadingEmoji } from '../store-bot/keyboards';
 
 export interface AdminView {
   text: string;
@@ -47,15 +49,62 @@ function row(...buttons: InlineKeyboardButton[]): InlineKeyboardButton[] {
   return buttons;
 }
 
+export function makeAdminButton(opts: {
+  text: string;
+  iconKey?: TelegramEmojiKey;
+  callbackData?: string;
+  url?: string;
+  webAppUrl?: string;
+}): InlineKeyboardButton {
+  const customEmojiDisabled = process.env.BUTTON_CUSTOM_EMOJI === 'off';
+  const emojiDef = opts.iconKey ? TELEGRAM_EMOJIS[opts.iconKey] : undefined;
+  const customId = !customEmojiDisabled ? emojiDef?.customEmojiId : undefined;
+  const fallback = emojiDef?.fallback || '';
+
+  const cleanText = stripLeadingEmoji(opts.text);
+  const hasCustomId = Boolean(customId && customId.trim() !== '');
+
+  let finalText = cleanText;
+  if (!hasCustomId) {
+    if (opts.text !== cleanText) {
+      finalText = opts.text;
+    } else if (fallback) {
+      finalText = `${fallback} ${cleanText}`.trim();
+    }
+  }
+
+  const btn: any = { text: finalText };
+  if (opts.webAppUrl) {
+    btn.web_app = { url: opts.webAppUrl };
+  } else if (opts.url) {
+    btn.url = opts.url;
+  } else if (opts.callbackData) {
+    btn.callback_data = opts.callbackData;
+  }
+
+  if (hasCustomId) {
+    btn.icon_custom_emoji_id = customId!.trim();
+  }
+
+  Object.defineProperty(btn, '__fallback', {
+    value: fallback,
+    enumerable: false,
+    writable: true,
+    configurable: true,
+  });
+
+  return btn;
+}
+
 export function buildMainMenu(storeUrl: string, adminUrl: string = resolveDefaultAdminUrl()): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
-      row({ text: '🛡️ OPEN ADMIN PORTAL', web_app: { url: adminUrl } }),
-      row({ text: '🛒 Open Store (customer view)', url: storeUrl }),
-      row({ text: '📊 Today Stats', callback_data: 'admin:stats:today' }),
-      row({ text: '💎 Robux Stock & Pool', callback_data: 'admin:robux:pool' }),
-      row({ text: '📦 Recent Orders', callback_data: 'admin:orders:recent' }),
-      row({ text: '⚠️ Low Stock', callback_data: 'admin:stock:low' }),
+      row(makeAdminButton({ text: 'OPEN ADMIN PORTAL', webAppUrl: adminUrl, iconKey: 'SHIELD' })),
+      row(makeAdminButton({ text: 'Open Store (customer view)', url: storeUrl, iconKey: 'SHOPPING_CART' })),
+      row(makeAdminButton({ text: 'Today Stats', callbackData: 'admin:stats:today', iconKey: 'BAR_CHART' })),
+      row(makeAdminButton({ text: 'Robux Stock & Pool', callbackData: 'admin:robux:pool', iconKey: 'ROBUX' })),
+      row(makeAdminButton({ text: 'Recent Orders', callbackData: 'admin:orders:recent', iconKey: 'PACKAGE' })),
+      row(makeAdminButton({ text: 'Low Stock', callbackData: 'admin:stock:low', iconKey: 'ALERT' })),
     ],
   };
 }
@@ -81,7 +130,7 @@ export async function handleAdminCallback(
   adminUrl: string = resolveDefaultAdminUrl(),
 ): Promise<AdminView | null> {
   if (!from || !isAuthorizedAdmin(from.id)) return unauthorizedView();
-  const back = row({ text: '« Back to menu', callback_data: 'admin:menu' });
+  const back = row(makeAdminButton({ text: 'Back to menu', callbackData: 'admin:menu', iconKey: 'BACK' }));
 
   if (data === 'admin:menu' || data === 'cb_admin_menu') {
     return handleAdminStart(from, storeUrl, adminUrl);
@@ -98,7 +147,7 @@ export async function handleAdminCallback(
       text,
       replyMarkup: {
         inline_keyboard: [
-          row({ text: '🔄 Refresh', callback_data: data }),
+          row(makeAdminButton({ text: 'Refresh', callbackData: data, iconKey: 'REFRESH' })),
           back,
         ],
       },
@@ -129,19 +178,19 @@ export async function handleAdminCallback(
       replyMarkup: {
         inline_keyboard: [
           [
-            { text: '💲 Set Robux Rate', callback_data: 'admin:robux:set_rate' },
-            { text: '➕ Add Robux Stock', callback_data: 'admin:robux:add_stock' },
+            makeAdminButton({ text: 'Set Robux Rate', callbackData: 'admin:robux:set_rate', iconKey: 'MONEY' }),
+            makeAdminButton({ text: 'Add Robux Stock', callbackData: 'admin:robux:add_stock', iconKey: 'PACKAGE' }),
           ],
           [
-            { text: '📦 View Available Stock', callback_data: 'admin:robux:view_stock' },
-            { text: '📋 View Robux Orders', callback_data: 'admin:robux:orders' },
+            makeAdminButton({ text: 'View Available Stock', callbackData: 'admin:robux:view_stock', iconKey: 'ROBUX' }),
+            makeAdminButton({ text: 'View Robux Orders', callbackData: 'admin:robux:orders', iconKey: 'RECEIPT' }),
           ],
           [
-            { text: '⚙️ Manage Robux Settings', callback_data: 'admin:robux:settings' },
-            { text: stock.is_active ? '🔴 Disable Service' : '🟢 Enable Service', callback_data: 'admin:robux:toggle_active' },
+            makeAdminButton({ text: 'Manage Robux Settings', callbackData: 'admin:robux:settings', iconKey: 'GEAR' }),
+            makeAdminButton({ text: stock.is_active ? 'Disable Service' : 'Enable Service', callbackData: 'admin:robux:toggle_active', iconKey: stock.is_active ? 'RED_CIRCLE' : 'GREEN_CIRCLE' }),
           ],
           [
-            { text: '🔄 Refresh Pool', callback_data: 'admin:robux:pool' },
+            makeAdminButton({ text: 'Refresh Pool', callbackData: 'admin:robux:pool', iconKey: 'REFRESH' }),
             back[0],
           ],
         ],
@@ -169,7 +218,7 @@ export async function handleAdminCallback(
             { text: '$4.50 / 1k', callback_data: 'admin:robux:set_rate_preset:4.50' },
           ],
           [
-            { text: '« Back to Robux Pool', callback_data: 'admin:robux:pool' },
+            makeAdminButton({ text: 'Back to Robux Pool', callbackData: 'admin:robux:pool', iconKey: 'BACK' }),
           ],
         ],
       },
@@ -234,8 +283,8 @@ export async function handleAdminCallback(
       replyMarkup: {
         inline_keyboard: [
           [
-            { text: '🔄 Refresh Orders', callback_data: 'admin:robux:orders' },
-            { text: '« Back to Robux Pool', callback_data: 'admin:robux:pool' },
+            makeAdminButton({ text: 'Refresh Orders', callbackData: 'admin:robux:orders', iconKey: 'REFRESH' }),
+            makeAdminButton({ text: 'Back to Robux Pool', callbackData: 'admin:robux:pool', iconKey: 'BACK' }),
           ],
         ],
       },
@@ -257,10 +306,10 @@ export async function handleAdminCallback(
       replyMarkup: {
         inline_keyboard: [
           [
-            { text: stock.is_active ? '🔴 Disable Service' : '🟢 Enable Service', callback_data: 'admin:robux:toggle_active' },
+            makeAdminButton({ text: stock.is_active ? 'Disable Service' : 'Enable Service', callbackData: 'admin:robux:toggle_active', iconKey: stock.is_active ? 'RED_CIRCLE' : 'GREEN_CIRCLE' }),
           ],
           [
-            { text: '« Back to Robux Pool', callback_data: 'admin:robux:pool' },
+            makeAdminButton({ text: 'Back to Robux Pool', callbackData: 'admin:robux:pool', iconKey: 'BACK' }),
           ],
         ],
       },
@@ -287,7 +336,7 @@ export async function handleAdminCallback(
       text,
       replyMarkup: {
         inline_keyboard: [
-          row({ text: '🔄 Refresh', callback_data: 'admin:orders:recent' }),
+          row(makeAdminButton({ text: 'Refresh', callbackData: 'admin:orders:recent', iconKey: 'REFRESH' })),
           back,
         ],
       },
@@ -304,7 +353,7 @@ export async function handleAdminCallback(
       text,
       replyMarkup: {
         inline_keyboard: [
-          row({ text: '🔄 Refresh', callback_data: data }),
+          row(makeAdminButton({ text: 'Refresh', callbackData: data, iconKey: 'REFRESH' })),
           back,
         ],
       },

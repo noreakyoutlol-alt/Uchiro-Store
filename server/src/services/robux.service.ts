@@ -450,6 +450,26 @@ export class RobuxService {
   }
 
   /**
+   * Get a Robux order by its order code.
+   */
+  static async getOrderByCode(orderCode: string): Promise<RobuxOrder | null> {
+    if (isPostgresConfigured()) {
+      try {
+        const { rows } = await pgPool.query(
+          `SELECT * FROM robux_orders WHERE order_code = $1 LIMIT 1`,
+          [orderCode]
+        );
+        if (rows.length > 0) {
+          return rows[0] as RobuxOrder;
+        }
+      } catch (err: any) {
+        console.warn('[RobuxService] getOrderByCode DB error:', err?.message);
+      }
+    }
+    return this.memOrders.get(orderCode) || null;
+  }
+
+  /**
    * Atomic reservation of Robux stock during checkout.
    */
   static async reserveStock(

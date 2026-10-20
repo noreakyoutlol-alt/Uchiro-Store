@@ -45,8 +45,8 @@ export async function handleRobuxMenu(ctx: Context) {
       `💬 <b>Contact Support:</b> https://t.me/${supportUsername}`;
 
     const keyboard = Markup.inlineKeyboard([
-      [Markup.button.url('💬 Contact Support', `https://t.me/${supportUsername}`)],
-      [Markup.button.callback('🏠 Back Home', 'cb_main_menu')],
+      [urlBtn('Contact Support', `https://t.me/${supportUsername}`, 'SUPPORT')],
+      [cb('Back Home', 'cb_main_menu', 'HOME')],
     ]);
 
     try {
@@ -101,7 +101,7 @@ export async function handleRobuxMenu(ctx: Context) {
     buttons.push(row);
   }
 
-  buttons.push([Markup.button.callback('🏠 Back Home', 'cb_main_menu')]);
+  buttons.push([cb('Back Home', 'cb_main_menu', 'HOME')]);
 
   const keyboard = Markup.inlineKeyboard(buttons);
 
@@ -157,7 +157,7 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
     `⚠️ <b>Security Notice:</b> We will verify your avatar and account age. We will <b>NEVER</b> ask for your password or cookies.`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('❌ Cancel', 'cb_rbx_cancel')],
+    [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
   ]);
 
   await ctx.editMessageText(formatTelegramHtml(text), {
@@ -223,10 +223,10 @@ export async function handleRobuxUsernameInput(ctx: Context, text: string): Prom
     `⚠️ <b>Please verify carefully:</b> Is this your public Roblox profile?`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Confirm My Username', 'cb_rbx_confirm')],
-    [Markup.button.callback('🔄 Enter Different Username', `cb_rbx_pack_${session.selectedAmount}`)],
-    [Markup.button.callback('🔙 Back to Main Menu', 'cb_back_home')],
-    [Markup.button.callback('❌ Cancel', 'cb_rbx_cancel')],
+    [cb('Confirm My Username', 'cb_rbx_confirm', 'CHECK')],
+    [cb('Enter Different Username', `cb_rbx_pack_${session.selectedAmount}`, 'REFRESH')],
+    [cb('Back to Main Menu', 'cb_main_menu', 'BACK')],
+    [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
   ]);
 
   if (account.avatarUrl) {
@@ -295,9 +295,9 @@ export async function handleConfirmAccount(ctx: Context) {
     `Please proceed with payment below to receive your Robux:`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('🇰🇭 Pay with KHQR / Bakong', `cb_rbx_pay_${order.order_code}`)],
-    [Markup.button.callback('🔄 Check Payment Status', `cb_rbx_check_${order.order_code}`)],
-    [Markup.button.callback('❌ Cancel Order', `cb_rbx_cancel_order_${order.order_code}`)],
+    [cb('Pay with KHQR / Bakong', `cb_rbx_pay_${order.order_code}`, 'FLAG_CAMBODIA')],
+    [cb('Check Payment Status', `cb_rbx_check_${order.order_code}`, 'REFRESH')],
+    [cb('Cancel Order', `cb_rbx_cancel_order_${order.order_code}`, 'CROSS')],
   ]);
 
   await ctx.reply(formatTelegramHtml(text), {

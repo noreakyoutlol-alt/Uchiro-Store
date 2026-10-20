@@ -5,16 +5,30 @@ import { getLocale } from './locales';
 
 // Helper to strip leading unicode emoji / symbols from button labels
 export function stripLeadingEmoji(text: string): string {
+  if (!text) return '';
   return text
-    .replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE0F}\u{200D}\u{2300}-\u{23FF}\u{2B50}\u{20E3}]+\s*/u, '')
+    .replace(/^([0-9#*]️?⃣|[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{00A9}\u{00AE}]+)+\s*/u, '')
     .trim();
+}
+
+/**
+ * Detects matching TelegramEmojiKey from label's leading emoji if not explicitly supplied.
+ */
+export function findEmojiKeyForLabel(label: string): TelegramEmojiKey | undefined {
+  if (!label) return undefined;
+  for (const [key, def] of Object.entries(TELEGRAM_EMOJIS)) {
+    if (def.fallback && label.startsWith(def.fallback)) {
+      return key as TelegramEmojiKey;
+    }
+  }
+  return undefined;
 }
 
 /**
  * Core Button Factory conforming to Telegram Premium Custom Emoji specification:
  * - If key has customEmojiId and BUTTON_CUSTOM_EMOJI != 'off': sets icon_custom_emoji_id.
+ * - Strips duplicate leading unicode emoji from button text when custom emoji icon is active.
  * - Stores fallback in a NON-enumerable __fallback property for automatic callApi guard retry.
- * - Retains full label so standard clients show the unicode emoji fallback.
  * - NEVER injects <tg-emoji> in button text.
  */
 export function makeButton(
@@ -24,18 +38,23 @@ export function makeButton(
   iconKey?: string
 ): any {
   const customEmojiDisabled = process.env.BUTTON_CUSTOM_EMOJI === 'off';
-  const emojiDef = iconKey ? TELEGRAM_EMOJIS[iconKey as TelegramEmojiKey] : undefined;
+  const effectiveKey = iconKey || findEmojiKeyForLabel(label);
+  const emojiDef = effectiveKey ? TELEGRAM_EMOJIS[effectiveKey as TelegramEmojiKey] : undefined;
   const customId = !customEmojiDisabled ? emojiDef?.customEmojiId : undefined;
   const fallback = emojiDef?.fallback || '';
 
   const cleanLabel = stripLeadingEmoji(label);
   const hasCustomId = Boolean(customId && customId.trim() !== '');
 
-  // If button has a custom emoji icon, keep the original label (emoji included as text fallback).
-  // If no custom emoji and no leading emoji in label, add single fallback.
-  let buttonText = label;
-  if (!hasCustomId && cleanLabel === label && fallback) {
-    buttonText = `${fallback} ${cleanLabel}`.trim();
+  // When custom emoji icon is displayed separately, use cleanLabel to prevent duplicate emoji.
+  // If no custom emoji icon, preserve or provide single fallback emoji.
+  let buttonText = cleanLabel;
+  if (!hasCustomId) {
+    if (label !== cleanLabel) {
+      buttonText = label;
+    } else if (fallback) {
+      buttonText = `${fallback} ${cleanLabel}`.trim();
+    }
   }
 
   let btn: any;
@@ -138,6 +157,7 @@ export function buildMainMenuKeyboard(
     ],
     [
       cb('📜 Rules & Policies', 'cb_main_rules', 'DOCUMENT'),
+      cb('🌐 Language', 'cb_lang_menu', 'GLOBE'),
     ],
   ]);
 }
@@ -186,18 +206,18 @@ export function getMainMenuKeyboard(
 /**
  * Language selection inline keyboard:
  * 🇰🇭 Khmer | 🇬🇧 English
- * (Language selection explicitly requires Khmer and English options per Requirement 4)
+ * (Language selection explicitly requires Khmer and English options per Requirement 4 & 5)
  */
 export function getLanguageSelectionKeyboard(langOrShowBackHome: string | boolean = false) {
   const showBackHome = typeof langOrShowBackHome === 'boolean' ? langOrShowBackHome : Boolean(langOrShowBackHome);
   const rows: any[][] = [
     [
-      Markup.button.callback('🇰🇭 Khmer', 'set_lang:km'),
-      Markup.button.callback('🇬🇧 English', 'set_lang:en'),
+      cb('🇰🇭 Khmer', 'set_lang:km', 'FLAG_CAMBODIA'),
+      cb('🇬🇧 English', 'set_lang:en', 'FLAG_UK'),
     ],
   ];
   if (showBackHome) {
-    rows.push([Markup.button.callback('🏠 Back Home', 'cb_main_menu')]);
+    rows.push([cb('🏠 Back Home', 'cb_main_menu', 'HOME')]);
   }
   return Markup.inlineKeyboard(rows);
 }
@@ -225,7 +245,7 @@ export function buildProfileKeyboard(
     ],
     [
       createWebAppOrUrlButton(loc.btn_open_profile_webapp, profileWebUrl, 'PACKAGE'),
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -238,7 +258,7 @@ export function buildPointsLedgerKeyboard(lang: string = 'km') {
     ],
     [
       cb('Back to Profile', 'cb_profile_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -251,7 +271,7 @@ export function buildRedeemPointsKeyboard(lang: string = 'km') {
     ],
     [
       cb('Back to Profile', 'cb_profile_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -271,14 +291,14 @@ export function buildMainRulesKeyboard(lang: string = 'km') {
     ],
     [
       cb(loc.btn_payment_delivery, 'cb_payment_delivery', 'RECEIPT'),
-      cb(loc.btn_refund_policy, 'cb_refund_policy', 'MONEY_BACK'),
+      cb(loc.btn_refund_policy, 'cb_refund_policy', 'MONEY_BAG'),
     ],
     [
-      cb(loc.btn_points_coupons, 'cb_points_coupons', 'TICKETS'),
+      cb(loc.btn_points_coupons, 'cb_points_coupons', 'TICKET'),
       cb(loc.btn_faq_help, 'cb_faq_help', 'QUESTION'),
     ],
     [
-      cb(loc.btn_contact_support, 'cb_contact_support', 'HEADSET'),
+      cb(loc.btn_contact_support, 'cb_contact_support', 'SUPPORT'),
       cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
     ],
   ]);
@@ -289,7 +309,7 @@ export function buildSubRulesKeyboard(lang: string = 'km') {
   return Markup.inlineKeyboard([
     [
       cb(loc.btn_back_to_rules, 'cb_main_rules', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -313,7 +333,7 @@ export function buildMainHelpKeyboard(supportUsername: string = 'UchiroSupport',
       urlBtn(loc.btn_contact_admin, supportUrl, 'SUPPORT'),
     ],
     [
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -329,7 +349,7 @@ export function buildSubHelpKeyboard(supportUsername: string = 'UchiroSupport', 
     ],
     [
       cb(loc.btn_back_to_help, 'cb_main_help', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -353,7 +373,7 @@ export function buildHowToBuyKeyboard(
       createWebAppOrUrlButton('🛍️ Open Store Now', storeUrl, 'SHOPPING_BAGS'),
     ],
     [
-      cb('🏠 Back Home', 'cb_main_menu', 'HOUSE'),
+      cb('🏠 Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -367,7 +387,7 @@ export function buildKhqrGuideKeyboard() {
   return Markup.inlineKeyboard([
     [
       cb('🔙 Back to How to Buy', 'cb_how_to_buy', 'BACK'),
-      cb('🏠 Back Home', 'cb_main_menu', 'HOUSE'),
+      cb('🏠 Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -385,7 +405,7 @@ export function buildGachaKeyboard(
   return Markup.inlineKeyboard([
     [
       cb(loc.btn_buy_ticket, 'cb_gacha_buy_ticket', 'TICKET'),
-      cb(loc.btn_view_prizes, 'cb_gacha_prizes', 'TROPHY'),
+      cb(loc.btn_view_prizes, 'cb_gacha_prizes', 'CROWN'),
     ],
     [
       cb(loc.btn_drop_rates, 'cb_gacha_odds', 'LIGHTNING'),
@@ -393,7 +413,7 @@ export function buildGachaKeyboard(
     ],
     [
       createWebAppOrUrlButton(loc.btn_open_gacha_webapp, gachaWebUrl, 'PACKAGE'),
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -414,7 +434,7 @@ export function buildSubGachaKeyboard(
     ],
     [
       cb(loc.btn_back_to_gacha, 'cb_gacha_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -460,7 +480,7 @@ export function buildDailyKeyboard(
       cb(loc.btn_daily_shop, 'cb_daily_shop', 'GEM'),
     ],
     [
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -473,7 +493,7 @@ export function buildDailyShopKeyboard(lang: string = 'km') {
     ],
     [
       cb(loc.btn_back_to_daily, 'cb_daily_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -490,7 +510,7 @@ export function buildVaultMenuKeyboard(lang: string = 'km') {
       cb(loc.btn_live_2fa, 'cb_vault_2fa', 'KEY'),
     ],
     [
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -505,7 +525,7 @@ export function buildEmptyVaultKeyboard(
       createWebAppOrUrlButton(loc.btn_open_vault_webapp, storeUrl, 'PACKAGE'),
     ],
     [
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -526,7 +546,7 @@ export function buildVaultListKeyboard(
     ]);
     const webAppVaultUrl = storeUrl.includes('?') ? `${storeUrl}&tab=vault` : `${storeUrl}?tab=vault`;
     buttons.push([createWebAppOrUrlButton('Open Vault in Mini App', webAppVaultUrl, 'PACKAGE')]);
-    buttons.push([cb('Back Home', 'cb_main_menu', 'HOUSE')]);
+    buttons.push([cb('Back Home', 'cb_main_menu', 'HOME')]);
     return Markup.inlineKeyboard(buttons);
   }
 
@@ -560,7 +580,7 @@ export function buildVaultListKeyboard(
 
   buttons.push([
     cb(loc.btn_back_to_vault, 'cb_vault_menu', 'BACK'),
-    cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+    cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
   ]);
 
   return Markup.inlineKeyboard(buttons);
@@ -581,7 +601,7 @@ export function buildAccountDetailKeyboard(account: DeliveredAccount, storeUrl: 
   buttons.push([createWebAppOrUrlButton('View Details in Mini App', webAppDetailUrl, 'PACKAGE')]);
   buttons.push([
     cb('Back to Vault', 'cb_vault_menu', 'BACKPACK'),
-    cb('Back Home', 'cb_main_menu', 'HOUSE'),
+    cb('Back Home', 'cb_main_menu', 'HOME'),
   ]);
 
   return Markup.inlineKeyboard(buttons);
@@ -591,11 +611,11 @@ export function buildTwoFactorKeyboard(accountId: string, lang: string = 'km') {
   const loc = getLocale(lang);
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_refresh_2fa, `cb_vault_2fa_acc:${accountId}`, 'REPEAT'),
+      cb(loc.btn_refresh_2fa, `cb_vault_2fa_acc:${accountId}`, 'REFRESH'),
     ],
     [
       cb(loc.btn_back_to_vault, 'cb_vault_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -622,7 +642,7 @@ export function buildOrdersMenuKeyboard(
       createWebAppOrUrlButton(openOrdersText, openOrdersUrl, 'PACKAGE'),
     ],
     [
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -642,7 +662,7 @@ export function buildOrderHistoryKeyboard(
     ],
     [
       cb(backToOrdersText, 'cb_orders_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOUSE'),
+      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
     ],
   ]);
 }

@@ -6,11 +6,14 @@ import {
   AlertCircle,
   Loader2,
   Video,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import { Product, RobloxProfile } from '../../types';
 import { StoreAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { AppIcon } from '../common/AppIcon';
+import { getProductTierInfo } from './ProductCard';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -51,7 +54,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   );
   const showQuantityStepper = Boolean(isMultiQuantityEligible && product && product.stock >= 2);
 
+  const tierInfo = product ? getProductTierInfo(product) : null;
+
   const [quantity, setQuantity] = useState(1);
+  const [modalImgSrc, setModalImgSrc] = useState('');
+
+  const images = product?.media && product.media.length > 0
+    ? product.media.map((m) => m.url)
+    : ['https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80'];
+
+  useEffect(() => {
+    if (images.length > 0) {
+      setModalImgSrc(images[selectedImageIndex] || images[0]);
+    }
+  }, [selectedImageIndex, images]);
 
   useEffect(() => {
     if (product) {
@@ -65,10 +81,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   }, [product, isAccount, initialQuantity]);
 
   if (!product) return null;
-
-  const images = product.media && product.media.length > 0
-    ? product.media.map((m) => m.url)
-    : ['https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80'];
 
   const handleVerifyRoblox = async (usernameToVerify: string) => {
     const clean = usernameToVerify.trim();
@@ -132,6 +144,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const currentQuantity = isAccount ? 1 : Math.min(Math.max(1, quantity), Math.max(1, product.stock));
   const totalPrice = Number((product.price * currentQuantity).toFixed(2));
+  const hasDiscount = Boolean(
+    product.compare_at_price && product.compare_at_price > product.price
+  );
+  const compareTotalPrice = hasDiscount
+    ? Number((product.compare_at_price! * currentQuantity).toFixed(2))
+    : null;
+  const discountPercent = hasDiscount
+    ? Math.round(((product.compare_at_price! - product.price) / product.compare_at_price!) * 100)
+    : 0;
 
   // Specification 1 & 3: Never block valid username format
   const canProceed =
@@ -185,15 +206,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     );
   };
 
+  let modalBorderClasses = 'border-slate-200 dark:border-white/10 shadow-2xl';
+  let modalTopHighlight = null;
+  let imageContainerBorder = 'border-slate-200 dark:border-white/10 shadow-sm';
+
+  if (tierInfo?.tier === 'mythical') {
+    modalBorderClasses =
+      'border-purple-500/40 dark:border-purple-500/50 shadow-[0_12px_45px_rgba(168,85,247,0.22)]';
+    modalTopHighlight = (
+      <div className="h-1 w-full bg-gradient-to-r from-purple-500 via-amber-400 to-purple-500 shrink-0" />
+    );
+    imageContainerBorder =
+      'border-purple-500/40 dark:border-purple-500/50 shadow-[0_0_24px_rgba(168,85,247,0.18)]';
+  } else if (tierInfo?.tier === 'rare') {
+    modalBorderClasses =
+      'border-cyan-500/40 dark:border-cyan-500/50 shadow-[0_12px_45px_rgba(6,182,212,0.18)]';
+    modalTopHighlight = (
+      <div className="h-1 w-full bg-gradient-to-r from-cyan-500 via-blue-400 to-cyan-500 shrink-0" />
+    );
+    imageContainerBorder =
+      'border-cyan-500/40 dark:border-cyan-500/50 shadow-[0_0_24px_rgba(6,182,212,0.16)]';
+  } else if (tierInfo?.tier === 'special') {
+    modalBorderClasses =
+      'border-amber-500/40 dark:border-amber-500/50 shadow-[0_12px_45px_rgba(245,158,11,0.16)]';
+    modalTopHighlight = (
+      <div className="h-1 w-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 shrink-0" />
+    );
+    imageContainerBorder =
+      'border-amber-500/40 dark:border-amber-500/50 shadow-[0_0_24px_rgba(245,158,11,0.14)]';
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg max-h-[92vh] bg-white dark:bg-[#0F1320] border border-slate-200 dark:border-white/10 rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col shadow-2xl relative text-slate-900 dark:text-white"
+        className={`w-full max-w-lg max-h-[92vh] bg-white dark:bg-[#0F1320] border rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col relative text-slate-900 dark:text-white transition-all ${modalBorderClasses}`}
         onClick={(e) => e.stopPropagation()}
       >
+        {modalTopHighlight}
+
         {/* Floating Close Button */}
         <button
           type="button"
@@ -212,14 +265,57 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* 1. IMAGE */}
           <div className="space-y-2">
-            <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden bg-slate-100 dark:bg-[#181E30] border border-slate-200 dark:border-white/10 shadow-sm">
+            <div className={`relative aspect-[16/10] sm:aspect-[16/9] w-full rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#181E30] border ${imageContainerBorder}`}>
               <img
-                src={images[selectedImageIndex] || images[0]}
+                src={modalImgSrc || images[0]}
                 alt={product.title}
+                onError={() =>
+                  setModalImgSrc(
+                    'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80'
+                  )
+                }
                 className="w-full h-full object-cover"
                 loading="lazy"
                 decoding="async"
               />
+
+              {/* Depth gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10 pointer-events-none" />
+
+              {/* Floating Discount Badge */}
+              {hasDiscount && discountPercent > 0 && !isOutOfStock && (
+                <div className="absolute top-2.5 left-2.5 z-10">
+                  <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-black tracking-wider uppercase shadow-md">
+                    -{discountPercent}%
+                  </span>
+                </div>
+              )}
+
+              {/* Floating Rarity / Special Badge */}
+              {tierInfo?.badgeLabel && !isOutOfStock && (
+                <div className="absolute top-2.5 right-2.5 z-10 flex items-center">
+                  {tierInfo.tier === 'mythical' ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-purple-950/90 text-purple-200 border border-purple-400/50 text-xs font-black tracking-wider uppercase backdrop-blur-md flex items-center gap-1.5 shadow-md">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span>{tierInfo.badgeLabel}</span>
+                    </span>
+                  ) : tierInfo.tier === 'rare' ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-sky-950/90 text-cyan-200 border border-cyan-400/50 text-xs font-black tracking-wider uppercase backdrop-blur-md flex items-center gap-1.5 shadow-md">
+                      <ShieldCheck className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                      <span>{tierInfo.badgeLabel}</span>
+                    </span>
+                  ) : tierInfo.tier === 'special' ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-950/90 text-amber-200 border border-amber-400/50 text-xs font-black tracking-wider uppercase backdrop-blur-md flex items-center gap-1.5 shadow-md">
+                      <Zap className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span>{tierInfo.badgeLabel}</span>
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-lg bg-slate-900/85 text-slate-200 border border-white/15 text-xs font-bold tracking-wider uppercase backdrop-blur-md shadow-sm">
+                      {tierInfo.badgeLabel}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {images.length > 1 && (
@@ -242,26 +338,68 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* 2. PRODUCT NAME */}
-          <div className="space-y-1">
+          {/* 2. PRODUCT NAME & CATEGORY/RARITY HIERARCHY */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              {tierInfo?.badgeLabel && (
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider ${
+                    tierInfo.tier === 'mythical'
+                      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30'
+                      : tierInfo.tier === 'rare'
+                      ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30'
+                  }`}
+                >
+                  {tierInfo.tier === 'mythical' && <Sparkles className="w-3 h-3 text-amber-400" />}
+                  {tierInfo.tier === 'rare' && <ShieldCheck className="w-3 h-3 text-cyan-400" />}
+                  {tierInfo.tier === 'special' && <Zap className="w-3 h-3 text-amber-400" />}
+                  <span>{tierInfo.badgeLabel}</span>
+                </span>
+              )}
+              {product.category?.name && (
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                  {product.category.name}
+                </span>
+              )}
+            </div>
+
             <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white leading-snug">
               {product.title}
             </h2>
           </div>
 
-          {/* 3. PRICE (Real/Original Price ONLY, NO strikethrough per Spec 3) */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-black text-amber-500 dark:text-amber-400 tracking-tight">
-              ${totalPrice.toFixed(2)}
-            </span>
-            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 font-mono">
-              {(product as any).currency || 'USD'}
-            </span>
-            {currentQuantity > 1 && (
-              <span className="text-xs text-slate-400 font-medium">
-                (${product.price.toFixed(2)} each)
-              </span>
+          {/* 3. PRICE */}
+          <div className="flex flex-col gap-0.5">
+            {hasDiscount && compareTotalPrice && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 line-through font-mono">
+                  ${compareTotalPrice.toFixed(2)}
+                </span>
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-500 dark:text-rose-400 border border-rose-500/20">
+                  -{discountPercent}%
+                </span>
+              </div>
             )}
+            <div className="flex items-baseline gap-2">
+              <span
+                className={`text-2xl sm:text-3xl font-black tracking-tight ${
+                  tierInfo?.tier === 'mythical'
+                    ? 'text-amber-400 dark:text-[#FFD166]'
+                    : 'text-amber-500 dark:text-[#FFD166]'
+                }`}
+              >
+                ${totalPrice.toFixed(2)}
+              </span>
+              <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 font-mono">
+                {(product as any).currency || 'USD'}
+              </span>
+              {currentQuantity > 1 && (
+                <span className="text-xs text-slate-400 font-medium">
+                  (${product.price.toFixed(2)} each)
+                </span>
+              )}
+            </div>
           </div>
 
           {/* 4. STATUS */}
@@ -434,21 +572,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
             className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-md active:scale-[0.99] ${
               canProceed
-                ? 'bg-amber-400 dark:bg-[#FFD166] text-black hover:bg-amber-300 dark:hover:bg-[#ffe082]'
+                ? tierInfo?.tier === 'mythical'
+                  ? 'bg-gradient-to-r from-amber-400 via-[#FFD166] to-amber-300 text-black hover:brightness-105 shadow-[0_4px_16px_rgba(255,209,102,0.3)]'
+                  : 'bg-amber-400 dark:bg-[#FFD166] text-black hover:bg-amber-300 dark:hover:bg-[#ffe082]'
                 : 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
             }`}
           >
             {isOutOfStock
-              ? (language === 'km' ? 'អស់ស្តុកហើយ' : 'SOLD OUT')
+              ? 'SOLD OUT'
               : product.requires_roblox_username && !robloxProfile
-              ? (language === 'km' ? 'សូមបញ្ចូលឈ្មោះ Roblox របស់អ្នក' : 'Verify Roblox Username to Proceed')
+              ? 'Verify Roblox Username to Proceed'
               : product.requires_roblox_username && !isAccountConfirmed
-              ? (language === 'km' ? 'សូមបញ្ជាក់គណនី Roblox ខាងលើ' : 'Confirm Roblox Account Above')
+              ? 'Confirm Roblox Account Above'
               : currentQuantity > 1
-              ? (language === 'km'
-                  ? `ទិញភ្លាមៗ (${currentQuantity} Items • $${totalPrice.toFixed(2)})`
-                  : `Buy Now (${currentQuantity} Items • $${totalPrice.toFixed(2)})`)
-              : (language === 'km' ? 'ទិញភ្លាមៗ' : 'Buy Now')}
+              ? `Buy Now (${currentQuantity} Items • $${totalPrice.toFixed(2)})`
+              : 'Buy Now'}
           </button>
 
           {/* ========================================================= */}

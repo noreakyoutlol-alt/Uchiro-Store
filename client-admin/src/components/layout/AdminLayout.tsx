@@ -15,6 +15,7 @@ import {
   Database,
   ShieldAlert,
 } from 'lucide-react';
+import { AdminSpaceBackground } from '../background/AdminSpaceBackground';
 
 export type AdminTab =
   | 'dashboard'
@@ -61,9 +62,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-[#0A0D14] text-slate-100 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#070A14] text-slate-100 flex flex-col md:flex-row relative">
+      {/* Space Background Layer */}
+      <AdminSpaceBackground />
+
       {/* Sidebar for Desktop / Header for Mobile */}
-      <aside className="w-full md:w-64 bg-[#111622] border-b md:border-b-0 md:border-r border-white/10 flex flex-col flex-shrink-0">
+      <aside className="w-full md:w-64 bg-[#0E1322]/90 backdrop-blur-md border-b md:border-b-0 md:border-r border-white/10 flex flex-col flex-shrink-0 relative z-10">
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-white text-xs shadow-md">
@@ -105,7 +109,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       </aside>
 
       {/* Main Content Area: Compact Mobile-First Pocket UI */}
-      <main className="flex-1 p-2.5 sm:p-4 overflow-y-auto overflow-x-hidden w-full max-w-full">
+      <main className="flex-1 p-2.5 sm:p-4 overflow-y-auto overflow-x-hidden w-full max-w-full relative z-10">
         <div className="max-w-6xl mx-auto space-y-3 w-full">{children}</div>
       </main>
     </div>

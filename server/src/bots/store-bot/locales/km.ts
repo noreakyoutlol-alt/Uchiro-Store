@@ -6,7 +6,7 @@ export const km = {
   btn_orders: '📜 Order History',
   btn_profile: '👤 My Profile',
   btn_language: '🌐 Language',
-  btn_rules: '📜 Store Rules & Policies',
+  btn_rules: '📜 Store Rules',
   btn_help: '❓ Help & FAQ',
   btn_open_store: '🛍️ Open Store',
   btn_support_admin: '💬 Contact Support',

@@ -103,12 +103,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   {isPlaying ? (
                     <>
                       <Pause className="w-3.5 h-3.5 fill-current" />
-                      <span>{language === 'km' ? 'ផ្អាក' : 'Pause'}</span>
+                      <span>Pause</span>
                     </>
                   ) : (
                     <>
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>{language === 'km' ? 'ចាក់' : 'Play'}</span>
+                      <span>Play</span>
                     </>
                   )}
                 </button>
@@ -182,7 +182,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               >
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🇰🇭</span>
-                  <span>ភាសាខ្មែរ</span>
+                  <span>Khmer</span>
                 </div>
                 {language === 'km' && <Check className="w-4 h-4 text-amber-400" />}
               </button>

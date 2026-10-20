@@ -3,6 +3,7 @@ import { env } from '../../config/env';
 import { DataStore } from '../../database/data-store';
 import { TELEGRAM_EMOJIS, renderTgEmoji, tgEmoji, enrichWithTgEmojis, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { FulfillmentService } from '../../services/fulfillment.service';
+import { RobuxService } from '../../services/robux.service';
 import {
   handleVaultMenu,
   handleViewAccount,
@@ -70,6 +71,8 @@ import {
   getMainMenuKeyboard,
   getLanguageSelectionKeyboard,
   createWebAppOrUrlButton,
+  stripLeadingEmoji,
+  cb,
 } from './keyboards';
 import { getLocale } from './locales';
 
@@ -140,13 +143,12 @@ export function createEmojiInlineButton(opts: {
   callbackData?: string;
   customEmojiId?: string;
 }) {
+  const customEmojiDisabled = process.env.BUTTON_CUSTOM_EMOJI === 'off';
   const emojiDef = opts.emojiKey ? TELEGRAM_EMOJIS[opts.emojiKey] : undefined;
-  const customEmojiId = opts.customEmojiId || emojiDef?.customEmojiId;
+  const customEmojiId = !customEmojiDisabled ? (opts.customEmojiId || emojiDef?.customEmojiId) : undefined;
   const fallback = emojiDef?.fallback;
 
-  const cleanText = opts.text
-    .replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE0F}\u{200D}\u{2300}-\u{23FF}\u{2B50}\u{20E3}]+\s*/u, '')
-    .trim();
+  const cleanText = stripLeadingEmoji(opts.text);
   const hasCustom = Boolean(customEmojiId && customEmojiId.trim() !== '');
 
   let finalText: string;
@@ -165,11 +167,20 @@ export function createEmojiInlineButton(opts: {
   } else if (opts.callbackData) {
     btn = Markup.button.callback(finalText, opts.callbackData);
   } else {
-    btn = Markup.button.callback(finalText, 'noop');
+    btn = Markup.button.callback(finalText, 'cb_noop');
   }
 
-  if (customEmojiId) {
-    btn.icon_custom_emoji_id = customEmojiId;
+  if (hasCustom && customEmojiId) {
+    btn.icon_custom_emoji_id = customEmojiId.trim();
+  }
+
+  if (fallback) {
+    Object.defineProperty(btn, '__fallback', {
+      value: fallback,
+      enumerable: false,
+      writable: true,
+      configurable: true,
+    });
   }
 
   return btn;
@@ -386,8 +397,51 @@ export class StoreBotService {
       await handleCancelRobuxOrder(ctx, orderCode);
     });
 
-    // Universal Back Home Navigation (cb_main_menu)
-    this.bot.action('cb_main_menu', async (ctx) => {
+    this.bot.action(/^cb_rbx_pay_(.+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      const orderCode = ctx.match[1];
+      const webAppUrl = `${storeWebAppUrl}?tab=orders&orderId=${orderCode}`;
+      await ctx.reply(
+        formatTelegramHtml(
+          `💳 <b>Robux Order #${orderCode} Payment</b>\n\n` +
+          `Scan the KHQR code or complete your payment in the Store Mini App:`
+        ),
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [createWebAppOrUrlButton('Complete Payment in Mini App', webAppUrl, 'CREDIT_CARD')],
+            [cb('Back Home', 'cb_main_menu', 'HOME')],
+          ]),
+        }
+      );
+    });
+
+    this.bot.action(/^cb_rbx_check_(.+)$/, async (ctx) => {
+      const orderCode = ctx.match[1];
+      try {
+        await ctx.answerCbQuery(`Checking payment status for #${orderCode}...`);
+      } catch {}
+      const order = await RobuxService.getOrderByCode(orderCode);
+      const statusText = order?.status || 'pending';
+      await ctx.reply(
+        formatTelegramHtml(
+          `📦 <b>Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
+          (statusText === 'paid' || statusText === 'completed'
+            ? '✅ Payment confirmed! Your Robux delivery is being processed.'
+            : '⏳ Awaiting payment confirmation. If already paid, please allow up to 1-2 minutes for bank clearance.')
+        ),
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [cb('Re-check Status', `cb_rbx_check_${orderCode}`, 'REFRESH')],
+            [cb('Back Home', 'cb_main_menu', 'HOME')],
+          ]),
+        }
+      );
+    });
+
+    // Universal Back Home Navigation (cb_main_menu & aliases)
+    this.bot.action(['cb_main_menu', 'cb_back_home', 'menu_home', 'back_home'], async (ctx) => {
       try {
         await ctx.answerCbQuery();
       } catch {}
@@ -493,7 +547,7 @@ export class StoreBotService {
     });
 
     // MODULE 2: STORE RULES & WARRANTIES
-    this.bot.action(['cb_main_rules', 'menu_rules', 'cb_rules_menu'], async (ctx) => {
+    this.bot.action(['cb_main_rules', 'menu_rules', 'cb_rules_menu', 'cb_back_to_rules'], async (ctx) => {
       await handleMainRules(ctx);
     });
     this.bot.command('rules', async (ctx) => {
@@ -522,9 +576,6 @@ export class StoreBotService {
     });
     this.bot.action('cb_contact_support', async (ctx) => {
       await handleContactSupport(ctx);
-    });
-    this.bot.action('cb_main_rules', async (ctx) => {
-      await handleMainRules(ctx);
     });
 
     // MODULE 2: HELP & FAQ CENTER

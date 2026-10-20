@@ -26,6 +26,7 @@ import {
 import { AdminAPI } from './services/api';
 import { getAdminSessionToken, onUnauthorized } from './services/admin-auth';
 import { AdminLockScreen } from './components/AdminLockScreen';
+import { AdminSpaceBackground } from './components/background/AdminSpaceBackground';
 import { Loader2, AlertOctagon } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -136,9 +137,12 @@ export const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-[#0A0D14] flex flex-col items-center justify-center gap-3 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-        <span className="text-xs font-bold">Verifying Administrator Access...</span>
+      <div className="fixed inset-0 bg-[#070A14] flex flex-col items-center justify-center gap-3 text-slate-400 relative">
+        <AdminSpaceBackground />
+        <div className="relative z-10 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <span className="text-xs font-bold">Verifying Administrator Access...</span>
+        </div>
       </div>
     );
   }
@@ -156,12 +160,15 @@ export const App: React.FC = () => {
 
   if (!isAuthorized) {
     return (
-      <div className="fixed inset-0 bg-[#0A0D14] flex flex-col items-center justify-center p-6 text-center text-slate-300 space-y-3">
-        <AlertOctagon className="w-16 h-16 text-red-500" />
-        <h2 className="text-xl font-black text-white">ACCESS DENIED</h2>
-        <p className="text-xs max-w-sm text-slate-400 leading-relaxed">
-          Your Telegram account is not on the authorized Uchiro Store Administrator roster. Access is restricted.
-        </p>
+      <div className="fixed inset-0 bg-[#070A14] flex flex-col items-center justify-center p-6 text-center text-slate-300 space-y-3 relative">
+        <AdminSpaceBackground />
+        <div className="relative z-10 flex flex-col items-center justify-center space-y-3">
+          <AlertOctagon className="w-16 h-16 text-red-500" />
+          <h2 className="text-xl font-black text-white">ACCESS DENIED</h2>
+          <p className="text-xs max-w-sm text-slate-400 leading-relaxed">
+            Your Telegram account is not on the authorized Uchiro Store Administrator roster. Access is restricted.
+          </p>
+        </div>
       </div>
     );
   }

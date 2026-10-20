@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#0A0D14] text-slate-100 antialiased font-sans;
+    @apply bg-[#070A14] text-slate-100 antialiased font-sans;
     -webkit-tap-highlight-color: transparent;
   }
 }

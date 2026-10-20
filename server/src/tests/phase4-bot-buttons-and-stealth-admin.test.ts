@@ -27,10 +27,12 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
       // Row 0: Gacha & Daily Points - MUST NOT have web_app
       const gachaBtn = rows[0][0] as any;
       const rewardsBtn = rows[0][1] as any;
-      expect(gachaBtn.text).toBe('🎰 Play Gacha');
+      expect(gachaBtn.text).toBe('Play Gacha');
+      expect(gachaBtn.icon_custom_emoji_id).toBeDefined();
       expect(gachaBtn.web_app).toBeUndefined();
       expect(gachaBtn.callback_data).toBe('cb_gacha_menu');
-      expect(rewardsBtn.text).toBe('🎁 Daily Points');
+      expect(rewardsBtn.text).toBe('Daily Points');
+      expect(rewardsBtn.icon_custom_emoji_id).toBeDefined();
       expect(rewardsBtn.web_app).toBeUndefined();
       expect(rewardsBtn.callback_data).toBe('cb_daily_menu');
 
@@ -38,39 +40,47 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
       const vaultBtn = rows[1][0] as any;
       const ordersBtn = rows[1][1] as any;
       expect(vaultBtn.text).toBe('🎒 My Vault & Accounts');
+      expect(vaultBtn.icon_custom_emoji_id).toBeUndefined();
       expect(vaultBtn.web_app).toBeUndefined();
       expect(vaultBtn.callback_data).toBe('cb_vault_menu');
-      expect(ordersBtn.text).toBe('📜 Order History');
+      expect(ordersBtn.text).toBe('Order History');
+      expect(ordersBtn.icon_custom_emoji_id).toBeDefined();
       expect(ordersBtn.web_app).toBeUndefined();
       expect(ordersBtn.callback_data).toBe('cb_orders_menu');
 
       // Row 2: Profile & Language - MUST NOT have web_app
       const profileBtn = rows[2][0] as any;
       const langBtn = rows[2][1] as any;
-      expect(profileBtn.text).toBe('👤 My Profile');
+      expect(profileBtn.text).toBe('My Profile');
+      expect(profileBtn.icon_custom_emoji_id).toBeDefined();
       expect(profileBtn.web_app).toBeUndefined();
       expect(profileBtn.callback_data).toBe('cb_profile_menu');
-      expect(langBtn.text).toBe('🌐 Language');
+      expect(langBtn.text).toBe('Language');
+      expect(langBtn.icon_custom_emoji_id).toBeDefined();
       expect(langBtn.web_app).toBeUndefined();
       expect(langBtn.callback_data).toBe('cb_lang_menu');
 
       // Row 3: Rules & Help - MUST NOT have web_app
       const rulesBtn = rows[3][0] as any;
       const helpBtn = rows[3][1] as any;
-      expect(rulesBtn.text).toBe('📜 Store Rules & Policies');
+      expect(rulesBtn.text).toBe('Store Rules');
+      expect(rulesBtn.icon_custom_emoji_id).toBeDefined();
       expect(rulesBtn.web_app).toBeUndefined();
       expect(rulesBtn.callback_data).toBe('cb_main_rules');
       expect(helpBtn.text).toBe('❓ Help & FAQ');
+      expect(helpBtn.icon_custom_emoji_id).toBeUndefined();
       expect(helpBtn.web_app).toBeUndefined();
       expect(helpBtn.callback_data).toBe('cb_main_help');
 
       // Row 4: Primary WebApp button & Support Link
       const openStoreBtn = rows[4][0] as any;
       const supportBtn = rows[4][1] as any;
-      expect(openStoreBtn.text).toBe('🛍️ Open Store');
+      expect(openStoreBtn.text).toBe('Open Store');
+      expect(openStoreBtn.icon_custom_emoji_id).toBeDefined();
       expect(openStoreBtn.web_app).toBeDefined();
       expect(openStoreBtn.web_app.url).toBe('https://store.uchiro.com');
-      expect(supportBtn.text).toBe('💬 Contact Support');
+      expect(supportBtn.text).toBe('Contact Support');
+      expect(supportBtn.icon_custom_emoji_id).toBeDefined();
       expect(supportBtn.web_app).toBeUndefined();
       expect(supportBtn.url).toMatch(/^https:\/\/t\.me\//);
     });
@@ -82,7 +92,8 @@ describe('PHASE 4: TELEGRAM BOT BUTTON OPTIMIZATION & FINAL STEALTH ADMIN', () =
       expect(rows.length).toBe(5);
 
       const mainBtn = rows[4][0] as any;
-      expect(mainBtn.text).toBe('🛍️ Open Mini App (Optional)');
+      expect(mainBtn.text).toBe('Open Store');
+      expect(mainBtn.icon_custom_emoji_id).toBeDefined();
       expect(mainBtn.web_app).toBeDefined();
 
       // Check that no button in rows 0..3 has web_app

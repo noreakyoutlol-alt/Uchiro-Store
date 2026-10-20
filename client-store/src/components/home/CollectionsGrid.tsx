@@ -1,5 +1,5 @@
 import React from 'react';
-import { Product } from '../../types';
+import { Product, Category } from '../../types';
 import { CategoryIcon } from '../../config/emoji';
 
 export interface GameCollectionItem {
@@ -14,6 +14,61 @@ export interface GameCollectionItem {
   iconClass: string;
   borderHoverClass: string;
   desc?: string;
+}
+
+export function matchProductToCollection(
+  product: Product,
+  collectionSlug: string,
+  categories: Category[] = []
+): boolean {
+  const cat = categories.find((c) => c.id === product.category_id);
+  const catSlug = cat?.slug || product.category?.slug || '';
+  const titleLower = (product.title || '').toLowerCase();
+
+  switch (collectionSlug) {
+    case 'blox-fruits':
+      return catSlug === 'blox-fruits' || titleLower.includes('blox fruits');
+    case 'murder-mystery-2':
+    case 'mm2':
+      return (
+        catSlug === 'murder-mystery-2' ||
+        catSlug === 'mm2' ||
+        titleLower.includes('mm2') ||
+        titleLower.includes('murder mystery')
+      );
+    case 'rivals':
+      return catSlug === 'rivals' || titleLower.includes('rivals');
+    case 'blade-ball':
+      return catSlug === 'blade-ball' || titleLower.includes('blade ball');
+    case 'evade':
+      return catSlug === 'evade' || titleLower.includes('evade');
+    case 'steal-egg':
+      return (
+        catSlug === 'steal-egg' ||
+        titleLower.includes('steal egg') ||
+        titleLower.includes('pet')
+      );
+    case 'gamepasses':
+      return (
+        catSlug === 'gamepasses' ||
+        titleLower.includes('gamepass') ||
+        titleLower.includes('pass')
+      );
+    case 'other':
+      if (catSlug === 'other') return true;
+      const matchesTop7 = [
+        'blox-fruits',
+        'murder-mystery-2',
+        'rivals',
+        'blade-ball',
+        'evade',
+        'steal-egg',
+        'gamepasses',
+      ].some((slug) => matchProductToCollection(product, slug, categories));
+      return !matchesTop7;
+    default:
+      return catSlug === collectionSlug;
+  }
 }
 
 export const GAME_COLLECTIONS: GameCollectionItem[] = [
@@ -118,31 +173,45 @@ export const GAME_COLLECTIONS: GameCollectionItem[] = [
 export interface CollectionsGridProps {
   onSelectCollection: (slug: string) => void;
   products?: Product[];
+  categories?: Category[];
   className?: string;
   variant?: 'grid' | 'cards';
+  selectedSlug?: string | null;
 }
 
 export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
   onSelectCollection,
+  products = [],
+  categories = [],
   className = '',
   variant = 'grid',
+  selectedSlug = null,
 }) => {
   // Full detailed card view (Shop Page)
   if (variant === 'cards') {
     return (
       <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 ${className}`}>
         {GAME_COLLECTIONS.map((c) => {
+          const isSelected = selectedSlug === c.slug;
+          const count = products.length > 0
+            ? products.filter((p) => matchProductToCollection(p, c.slug, categories)).length
+            : null;
+
           return (
             <button
               type="button"
               key={c.slug}
               onClick={() => onSelectCollection(c.slug)}
-              className={`group flex items-center justify-between p-3 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-[#0F1422] hover:border-amber-400/60 transition-colors text-left active:scale-[0.98] shadow-sm ${c.borderHoverClass}`}
+              className={`group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 text-left active:scale-[0.98] shadow-sm ${
+                isSelected
+                  ? 'border-amber-400 dark:border-[#FFD166] bg-amber-50/80 dark:bg-amber-400/10 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                  : `border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-[#0E1322] hover:border-amber-400/60 ${c.borderHoverClass}`
+              }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 {/* Modern Rounded Container with Matching Aura */}
                 <div
-                  className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${c.containerClass} ${c.glowClass}`}
+                  className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${c.containerClass} ${c.glowClass}`}
                 >
                   <CategoryIcon
                     slug={c.slug}
@@ -154,14 +223,32 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-amber-400 transition-colors truncate">
-                    {c.name}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-amber-400 transition-colors truncate">
+                      {c.name}
+                    </h3>
+                    {count !== null && count > 0 && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 shrink-0">
+                        {count}
+                      </span>
+                    )}
+                  </div>
+                  {c.desc && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
+                      {c.desc}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-400 group-hover:text-amber-400 transition-colors shrink-0 ml-2">
-                <span className="text-sm font-bold">→</span>
+              <div
+                className={`w-7 h-7 rounded-full border flex items-center justify-center transition-colors shrink-0 ml-2 ${
+                  isSelected
+                    ? 'bg-amber-400 text-slate-950 border-amber-400 font-black'
+                    : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 group-hover:text-amber-400'
+                }`}
+              >
+                <span className="text-sm font-bold">{isSelected ? '✓' : '→'}</span>
               </div>
             </button>
           );
@@ -172,29 +259,29 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
 
   // Default compact 4-col grid layout (Used on Home Page)
   return (
-    <div className={`grid grid-cols-4 gap-2 ${className}`}>
+    <div className={`grid grid-cols-4 gap-1.5 sm:gap-2 ${className}`}>
       {GAME_COLLECTIONS.map((c) => {
         return (
           <button
             type="button"
             key={c.slug}
             onClick={() => onSelectCollection(c.slug)}
-            className={`group flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0F1422] hover:border-amber-400/60 transition-colors active:scale-95 text-center shadow-sm ${c.borderHoverClass}`}
+            className={`group flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/90 dark:bg-[#0E1322]/90 backdrop-blur-sm hover:border-amber-400/50 transition-all duration-200 active:scale-[0.96] text-center shadow-sm min-w-0 ${c.borderHoverClass}`}
           >
             {/* Modern Rounded Container with Matching Aura */}
             <div
-              className={`w-12 h-12 rounded-xl border flex items-center justify-center mb-1 transition-transform duration-200 group-hover:scale-105 ${c.containerClass} ${c.glowClass}`}
+              className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl border flex items-center justify-center mb-1.5 transition-transform duration-200 group-hover:scale-105 shrink-0 ${c.containerClass} ${c.glowClass}`}
             >
               <CategoryIcon
                 slug={c.slug}
                 name={c.name}
                 fallbackEmoji={c.emoji}
-                className="w-7 h-7"
-                imgClassName="w-7 h-7 object-contain"
+                className="w-6 h-6 sm:w-7 sm:h-7"
+                imgClassName="w-6 h-6 sm:w-7 sm:h-7 object-contain drop-shadow-sm"
               />
             </div>
 
-            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 text-center truncate max-w-full group-hover:text-amber-400 transition-colors">
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 dark:text-slate-200 text-center truncate w-full px-0.5 leading-tight group-hover:text-amber-400 transition-colors">
               {c.name}
             </span>
           </button>

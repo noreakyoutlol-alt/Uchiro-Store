@@ -1,0 +1,322 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">
+  <defs>
+    <style>
+      .bg { fill: #070A14; }
+      .p-main { fill: none; stroke: #5D7AE8; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: 0.82; }
+      .p-soft { fill: none; stroke: #4A5B8C; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.60; }
+      .p-acc  { fill: none; stroke: #9D7BFF; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: 0.90; }
+      .p-dash { fill: none; stroke: #44547E; stroke-width: 1.3; stroke-dasharray: 4, 6; stroke-linecap: round; opacity: 0.45; }
+      .glow-dot { fill: #B8A5FF; opacity: 0.85; }
+      .soft-dot { fill: #6875F5; opacity: 0.65; }
+      .tiny-dot { fill: #44547E; opacity: 0.40; }
+    </style>
+  </defs>
+
+  <!-- Deep navy / near-black base -->
+  <rect class="bg" width="100%" height="100%"/>
+
+  <!-- ORBITAL PATHS & CONSTELLATION LINES -->
+  <g class="p-dash">
+    <path d="M-50,180 Q160,80 340,160 T760,110"/>
+    <path d="M120,700 Q320,620 540,730 T850,680"/>
+    <path d="M680,240 Q620,440 710,640"/>
+    <ellipse cx="260" cy="380" rx="140" ry="45" transform="rotate(-25 260 380)"/>
+    <path d="M420,40 L490,95 L560,70 L610,130"/>
+    <path d="M80,480 L140,530 L110,600 L180,640"/>
+  </g>
+
+  <!-- 1. RINGED PLANET (Top-Left quadrant: ~160, 140) -->
+  <g transform="translate(160, 140)">
+    <!-- Back of ring -->
+    <path class="p-soft" d="M-60,-8 C-60,-22 60,-22 60,-8" transform="rotate(-18)"/>
+    <!-- Planet body -->
+    <circle class="p-main" cx="0" cy="0" r="30"/>
+    <path class="p-soft" d="M-28,-8 C-12,-16 12,-16 28,-8"/>
+    <path class="p-soft" d="M-29,10 C-10,2 10,2 29,10"/>
+    <!-- Front of ring -->
+    <path class="p-acc" d="M-60,-8 C-60,18 60,18 60,-8" transform="rotate(-18)"/>
+    <!-- Shadow / ring inner line -->
+    <path class="p-soft" d="M-50,-6 C-50,14 50,14 50,-6" transform="rotate(-18)"/>
+    <!-- Mini moon -->
+    <circle class="p-acc" cx="48" cy="-35" r="4"/>
+  </g>
+
+  <!-- 2. ROCKET SHIP IN FLIGHT (Center-Right: ~620, 220) -->
+  <g transform="translate(620, 220) rotate(-45)">
+    <!-- Rocket fuselage -->
+    <path class="p-acc" d="M0,-42 C14,-22 15,18 13,34 L-13,34 C-15,18 -14,-22 0,-42 Z"/>
+    <!-- Nose cone divider -->
+    <path class="p-main" d="M-10,-18 C-4,-20 4,-20 10,-18"/>
+    <!-- Cabin Window / Porthole -->
+    <circle class="p-main" cx="0" cy="-2" r="7"/>
+    <circle class="p-soft" cx="0" cy="-2" r="4"/>
+    <!-- Side Fins -->
+    <path class="p-main" d="M-13,18 L-25,36 L-13,32"/>
+    <path class="p-main" d="M13,18 L25,36 L13,32"/>
+    <!-- Center nozzle -->
+    <path class="p-soft" d="M-8,34 L-6,40 L6,40 L8,34"/>
+    <!-- Exhaust flames -->
+    <path class="p-acc" d="M-5,40 C-8,50 0,58 0,62 C0,58 8,50 5,40"/>
+    <path class="p-soft" d="M-2,40 C-4,46 0,51 0,53 C0,51 4,46 2,40"/>
+  </g>
+
+  <!-- 3. RETRO FLYING SAUCER / UFO (Center-Left: ~240, 480) -->
+  <g transform="translate(240, 480)">
+    <!-- Cockpit dome -->
+    <path class="p-acc" d="M-16,-4 C-16,-20 16,-20 16,-4"/>
+    <!-- Alien silhouette in cockpit -->
+    <circle class="p-soft" cx="0" cy="-10" r="3.5"/>
+    <!-- Disc hull -->
+    <ellipse class="p-main" cx="0" cy="0" rx="36" ry="10"/>
+    <!-- Hull details: small port lights -->
+    <circle class="glow-dot" cx="-22" cy="1" r="1.5"/>
+    <circle class="glow-dot" cx="-11" cy="3" r="1.5"/>
+    <circle class="glow-dot" cx="0" cy="3.5" r="1.5"/>
+    <circle class="glow-dot" cx="11" cy="3" r="1.5"/>
+    <circle class="glow-dot" cx="22" cy="1" r="1.5"/>
+    <!-- Antenna -->
+    <path class="p-soft" d="M0,-20 L0,-26"/>
+    <circle class="glow-dot" cx="0" cy="-28" r="2"/>
+    <!-- Light beam downwards -->
+    <path class="p-dash" d="M-18,10 L-32,46 M18,10 L32,46"/>
+  </g>
+
+  <!-- 4. FLOATING ASTRONAUT (Bottom-Right: ~640, 560) -->
+  <g transform="translate(640, 560) rotate(15)">
+    <!-- Helmet -->
+    <circle class="p-acc" cx="0" cy="-28" r="14"/>
+    <path class="p-main" d="M-8,-28 C-8,-34 8,-34 8,-28 C8,-22 -8,-22 -8,-28 Z"/>
+    <!-- Torso / Suit -->
+    <rect class="p-main" x="-12" y="-14" width="24" height="24" rx="6"/>
+    <!-- Chest control box -->
+    <rect class="p-soft" x="-6" y="-8" width="12" height="10" rx="2"/>
+    <!-- Backpack -->
+    <path class="p-soft" d="M-16,-12 L-16,8"/>
+    <!-- Left Arm waving -->
+    <path class="p-main" d="M-12,-8 L-22,-16 L-20,-24"/>
+    <!-- Right Arm -->
+    <path class="p-main" d="M12,-8 L24,-4 L26,-12"/>
+    <!-- Legs -->
+    <path class="p-main" d="M-7,10 L-10,26 L-16,28"/>
+    <path class="p-main" d="M7,10 L10,24 L16,28"/>
+    <!-- Oxygen tether wavy line -->
+    <path class="p-dash" d="M-16,0 C-28,4 -30,-8 -42,-4 C-54,0 -56,-12 -68,-8"/>
+  </g>
+
+  <!-- 5. SATELLITE WITH SOLAR PANELS (Top-Right: ~480, 80) -->
+  <g transform="translate(480, 80) rotate(-20)">
+    <!-- Main chassis -->
+    <rect class="p-main" x="-10" y="-10" width="20" height="20" rx="3"/>
+    <!-- Dish antenna -->
+    <path class="p-acc" d="M0,-10 L0,-18 M-8,-24 C-4,-20 4,-20 8,-24"/>
+    <!-- Left Solar Panel -->
+    <rect class="p-soft" x="-34" y="-8" width="20" height="16" rx="1"/>
+    <path class="p-soft" d="M-24,-8 L-24,8 M-34,0 L-14,0"/>
+    <path class="p-main" d="M-14,0 L-10,0"/>
+    <!-- Right Solar Panel -->
+    <rect class="p-soft" x="14" y="-8" width="20" height="16" rx="1"/>
+    <path class="p-soft" d="M24,-8 L24,8 M14,0 L34,0"/>
+    <path class="p-main" d="M10,0 L14,0"/>
+  </g>
+
+  <!-- 6. CRESCENT MOON WITH CRATERS (Center: ~410, 370) -->
+  <g transform="translate(410, 370)">
+    <!-- Crescent shape -->
+    <path class="p-acc" d="M-18,-24 C-32,0 -16,28 14,24 C0,20 -10,4 -6,-16 C-12,-22 -14,-24 -18,-24 Z"/>
+    <!-- Craters -->
+    <circle class="p-soft" cx="-10" cy="2" r="3"/>
+    <circle class="p-soft" cx="-6" cy="14" r="2"/>
+    <circle class="p-soft" cx="-12" cy="-10" r="2.5"/>
+  </g>
+
+  <!-- 7. SPUTNIK / EXPLORATION PROBE (Bottom-Left: ~100, 700) -->
+  <g transform="translate(100, 700) rotate(35)">
+    <!-- Spherical core -->
+    <circle class="p-acc" cx="0" cy="0" r="16"/>
+    <circle class="p-soft" cx="-4" cy="-4" r="5"/>
+    <!-- Antenna whiskers -->
+    <path class="p-main" d="M-11,-11 L-38,-38"/>
+    <path class="p-main" d="M11,-11 L38,-38"/>
+    <path class="p-main" d="M-14,8 L-46,24"/>
+    <path class="p-main" d="M14,8 L46,24"/>
+    <!-- Beep signals -->
+    <path class="p-dash" d="M-16,-16 C-24,-20 -20,-24 -24,-28"/>
+  </g>
+
+  <!-- 8. COMET / SHOOTING STAR (Top-Left: ~80, 320) -->
+  <g transform="translate(80, 320) rotate(-30)">
+    <circle class="glow-dot" cx="0" cy="0" r="4"/>
+    <circle class="p-acc" cx="0" cy="0" r="6"/>
+    <!-- Tail trails -->
+    <path class="p-main" d="M-6,-2 C-24,-1 -48,4 -70,12"/>
+    <path class="p-soft" d="M-5,1 C-20,4 -40,10 -58,20"/>
+    <path class="p-soft" d="M-6,-4 C-18,-5 -36,-3 -50,2"/>
+  </g>
+
+  <!-- 9. SECOND COMET (Far Bottom-Right: ~740, 420) -->
+  <g transform="translate(740, 420) rotate(140)">
+    <circle class="glow-dot" cx="0" cy="0" r="3.5"/>
+    <circle class="p-acc" cx="0" cy="0" r="5"/>
+    <path class="p-main" d="M-5,-2 C-20,-1 -42,4 -60,10"/>
+    <path class="p-soft" d="M-4,1 C-16,3 -32,8 -48,16"/>
+  </g>
+
+  <!-- 10. CRATERED DWARF PLANET (Far Right: ~740, 730 & wrapping edge) -->
+  <g transform="translate(740, 730)">
+    <circle class="p-main" cx="0" cy="0" r="22"/>
+    <circle class="p-soft" cx="-6" cy="-6" r="4"/>
+    <circle class="p-soft" cx="8" cy="4" r="3"/>
+    <circle class="p-soft" cx="-4" cy="9" r="2.5"/>
+  </g>
+  <!-- Edge copy for seamless wrap at left: (740-800 = -60, so wrap at -60) -->
+  <g transform="translate(-60, 730)">
+    <circle class="p-main" cx="0" cy="0" r="22"/>
+    <circle class="p-soft" cx="-6" cy="-6" r="4"/>
+    <circle class="p-soft" cx="8" cy="4" r="3"/>
+    <circle class="p-soft" cx="-4" cy="9" r="2.5"/>
+  </g>
+
+  <!-- 11. MINI ROCKET (Bottom-Center: ~380, 680) -->
+  <g transform="translate(380, 680) rotate(-65)">
+    <path class="p-main" d="M0,-24 C8,-12 8,10 7,20 L-7,20 C-8,10 -8,-12 0,-24 Z"/>
+    <circle class="p-soft" cx="0" cy="-2" r="4"/>
+    <path class="p-soft" d="M-7,10 L-14,22 L-7,19"/>
+    <path class="p-soft" d="M7,10 L14,22 L7,19"/>
+    <path class="p-acc" d="M-3,20 C-5,26 0,31 0,33 C0,31 5,26 3,20"/>
+  </g>
+
+  <!-- 12. SMALL RINGED PLANET (Center-Top: ~320, 240) -->
+  <g transform="translate(320, 240)">
+    <circle class="p-main" cx="0" cy="0" r="14"/>
+    <ellipse class="p-acc" cx="0" cy="0" rx="26" ry="6" transform="rotate(25)"/>
+  </g>
+
+  <!-- 13. SPARKLE STARS (4-Pointed Space Stars) -->
+  <!-- Top row sparkles -->
+  <path class="p-acc" d="M60,60 Q60,75 75,75 Q60,75 60,90 Q60,75 45,75 Q60,75 60,60 Z"/>
+  <path class="p-acc" d="M360,90 Q360,102 372,102 Q360,102 360,114 Q360,102 348,102 Q360,102 360,90 Z"/>
+  <path class="p-acc" d="M720,50 Q720,62 732,62 Q720,62 720,74 Q720,62 708,62 Q720,62 720,50 Z"/>
+
+  <!-- Mid sparkles -->
+  <path class="p-acc" d="M190,260 Q190,270 200,270 Q190,270 190,280 Q190,270 180,270 Q190,270 190,260 Z"/>
+  <path class="p-acc" d="M540,290 Q540,302 552,302 Q540,302 540,314 Q540,302 528,302 Q540,302 540,290 Z"/>
+  <path class="p-acc" d="M470,470 Q470,482 482,482 Q470,482 470,494 Q470,482 458,482 Q470,482 470,470 Z"/>
+  <path class="p-acc" d="M70,430 Q70,440 80,440 Q70,440 70,450 Q70,440 60,440 Q70,440 70,430 Z"/>
+
+  <!-- Bottom sparkles -->
+  <path class="p-acc" d="M260,620 Q260,632 272,632 Q260,632 260,644 Q260,632 248,632 Q260,632 260,620 Z"/>
+  <path class="p-acc" d="M510,630 Q510,640 520,640 Q510,640 510,650 Q510,640 500,640 Q510,640 510,630 Z"/>
+  <path class="p-acc" d="M750,600 Q750,610 760,610 Q750,610 750,620 Q750,610 740,610 Q750,610 750,600 Z"/>
+
+  <!-- 14. CROSS STARS (+) -->
+  <g class="p-main">
+    <path d="M130,40 L130,50 M125,45 L135,45"/>
+    <path d="M270,70 L270,78 M266,74 L274,74"/>
+    <path d="M600,120 L600,128 M596,124 L604,124"/>
+    <path d="M40,210 L40,218 M36,214 L44,214"/>
+    <path d="M460,200 L460,208 M456,204 L464,204"/>
+    <path d="M370,300 L370,308 M366,304 L374,304"/>
+    <path d="M670,340 L670,348 M666,344 L674,344"/>
+    <path d="M160,390 L160,398 M156,394 L164,394"/>
+    <path d="M320,440 L320,448 M316,444 L324,444"/>
+    <path d="M590,440 L590,450 M585,445 L595,445"/>
+    <path d="M150,560 L150,568 M146,564 L154,564"/>
+    <path d="M420,560 L420,568 M416,564 L424,564"/>
+    <path d="M30,620 L30,628 M26,624 L34,624"/>
+    <path d="M320,580 L320,588 M316,584 L324,584"/>
+    <path d="M630,710 L630,718 M626,714 L634,714"/>
+    <path d="M470,740 L470,748 M466,744 L474,744"/>
+    <path d="M210,750 L210,758 M206,754 L214,754"/>
+  </g>
+
+  <!-- 15. SCATTERED DUST DOTS & STARLETTS -->
+  <circle class="glow-dot" cx="100" cy="110" r="2"/>
+  <circle class="glow-dot" cx="220" cy="40" r="1.5"/>
+  <circle class="glow-dot" cx="440" cy="140" r="2"/>
+  <circle class="glow-dot" cx="540" cy="50" r="1.8"/>
+  <circle class="glow-dot" cx="670" cy="90" r="2.2"/>
+  <circle class="glow-dot" cx="780" cy="170" r="1.8"/>
+  <circle class="glow-dot" cx="110" cy="240" r="2"/>
+  <circle class="glow-dot" cx="270" cy="180" r="1.8"/>
+  <circle class="glow-dot" cx="390" cy="210" r="2"/>
+  <circle class="glow-dot" cx="490" cy="260" r="1.5"/>
+  <circle class="glow-dot" cx="710" cy="280" r="2"/>
+  <circle class="glow-dot" cx="50" cy="370" r="1.8"/>
+  <circle class="glow-dot" cx="220" cy="350" r="2.2"/>
+  <circle class="glow-dot" cx="340" cy="330" r="1.5"/>
+  <circle class="glow-dot" cx="510" cy="380" r="2"/>
+  <circle class="glow-dot" cx="600" cy="370" r="1.8"/>
+  <circle class="glow-dot" cx="640" cy="480" r="2.2"/>
+  <circle class="glow-dot" cx="760" cy="490" r="1.8"/>
+  <circle class="glow-dot" cx="130" cy="460" r="2"/>
+  <circle class="glow-dot" cx="290" cy="520" r="1.8"/>
+  <circle class="glow-dot" cx="380" cy="490" r="2"/>
+  <circle class="glow-dot" cx="550" cy="520" r="1.8"/>
+  <circle class="glow-dot" cx="50" cy="550" r="2.2"/>
+  <circle class="glow-dot" cx="200" cy="670" r="1.8"/>
+  <circle class="glow-dot" cx="350" cy="620" r="2"/>
+  <circle class="glow-dot" cx="460" cy="670" r="1.8"/>
+  <circle class="glow-dot" cx="580" cy="610" r="2"/>
+  <circle class="glow-dot" cx="690" cy="660" r="1.8"/>
+  <circle class="glow-dot" cx="780" cy="640" r="2"/>
+  <circle class="glow-dot" cx="70" cy="760" r="2.2"/>
+  <circle class="glow-dot" cx="290" cy="720" r="1.8"/>
+  <circle class="glow-dot" cx="420" cy="760" r="2"/>
+  <circle class="glow-dot" cx="550" cy="740" r="1.8"/>
+
+  <!-- Subtle faint background dust particles -->
+  <circle class="tiny-dot" cx="30" cy="90" r="1.2"/>
+  <circle class="tiny-dot" cx="80" cy="160" r="1"/>
+  <circle class="tiny-dot" cx="180" cy="90" r="1.2"/>
+  <circle class="tiny-dot" cx="310" cy="40" r="1"/>
+  <circle class="tiny-dot" cx="400" cy="70" r="1.2"/>
+  <circle class="tiny-dot" cx="580" cy="30" r="1"/>
+  <circle class="tiny-dot" cx="640" cy="150" r="1.2"/>
+  <circle class="tiny-dot" cx="750" cy="110" r="1"/>
+  <circle class="tiny-dot" cx="20" cy="270" r="1.2"/>
+  <circle class="tiny-dot" cx="150" cy="300" r="1"/>
+  <circle class="tiny-dot" cx="250" cy="230" r="1.2"/>
+  <circle class="tiny-dot" cx="300" cy="290" r="1"/>
+  <circle class="tiny-dot" cx="440" cy="270" r="1.2"/>
+  <circle class="tiny-dot" cx="570" cy="230" r="1"/>
+  <circle class="tiny-dot" cx="670" cy="210" r="1.2"/>
+  <circle class="tiny-dot" cx="770" cy="260" r="1"/>
+  <circle class="tiny-dot" cx="90" cy="360" r="1.2"/>
+  <circle class="tiny-dot" cx="170" cy="360" r="1"/>
+  <circle class="tiny-dot" cx="280" cy="410" r="1.2"/>
+  <circle class="tiny-dot" cx="360" cy="390" r="1"/>
+  <circle class="tiny-dot" cx="460" cy="350" r="1.2"/>
+  <circle class="tiny-dot" cx="560" cy="340" r="1"/>
+  <circle class="tiny-dot" cx="630" cy="420" r="1.2"/>
+  <circle class="tiny-dot" cx="720" cy="380" r="1"/>
+  <circle class="tiny-dot" cx="40" cy="490" r="1.2"/>
+  <circle class="tiny-dot" cx="100" cy="510" r="1"/>
+  <circle class="tiny-dot" cx="190" cy="430" r="1.2"/>
+  <circle class="tiny-dot" cx="260" cy="460" r="1"/>
+  <circle class="tiny-dot" cx="360" cy="450" r="1.2"/>
+  <circle class="tiny-dot" cx="440" cy="530" r="1"/>
+  <circle class="tiny-dot" cx="510" cy="450" r="1.2"/>
+  <circle class="tiny-dot" cx="620" cy="500" r="1"/>
+  <circle class="tiny-dot" cx="700" cy="530" r="1.2"/>
+  <circle class="tiny-dot" cx="770" cy="440" r="1"/>
+  <circle class="tiny-dot" cx="30" cy="660" r="1.2"/>
+  <circle class="tiny-dot" cx="90" cy="620" r="1"/>
+  <circle class="tiny-dot" cx="160" cy="640" r="1.2"/>
+  <circle class="tiny-dot" cx="230" cy="580" r="1"/>
+  <circle class="tiny-dot" cx="320" cy="650" r="1.2"/>
+  <circle class="tiny-dot" cx="410" cy="630" r="1"/>
+  <circle class="tiny-dot" cx="480" cy="590" r="1.2"/>
+  <circle class="tiny-dot" cx="570" cy="670" r="1"/>
+  <circle class="tiny-dot" cx="650" cy="610" r="1.2"/>
+  <circle class="tiny-dot" cx="720" cy="640" r="1"/>
+  <circle class="tiny-dot" cx="780" cy="560" r="1.2"/>
+  <circle class="tiny-dot" cx="40" cy="740" r="1.2"/>
+  <circle class="tiny-dot" cx="130" cy="770" r="1"/>
+  <circle class="tiny-dot" cx="240" cy="780" r="1.2"/>
+  <circle class="tiny-dot" cx="340" cy="740" r="1"/>
+  <circle class="tiny-dot" cx="450" cy="710" r="1.2"/>
+  <circle class="tiny-dot" cx="510" cy="780" r="1"/>
+  <circle class="tiny-dot" cx="600" cy="760" r="1.2"/>
+  <circle class="tiny-dot" cx="680" cy="780" r="1"/>
+  <circle class="tiny-dot" cx="760" cy="770" r="1.2"/>
+</svg>

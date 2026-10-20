@@ -28,7 +28,7 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '"Kantumruy Pro"', 'sans-serif'],
         display: ['"Space Grotesk"', 'sans-serif'],
       },
       animation: {

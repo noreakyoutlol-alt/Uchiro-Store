@@ -39,34 +39,44 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
       expect(allText).not.toContain('☢️');
       expect(allText).not.toContain('☢');
 
-      // Row 1: Gacha & Daily Points
-      expect(rows[0][0].text).toBe('🎰 Play Gacha');
+      // Row 1: Gacha & Daily Points (both have custom emojis)
+      expect(rows[0][0].text).toBe('Play Gacha');
+      expect((rows[0][0] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[0][0] as any).callback_data).toBe('cb_gacha_menu');
-      expect(rows[0][1].text).toBe('🎁 Daily Points');
+      expect(rows[0][1].text).toBe('Daily Points');
+      expect((rows[0][1] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[0][1] as any).callback_data).toBe('cb_daily_menu');
 
-      // Row 2: Vault & Orders
+      // Row 2: Vault (fallback to text emoji) & Orders (custom emoji)
       expect(rows[1][0].text).toBe('🎒 My Vault & Accounts');
+      expect((rows[1][0] as any).icon_custom_emoji_id).toBeUndefined();
       expect((rows[1][0] as any).callback_data).toBe('cb_vault_menu');
-      expect(rows[1][1].text).toBe('📜 Order History');
+      expect(rows[1][1].text).toBe('Order History');
+      expect((rows[1][1] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[1][1] as any).callback_data).toBe('cb_orders_menu');
 
-      // Row 3: Profile & Language
-      expect(rows[2][0].text).toBe('👤 My Profile');
+      // Row 3: Profile & Language (both have custom emojis)
+      expect(rows[2][0].text).toBe('My Profile');
+      expect((rows[2][0] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[2][0] as any).callback_data).toBe('cb_profile_menu');
-      expect(rows[2][1].text).toBe('🌐 Language');
+      expect(rows[2][1].text).toBe('Language');
+      expect((rows[2][1] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[2][1] as any).callback_data).toBe('cb_lang_menu');
 
-      // Row 4: Rules & Help
-      expect(rows[3][0].text).toBe('📜 Store Rules');
+      // Row 4: Rules (custom emoji) & Help (fallback to text emoji)
+      expect(rows[3][0].text).toBe('Store Rules');
+      expect((rows[3][0] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[3][0] as any).callback_data).toBe('cb_main_rules');
       expect(rows[3][1].text).toBe('❓ Help & FAQ');
+      expect((rows[3][1] as any).icon_custom_emoji_id).toBeUndefined();
       expect((rows[3][1] as any).callback_data).toBe('cb_main_help');
 
       // Row 5: Open Mini App (ONLY WebApp) & Admin Support link
-      expect(rows[4][0].text).toBe('🛍️ Open Store');
+      expect(rows[4][0].text).toBe('Open Store');
+      expect((rows[4][0] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[4][0] as any).web_app?.url).toBe('https://uchiro.store');
-      expect(rows[4][1].text).toBe('💬 Contact Support');
+      expect(rows[4][1].text).toBe('Contact Support');
+      expect((rows[4][1] as any).icon_custom_emoji_id).toBeDefined();
       expect((rows[4][1] as any).url).toBe('https://t.me/UchiroSupport');
 
       // Verify ONLY Row 4 Col 0 has web_app
@@ -82,28 +92,38 @@ describe('Standalone In-Chat Telegram Bot Master Architecture', () => {
       const rows = keyboard.reply_markup.inline_keyboard;
       expect(rows.length).toBe(5);
 
-      expect(rows[0][0].text).toBe('🎰 Play Gacha');
-      expect(rows[0][1].text).toBe('🎁 Daily Points');
+      expect(rows[0][0].text).toBe('Play Gacha');
+      expect(rows[0][1].text).toBe('Daily Points');
       expect(rows[1][0].text).toBe('🎒 My Vault & Accounts');
-      expect(rows[1][1].text).toBe('📜 Order History');
-      expect(rows[2][0].text).toBe('👤 My Profile');
-      expect(rows[2][1].text).toBe('🌐 Language / ភាសា');
-      expect(rows[3][0].text).toBe('📜 Store Rules');
+      expect(rows[1][1].text).toBe('Order History');
+      expect(rows[2][0].text).toBe('My Profile');
+      expect(rows[2][1].text).toBe('Language');
+      expect(rows[3][0].text).toBe('Store Rules');
       expect(rows[3][1].text).toBe('❓ Help & FAQ');
-      expect(rows[4][0].text).toBe('🛍️ Open Mini App (Optional)');
-      expect(rows[4][1].text).toBe('💬 Contact Admin 24/7');
+      expect(rows[4][0].text).toBe('Open Store');
+      expect(rows[4][1].text).toBe('Contact Support');
+
+      // Verify no Khmer characters anywhere in visible button labels
+      const allText = rows.flatMap((r) => r.map((b) => b.text)).join(' ');
+      expect(/[ក-៿]/.test(allText)).toBe(false);
     });
 
-    it('builds Language Selection Keyboard with Khmer and English options', () => {
+    it('builds Language Selection Keyboard with Khmer and English options in English', () => {
       const kb = getLanguageSelectionKeyboard('km');
       const rows = kb.reply_markup.inline_keyboard;
       expect(rows.length).toBe(2);
-      expect(rows[0][0].text).toBe('🇰🇭 ភាសាខ្មែរ');
+      expect(rows[0][0].text).toBe('Khmer');
+      expect((rows[0][0] as any).icon_custom_emoji_id).toBe('5294018354527353443');
       expect((rows[0][0] as any).callback_data).toBe('set_lang:km');
-      expect(rows[0][1].text).toBe('🇬🇧 English');
+      expect(rows[0][1].text).toBe('English');
+      expect((rows[0][1] as any).icon_custom_emoji_id).toBe('5458416160586342331');
       expect((rows[0][1] as any).callback_data).toBe('set_lang:en');
-      expect(rows[1][0].text).toContain('ត្រឡប់ទៅដើម');
+      expect(rows[1][0].text).toBe('Back Home');
       expect((rows[1][0] as any).callback_data).toBe('cb_main_menu');
+
+      // Verify visible button text contains no Khmer characters
+      const allText = rows.flatMap((r) => r.map((b) => b.text)).join(' ');
+      expect(/[ក-៿]/.test(allText)).toBe(false);
     });
   });
 

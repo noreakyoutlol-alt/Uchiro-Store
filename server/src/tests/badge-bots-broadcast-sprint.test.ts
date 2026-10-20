@@ -68,8 +68,8 @@ describe('UCHIRO SPRINT: BADGE REPOSITION, ADVANCED BOTS, BROADCAST & ZERO-FAKES
       expect(rows[3][0].text).toContain('Rules');
       expect(rows[3][1].text).toContain('Help');
 
-      // Row 5: Open Mini App & Support link
-      expect(rows[4][0].text).toContain('Mini App');
+      // Row 5: Open Store & Support link
+      expect(rows[4][0].text).toContain('Store');
       expect(rows[4][1].text).toContain('Support');
     });
 
@@ -205,7 +205,8 @@ describe('UCHIRO SPRINT: BADGE REPOSITION, ADVANCED BOTS, BROADCAST & ZERO-FAKES
       expect(message).toContain('$19.99 USD');
 
       const button = markup.inline_keyboard[0][0];
-      expect(button.text).toBe('⚡ Buy Now ($19.99)');
+      expect(button.text).toBe('Buy Now ($19.99)');
+      expect((button as any).icon_custom_emoji_id).toBe(TELEGRAM_EMOJIS.LIGHTNING.customEmojiId);
       const buttonUrl = button.web_app?.url || button.url;
       expect(buttonUrl).toContain('?product=prod_kitsune_01');
     });

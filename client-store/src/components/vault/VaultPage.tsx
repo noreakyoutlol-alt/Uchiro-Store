@@ -145,32 +145,35 @@ export const VaultPage: React.FC<VaultPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0E14] text-white pb-24">
+    <div className="min-h-screen bg-[#070A14] text-white pb-28">
       {/* Top Header */}
-      <div className="sticky top-0 z-30 bg-[#0B0E14]/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-[#070A14]/95 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 transition-colors active:scale-95"
+          aria-label="Back to Shop"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>ត្រឡប់ទៅហាង</span>
+          <span>Back to Shop</span>
         </button>
 
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#E63946] to-[#FFD166] flex items-center justify-center p-0.5 shadow-[0_0_12px_rgba(230,57,70,0.4)]">
-            <div className="w-full h-full bg-[#0B0E14] rounded-[6px] flex items-center justify-center">
+            <div className="w-full h-full bg-[#070A14] rounded-[6px] flex items-center justify-center">
               <span className="text-xs">🎒</span>
             </div>
           </div>
           <h1 className="font-black text-sm tracking-wide text-white">
-            កាតាបឥវ៉ាន់ &amp; គណនី <span className="text-[#FFD166] text-xs font-semibold">(My Vault)</span>
+            My Vault <span className="text-[#FFD166] text-xs font-semibold">(កាតាបឥវ៉ាន់)</span>
           </h1>
         </div>
 
         <button
           onClick={loadAccounts}
           disabled={isLoading}
-          className="p-1.5 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10 disabled:opacity-50"
+          className="p-1.5 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10 disabled:opacity-50 active:scale-95"
+          title="Refresh Accounts"
+          aria-label="Refresh Accounts"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#FFD166]' : ''}`} />
         </button>
@@ -187,9 +190,16 @@ export const VaultPage: React.FC<VaultPageProps> = ({
 
         {/* Error State */}
         {!isLoading && error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center gap-3 text-red-300">
-            <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400" />
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-center space-y-2.5 text-rose-300 shadow-xl">
+            <AlertCircle className="w-6 h-6 text-rose-400 mx-auto" />
             <p className="text-xs">{error}</p>
+            <button
+              type="button"
+              onClick={loadAccounts}
+              className="px-4 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 text-xs font-bold transition-all active:scale-95"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -200,17 +210,18 @@ export const VaultPage: React.FC<VaultPageProps> = ({
               🎒
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">កាតាបឥវ៉ាន់ទទេស្អាត</h3>
+              <h3 className="text-base font-bold text-white">Your Vault is Empty</h3>
               <p className="text-xs text-slate-400 mt-1 max-w-xs">
                 អ្នកមិនទាន់មានគណនីហ្គេមដែលបានទិញនៅឡើយទេ។ ចូលទៅកាន់ហាងដើម្បីទិញគណនីហ្គេម verified ជាមួយនឹងការធានា ១៤ ថ្ងៃ!
               </p>
             </div>
             <button
+              type="button"
               onClick={onBack}
-              className="flex items-center gap-2 bg-gradient-to-r from-[#E63946] to-[#FFD166] text-black font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-[#E63946]/20 hover:brightness-110 transition-all"
+              className="flex items-center gap-2 bg-gradient-to-r from-[#E63946] to-[#FFD166] text-black font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-[#E63946]/20 hover:brightness-110 active:scale-95 transition-all"
             >
               <ShoppingBag className="w-4 h-4" />
-              <span>ចូលមើលហាងទំនិញ (Shop Now)</span>
+              <span>Browse Shop</span>
             </button>
           </div>
         )}
@@ -236,10 +247,10 @@ export const VaultPage: React.FC<VaultPageProps> = ({
               <div
                 key={acc.account_id || index}
                 id={`acc-${acc.account_id}`}
-                className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-xl ${
                   isTarget
                     ? 'bg-[#151A24] border-[#FFD166]/60 shadow-[0_0_20px_rgba(255,209,102,0.25)]'
-                    : 'bg-[#121620] border-white/10 hover:border-white/20'
+                    : 'bg-[#0C101D]/90 backdrop-blur-md border-white/10 hover:border-white/20'
                 }`}
               >
                 {/* Card Top: Game Icon, Title, Order Badge */}
@@ -374,7 +385,7 @@ export const VaultPage: React.FC<VaultPageProps> = ({
                       </div>
 
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-mono text-xs font-bold text-emerald-400 truncate select-all">
+                        <div className="font-mono text-xs font-bold text-emerald-400 break-all select-all">
                           {acc.two_factor_secret}
                         </div>
                         <button

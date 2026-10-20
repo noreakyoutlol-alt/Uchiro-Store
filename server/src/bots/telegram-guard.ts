@@ -1,9 +1,11 @@
 import { enrichWithTgEmojis } from '../config/telegram-emojis';
+import { stripLeadingEmoji } from './store-bot/keyboards';
 
 /**
  * Telegram Outbound Guard:
  * Wraps bot.telegram.callApi once (tracked via instance flag _outboundGuardApplied).
  * - For sendMessage, editMessageText, and caption methods with parse_mode: 'HTML', runs enrichWithTgEmojis.
+ * - Ensures buttons with icon_custom_emoji_id do not send duplicated leading unicode emoji in text.
  * - On a 400 error mentioning emoji/entities/button/premium, retries once with:
  *     1. <tg-emoji> tags stripped from text/caption.
  *     2. icon_custom_emoji_id removed from buttons, prepending __fallback + label if available.
@@ -32,6 +34,18 @@ export function applyTelegramOutboundGuard(bot: any): void {
           payload.caption = enrichWithTgEmojis(payload.caption);
         }
       }
+
+      if (payload.reply_markup?.inline_keyboard && Array.isArray(payload.reply_markup.inline_keyboard)) {
+        for (const row of payload.reply_markup.inline_keyboard) {
+          if (Array.isArray(row)) {
+            for (const btn of row) {
+              if (btn && btn.icon_custom_emoji_id && typeof btn.text === 'string') {
+                btn.text = stripLeadingEmoji(btn.text);
+              }
+            }
+          }
+        }
+      }
     }
 
     try {
@@ -55,7 +69,7 @@ export function applyTelegramOutboundGuard(bot: any): void {
                 const cleanBtn = { ...btn };
                 if (cleanBtn.icon_custom_emoji_id) {
                   delete cleanBtn.icon_custom_emoji_id;
-                  if (btn.__fallback) {
+                  if (btn.__fallback && !cleanBtn.text.startsWith(btn.__fallback)) {
                     cleanBtn.text = `${btn.__fallback} ${cleanBtn.text}`.trim();
                   }
                 }

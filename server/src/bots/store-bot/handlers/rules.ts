@@ -2,6 +2,8 @@ import { Context } from 'telegraf';
 import {
   buildMainRulesKeyboard,
   buildSubRulesKeyboard,
+  cb,
+  urlBtn,
 } from '../keyboards';
 import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { isMessageNotModifiedError } from './orders';
@@ -329,10 +331,10 @@ export async function handleContactSupport(ctx: Context): Promise<void> {
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.url('💬 Open @UchiroSupport', 'https://t.me/uchirosupport')],
+    [urlBtn('Open @UchiroSupport', 'https://t.me/uchirosupport', 'SUPPORT')],
     [
-      Markup.button.callback('🔙 Back to Rules', 'cb_main_rules'),
-      Markup.button.callback('🏠 Back Home', 'cb_main_menu'),
+      cb('Back to Rules', 'cb_main_rules', 'BACK'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 
@@ -378,11 +380,11 @@ export async function handleStoreRules(ctx: Context): Promise<void> {
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('🎰 Gacha Rules', 'cb_gacha_rules')],
-    [Markup.button.callback('❓ FAQ & Help', 'cb_faq_help')],
+    [cb('Gacha Rules', 'cb_gacha_rules', 'GAMEPAD')],
+    [cb('FAQ & Help', 'cb_faq_help', 'QUESTION')],
     [
-      Markup.button.callback('🏠 Back Home', 'cb_main_menu'),
-      Markup.button.callback('💬 Contact Support', 'cb_contact_support'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
+      cb('Contact Support', 'cb_contact_support', 'SUPPORT'),
     ],
   ]);
 

@@ -1,6 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
-import { handleAdminStart, handleAdminCallback, isMessageNotModifiedError } from './admin-actions';
+import { handleAdminStart, handleAdminCallback, isMessageNotModifiedError, makeAdminButton } from './admin-actions';
 import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
 import { applyTelegramOutboundGuard } from '../telegram-guard';
 import { RobuxService } from '../../services/robux.service';
@@ -62,17 +62,17 @@ adminBot.command(['start', 'menu'], async (ctx) => {
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [
-        [{ text: '🛡️ OPEN ADMIN PORTAL', web_app: { url: adminPortalUrl } }],
+        [makeAdminButton({ text: 'OPEN ADMIN PORTAL', webAppUrl: adminPortalUrl, iconKey: 'SHIELD' })],
         [
-          { text: '📈 Real-Time Metrics', callback_data: 'cb_admin_metrics' },
-          { text: '💎 Robux Stock Pool', callback_data: 'admin:robux:pool' }
+          makeAdminButton({ text: 'Real-Time Metrics', callbackData: 'cb_admin_metrics', iconKey: 'CHART_UP' }),
+          makeAdminButton({ text: 'Robux Stock Pool', callbackData: 'admin:robux:pool', iconKey: 'ROBUX' })
         ],
         [
-          { text: '📦 Live Inventory', callback_data: 'cb_admin_inventory' },
-          { text: '📢 Create Broadcast', callback_data: 'cb_admin_broadcast' }
+          makeAdminButton({ text: 'Live Inventory', callbackData: 'cb_admin_inventory', iconKey: 'PACKAGE' }),
+          makeAdminButton({ text: 'Create Broadcast', callbackData: 'cb_admin_broadcast', iconKey: 'MEGAPHONE' })
         ],
         [
-          { text: '⚙️ Store Settings', callback_data: 'cb_admin_settings' }
+          makeAdminButton({ text: 'Store Settings', callbackData: 'cb_admin_settings', iconKey: 'GEAR' })
         ]
       ]
     }
@@ -325,20 +325,11 @@ export function createWebAppOrUrlButton(text: string, targetUrl: string) {
 }
 
 export function getAdminKeyboard(adminUrl: string) {
-  const shieldBtn = createWebAppOrUrlButton('🛡️ OPEN ADMIN PORTAL', adminUrl);
-  (shieldBtn as any).icon_custom_emoji_id = TELEGRAM_EMOJIS.SHIELD.customEmojiId;
-
-  const metricsBtn = Markup.button.callback('Real-Time Metrics', 'admin_metrics');
-  (metricsBtn as any).icon_custom_emoji_id = TELEGRAM_EMOJIS.BAR_CHART.customEmojiId;
-
-  const invBtn = Markup.button.callback('Live Inventory', 'admin_inventory');
-  (invBtn as any).icon_custom_emoji_id = TELEGRAM_EMOJIS.PACKAGE.customEmojiId;
-
-  const broadcastBtn = Markup.button.callback('Create Broadcast', 'admin_broadcast');
-  (broadcastBtn as any).icon_custom_emoji_id = TELEGRAM_EMOJIS.MEGAPHONE.customEmojiId;
-
-  const settingsBtn = Markup.button.callback('Store Settings', 'admin_settings');
-  (settingsBtn as any).icon_custom_emoji_id = TELEGRAM_EMOJIS.WRENCH.customEmojiId;
+  const shieldBtn = makeAdminButton({ text: 'OPEN ADMIN PORTAL', webAppUrl: adminUrl, iconKey: 'SHIELD' });
+  const metricsBtn = makeAdminButton({ text: 'Real-Time Metrics', callbackData: 'admin_metrics', iconKey: 'BAR_CHART' });
+  const invBtn = makeAdminButton({ text: 'Live Inventory', callbackData: 'admin_inventory', iconKey: 'PACKAGE' });
+  const broadcastBtn = makeAdminButton({ text: 'Create Broadcast', callbackData: 'admin_broadcast', iconKey: 'MEGAPHONE' });
+  const settingsBtn = makeAdminButton({ text: 'Store Settings', callbackData: 'admin_settings', iconKey: 'WRENCH' });
 
   return Markup.inlineKeyboard([
     [shieldBtn],

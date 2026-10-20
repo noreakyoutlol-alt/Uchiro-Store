@@ -218,15 +218,20 @@ describe('Rules, Policies & Official Support Verification Suite', () => {
   });
 
   describe('3. Language Selection Dual-Option Requirement', () => {
-    it('provides both Khmer and English options exclusively in Language Selection UI', () => {
+    it('provides both Khmer and English options exclusively in English with custom icons', () => {
       const kb = getLanguageSelectionKeyboard('km');
       const rows = kb.reply_markup.inline_keyboard;
 
       expect(rows.length).toBe(2);
-      expect(rows[0][0].text).toBe('🇰🇭 ភាសាខ្មែរ');
+      expect(rows[0][0].text).toBe('Khmer');
+      expect((rows[0][0] as any).icon_custom_emoji_id).toBe('5294018354527353443');
       expect((rows[0][0] as any).callback_data).toBe('set_lang:km');
-      expect(rows[0][1].text).toBe('🇬🇧 English');
+      expect(rows[0][1].text).toBe('English');
+      expect((rows[0][1] as any).icon_custom_emoji_id).toBe('5458416160586342331');
       expect((rows[0][1] as any).callback_data).toBe('set_lang:en');
+      // Visible button text contains no Khmer characters
+      const allText = rows.flatMap((r) => r.map((b) => b.text)).join(' ');
+      expect(/[ក-៿]/.test(allText)).toBe(false);
     });
   });
 });

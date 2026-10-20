@@ -117,8 +117,8 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
     : formattedDate;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-md bg-[#121620] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+      <div className="relative w-full max-w-md bg-[#0C101D]/95 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header Bar */}
         <div className="p-4 bg-gradient-to-r from-[#141923] via-[#1A2230] to-[#141923] border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">

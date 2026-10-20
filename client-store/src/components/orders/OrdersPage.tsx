@@ -11,6 +11,11 @@ import {
   FileText,
   Search,
   X,
+  Loader2,
+  AlertCircle,
+  Copy,
+  Check,
+  ShoppingBag,
 } from 'lucide-react';
 import { Order } from '../../types';
 import { formatShortOrderId } from '../../utils/order.util';
@@ -21,6 +26,9 @@ interface OrdersPageProps {
   onPayOrder: (order: Order) => void;
   onViewReceipt?: (order: Order) => void;
   onNavigateToShop: () => void;
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export const OrdersPage: React.FC<OrdersPageProps> = ({
@@ -29,9 +37,20 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
   onPayOrder,
   onViewReceipt,
   onNavigateToShop,
+  isLoading = false,
+  error = null,
+  onRetry,
 }) => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'delivered'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyOrderNumber = (e: React.MouseEvent, text: string, orderId: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedId(orderId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const filteredOrders = orders.filter((order) => {
     // 1. Status Filter
@@ -62,65 +81,82 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
       case 'pending_payment':
         return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+      case 'cancelled':
+      case 'expired':
+      case 'refunded':
+        return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
       default:
-        return 'bg-slate-700 text-slate-300 border-slate-600';
+        return 'bg-slate-700/40 text-slate-400 border-slate-600/40';
     }
   };
 
-  const getStatusLabel = (order: Order) => {
-    if (order.status === 'delivered' || order.status === 'completed') {
-      if (order.delivery_mode === 'manual_service') return 'Gift Delivered / Fulfilled';
-      if (order.delivery_mode === 'trade_item') return 'Trade Completed / Fulfilled';
-      return 'Delivered';
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'delivered':
+      case 'completed':
+        return 'Delivered';
+      case 'paid':
+      case 'fulfillment':
+        return 'Paid • Processing';
+      case 'pending_payment':
+        return 'Pending Payment';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'expired':
+        return 'Expired';
+      case 'refunded':
+        return 'Refunded';
+      default:
+        return status;
     }
-    if (order.status === 'paid' || order.status === 'fulfillment') {
-      if (order.delivery_mode === 'manual_service') return 'Awaiting Admin Gift Delivery';
-      if (order.delivery_mode === 'trade_item') return 'Awaiting Admin Fulfillment';
-      return 'Processing Delivery';
-    }
-    if (order.status === 'pending_payment') {
-      return 'Waiting Payment';
-    }
-    return order.status.replace('_', ' ');
   };
 
   return (
-    <div className="space-y-4 pb-20 animate-fadeIn">
+    <div className="max-w-md w-full mx-auto p-2.5 sm:p-3 space-y-3 pb-28 animate-fadeIn">
+      {/* Header & Title */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-black text-white">MY ORDERS</h2>
-        <span className="text-xs text-slate-400">{orders.length} Total</span>
+        <div className="flex items-center gap-2">
+          <Package className="w-5 h-5 text-[#FFD166]" />
+          <h2 className="text-base font-black text-white uppercase tracking-wider">
+            My Orders
+          </h2>
+        </div>
+        <span className="text-xs font-bold text-slate-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full font-mono">
+          {orders.length} Total
+        </span>
       </div>
 
-      {/* Search & Track Orders Bar */}
+      {/* Search & Track Order Number Bar */}
       <div className="relative">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by Order # (e.g. UCH-...) or Product..."
-          className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-[#121624] border border-white/10 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-[#FFD166]/50 transition-colors"
+          placeholder="Search by Order #, Game, or Product..."
+          className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-[#FFD166] transition-colors"
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+            aria-label="Clear Search"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 p-1 rounded-xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 text-xs font-bold">
         {(['all', 'pending', 'delivered'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all ${
+            className={`flex-1 py-1.5 rounded-lg transition-all text-center ${
               filter === f
                 ? 'bg-[#FFD166] text-black shadow-md shadow-[#FFD166]/20'
-                : 'bg-[#121624] text-slate-400 border border-white/10 hover:text-white'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             {f === 'all' ? 'All Orders' : f === 'pending' ? 'Waiting Payment' : 'Delivered'}
@@ -128,16 +164,54 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
         ))}
       </div>
 
-      {filteredOrders.length === 0 ? (
-        <div className="p-12 rounded-3xl bg-[#121624] border border-white/10 text-center space-y-3">
-          <Package className="w-10 h-10 text-slate-600 mx-auto" />
-          <p className="text-sm font-bold text-white">
-            {searchQuery
-              ? `No orders matching "${searchQuery}"`
-              : 'No orders in this category'}
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="p-10 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 text-center space-y-3 shadow-xl">
+          <Loader2 className="w-8 h-8 text-[#FFD166] animate-spin mx-auto" />
+          <p className="text-sm font-bold text-white">Loading your orders...</p>
+          <p className="text-xs text-slate-400">Please wait while we retrieve your order history.</p>
+        </div>
+      ) : error ? (
+        /* Explicit API / Network Error State (never confused with empty state) */
+        <div className="p-8 sm:p-10 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-rose-500/30 text-center space-y-3 shadow-xl">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center mx-auto text-rose-400">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <p className="text-sm font-bold text-white">Unable to Load Orders</p>
+          <p className="text-xs text-slate-400 max-w-xs mx-auto">
+            {error || 'Network error occurred while fetching your order history.'}
           </p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#E63946] to-[#FFD166] text-black font-extrabold text-xs shadow-md shadow-[#E63946]/20 hover:brightness-110 active:scale-95 transition-all inline-flex items-center gap-1.5"
+            >
+              <span>Retry</span>
+            </button>
+          )}
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        /* Empty State */
+        <div className="p-10 sm:p-12 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 text-center space-y-3 shadow-xl">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-[#FFD166]">
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">
+              {searchQuery
+                ? `No orders matching "${searchQuery}"`
+                : 'No Orders Yet'}
+            </p>
+            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+              {searchQuery
+                ? 'Try searching with a different order number or product title.'
+                : "You haven't placed any orders yet. Discover our verified game accounts, Robux, and items in the store!"}
+            </p>
+          </div>
           {searchQuery ? (
             <button
+              type="button"
               onClick={() => setSearchQuery('')}
               className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all"
             >
@@ -145,66 +219,99 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
             </button>
           ) : (
             <button
+              type="button"
               onClick={onNavigateToShop}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#E63946] to-[#C1121F] text-white text-xs font-bold shadow-md"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#E63946] to-[#FFD166] text-black text-xs font-extrabold shadow-md shadow-[#E63946]/20 hover:brightness-110 active:scale-95 transition-all inline-flex items-center gap-1.5"
             >
-              Browse Products
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Browse Products</span>
             </button>
           )}
         </div>
       ) : (
+        /* Orders List */
         <div className="space-y-3">
           {filteredOrders.map((order) => {
             const isPending = order.status === 'pending_payment';
             const isDelivered = order.status === 'delivered' || order.status === 'completed';
+            const shortId = formatShortOrderId(order.order_number || order.id);
+            const formattedDate = order.created_at
+              ? new Date(order.created_at).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : 'Recent Order';
 
             return (
               <div
                 key={order.id}
                 onClick={() => onSelectOrder(order)}
-                className="p-4 rounded-2xl bg-[#121624] border border-white/10 hover:border-[#FFD166]/40 transition-all cursor-pointer space-y-3 shadow-lg active:scale-99"
+                className="p-3.5 sm:p-4 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-white/10 hover:border-[#FFD166]/40 transition-all cursor-pointer space-y-3 shadow-lg active:scale-[0.99]"
               >
-                <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-                  <div>
-                    <span className="text-xs font-mono font-bold text-white block">
-                      {formatShortOrderId(order.order_number || order.id)}
+                {/* Order Header: ID, Date & Status */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-mono font-bold text-white">
+                      #{shortId}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopyOrderNumber(e, shortId, order.id)}
+                      className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                      title="Copy Order ID"
+                      aria-label="Copy Order ID"
+                    >
+                      {copiedId === order.id ? (
+                        <Check className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </button>
+                    <span className="text-[10px] text-slate-500">• {formattedDate}</span>
                   </div>
 
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${getStatusBadge(
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadge(
                       order.status
                     )}`}
                   >
-                    {getStatusLabel(order)}
+                    {isDelivered && <CheckCircle2 className="w-2.5 h-2.5" />}
+                    {isPending && <Clock className="w-2.5 h-2.5" />}
+                    <span>{getStatusLabel(order.status)}</span>
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <h4 className="text-xs font-bold text-white line-clamp-1">
+                {/* Product Info & Total */}
+                <div className="flex items-start justify-between gap-3 pt-1 border-t border-white/5">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <h3 className="text-xs sm:text-sm font-bold text-white line-clamp-1">
                       {order.items?.[0]?.product_title || 'Gaming Product'}
-                    </h4>
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                      {order.delivery_mode === 'auto_account' && <UserCheck className="w-3 h-3 text-emerald-400" />}
-                      {order.delivery_mode === 'manual_service' && <Zap className="w-3 h-3 text-pink-400" />}
-                      {order.delivery_mode === 'trade_item' && <Zap className="w-3 h-3 text-amber-400" />}
-                      {order.delivery_mode === 'digital_code' && <KeyRound className="w-3 h-3 text-cyan-400" />}
-                      <span>
+                    </h3>
+
+                    {/* Delivery Mode Badge */}
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                      {order.delivery_mode === 'auto_account' ? (
+                        <KeyRound className="w-3 h-3 text-cyan-400 shrink-0" />
+                      ) : order.delivery_mode === 'manual_service' ? (
+                        <UserCheck className="w-3 h-3 text-indigo-400 shrink-0" />
+                      ) : order.delivery_mode === 'digital_code' ? (
+                        <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                      ) : (
+                        <Package className="w-3 h-3 text-amber-400 shrink-0" />
+                      )}
+                      <span className="truncate">
                         {order.delivery_mode === 'auto_account'
-                          ? 'Available • Instant Delivery'
+                          ? 'Instant Account Delivery'
                           : order.delivery_mode === 'manual_service'
                           ? 'Roblox Gift Delivery'
                           : order.delivery_mode === 'digital_code'
                           ? 'Instant Digital Key'
                           : order.delivery_mode === 'trade_item'
                           ? 'In-Game Trade'
-                          : 'Available • Instant Delivery'}
+                          : 'Standard Delivery'}
                       </span>
-                    </span>
+                    </div>
 
                     {/* 14-Day Warranty Badge */}
                     {isDelivered && order.warranty_status && (
@@ -233,26 +340,23 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                                       (1000 * 60 * 60 * 24)
                                   )
                                 )}d left)`
-                              : order.warranty_status === 'replaced'
-                              ? 'Warranty Replaced'
-                              : order.warranty_status === 'invalidated'
-                              ? 'Warranty Voided'
-                              : 'Warranty Expired'}
+                              : `Warranty: ${order.warranty_status}`}
                           </span>
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <span className="text-sm font-black text-[#FFD166]">
+                  <span className="text-sm font-black text-[#FFD166] shrink-0">
                     ${order.total_amount.toFixed(2)}
                   </span>
                 </div>
 
-                {/* Quick Action Button */}
-                <div className="pt-1 flex items-center justify-end gap-2">
+                {/* Quick Action Buttons */}
+                <div className="pt-1 flex items-center justify-end gap-2 border-t border-white/5">
                   {(isDelivered || order.status === 'paid' || order.status === 'fulfillment') && onViewReceipt && (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onViewReceipt(order);
@@ -265,22 +369,24 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   )}
                   {isPending ? (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onPayOrder(order);
                       }}
-                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#E63946] to-[#FFD166] text-black font-black text-xs shadow-md shadow-[#E63946]/20 flex items-center gap-1"
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#E63946] to-[#FFD166] text-black font-black text-xs shadow-md shadow-[#E63946]/20 flex items-center gap-1 active:scale-95 transition-all"
                     >
                       <Zap className="w-3.5 h-3.5 fill-black" />
                       <span>Pay KHQR</span>
                     </button>
                   ) : isDelivered ? (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectOrder(order);
                       }}
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center gap-1"
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center gap-1 hover:bg-emerald-500/30 active:scale-95 transition-all"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>View Credentials</span>
