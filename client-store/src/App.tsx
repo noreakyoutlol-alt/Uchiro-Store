@@ -393,27 +393,53 @@ const StoreAppContent: React.FC = () => {
 
   const pendingOrdersCount = orders.filter((o) => o.status === 'pending_payment').length;
 
-  // Telegram BackButton support for modals
+  // Comprehensive Telegram BackButton navigation stack
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (!tg?.BackButton) return;
 
-    if (selectedProduct) {
+    const hasOpenModal = Boolean(
+      receiptOrderModal ||
+      deliveredOrderModal ||
+      activePayment ||
+      checkoutProduct ||
+      selectedProduct
+    );
+    const canGoBack = hasOpenModal || activeTab !== 'home';
+
+    if (canGoBack) {
       tg.BackButton.show();
       const onBack = () => {
-        handleSelectProduct(null);
+        if (receiptOrderModal) {
+          setReceiptOrderModal(null);
+        } else if (deliveredOrderModal) {
+          setDeliveredOrderModal(null);
+        } else if (activePayment) {
+          setActivePayment(null);
+          setActivePaymentOrder(null);
+        } else if (checkoutProduct) {
+          setCheckoutProduct(null);
+        } else if (selectedProduct) {
+          handleSelectProduct(null);
+        } else if (activeTab !== 'home') {
+          setActiveTab('home');
+        }
       };
       tg.BackButton.onClick(onBack);
       return () => {
         tg.BackButton.offClick(onBack);
-        if (!selectedProduct) {
-          tg.BackButton.hide();
-        }
       };
-    } else if (!activePayment && !deliveredOrderModal && !checkoutProduct) {
+    } else {
       tg.BackButton.hide();
     }
-  }, [selectedProduct, activePayment, deliveredOrderModal, checkoutProduct]);
+  }, [
+    receiptOrderModal,
+    deliveredOrderModal,
+    activePayment,
+    checkoutProduct,
+    selectedProduct,
+    activeTab,
+  ]);
 
   if (isLoading) {
     return (

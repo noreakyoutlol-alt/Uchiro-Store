@@ -1,6 +1,11 @@
 import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
 import { handleAdminStart, handleAdminCallback, isMessageNotModifiedError, makeAdminButton } from './admin-actions';
+import {
+  hasActiveBroadcastWizard,
+  startBroadcastWizard,
+  handleBroadcastWizardMessage,
+} from './broadcast-wizard';
 import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
 import { applyTelegramOutboundGuard } from '../telegram-guard';
 import { RobuxService } from '../../services/robux.service';
@@ -88,26 +93,29 @@ adminBot.command('setrobux', async (ctx) => {
 
   const parts = ctx.message.text.trim().split(/\s+/);
   if (parts.length < 2) {
-    return ctx.reply('Usage: <code>/setrobux &lt;total_robux_amount&gt;</code>\nExample: <code>/setrobux 1000</code>', {
-      parse_mode: 'HTML',
-    });
+    return ctx.reply(
+      'Usage: <code>/setrobux &lt;total_robux_amount&gt;</code>\n' +
+      'Example: <code>/setrobux 1000</code>\n' +
+      'Allowed range: 10 to 1,000,000 integer.',
+      { parse_mode: 'HTML' }
+    );
   }
 
-  const amount = Number(parts[1]);
-  if (isNaN(amount) || amount < 0 || !Number.isInteger(amount)) {
-    return ctx.reply('❌ Error: Amount must be a positive integer.');
+  const validation = RobuxService.validateStockAmount(parts[1]);
+  if (!validation.valid || validation.value === undefined) {
+    return ctx.reply(`❌ <b>Validation Error:</b> ${validation.error}`, { parse_mode: 'HTML' });
   }
 
   try {
-    const updated = await RobuxService.setStock(senderId, amount, 'Manual Telegram Admin adjustment');
+    const updated = await RobuxService.setStock(senderId, validation.value, 'Manual Telegram Admin adjustment');
     const tiers = RobuxService.calculateTiers(updated);
     const summary = tiers.map(t => `${t.denomination} R$: ${t.available_packs} packs`).join(', ');
 
     return ctx.reply(
       `✅ <b>Shared Robux Stock Updated!</b>\n\n` +
-      `• Total Pool: <b>${updated.total_balance} R$</b>\n` +
-      `• Active Reservations: <b>${updated.reserved_balance} R$</b>\n` +
-      `• Available: <b>${updated.total_balance - updated.reserved_balance} R$</b>\n\n` +
+      `• Total Pool: <b>${updated.total_balance.toLocaleString()} R$</b>\n` +
+      `• Active Reservations: <b>${updated.reserved_balance.toLocaleString()} R$</b>\n` +
+      `• Available: <b>${(updated.total_balance - updated.reserved_balance).toLocaleString()} R$</b>\n\n` +
       `<b>Availability by tier:</b>\n${summary}`,
       { parse_mode: 'HTML' }
     );
@@ -131,21 +139,22 @@ adminBot.hears(/^\/addrobux(?:\s+(.+))?$/i, async (ctx) => {
 
   const delta = Number(parts[1]);
   if (isNaN(delta) || delta <= 0 || !Number.isInteger(delta)) {
-    return ctx.reply('❌ Error: Amount to add must be a positive integer.');
+    return ctx.reply('❌ <b>Error:</b> Amount to add must be a positive integer.\nExample: <code>/addrobux 500</code>', { parse_mode: 'HTML' });
   }
 
   try {
     const updated = await RobuxService.addStock(senderId, delta, 'Manual Telegram Admin /addrobux');
-    const available = updated.total_balance - updated.reserved_balance;
+    const available = Math.max(0, updated.total_balance - updated.reserved_balance);
     return ctx.reply(
       `✅ <b>Added ${delta.toLocaleString()} R$ to Robux Stock!</b>\n\n` +
       `• Total Balance: <b>${updated.total_balance.toLocaleString()} R$</b>\n` +
+      `• Reserved Balance: <b>${updated.reserved_balance.toLocaleString()} R$</b>\n` +
       `• Available Balance: <b>${available.toLocaleString()} R$</b>\n` +
       `• Rate: <b>$${updated.rate_per_1000.toFixed(2)} per 1,000 R$</b>`,
       { parse_mode: 'HTML' }
     );
   } catch (err: any) {
-    return ctx.reply(`❌ Failed to add Robux stock: ${err?.message}`);
+    return ctx.reply(`❌ <b>Failed to add Robux stock:</b> ${err?.message}`, { parse_mode: 'HTML' });
   }
 });
 
@@ -197,6 +206,31 @@ adminBot.command('robux', async (ctx) => {
   }
 });
 
+// /broadcast command for authorized admins (launches in-chat wizard)
+adminBot.command('broadcast', async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = ctx.from?.id;
+  if (!senderId || !isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  const view = startBroadcastWizard(senderId);
+  return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });
+});
+
+// /cancel command for aborting active in-chat wizards
+adminBot.command('cancel', async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = ctx.from?.id;
+  if (!senderId || !isAuthorizedAdmin(senderId)) return;
+
+  if (hasActiveBroadcastWizard(senderId)) {
+    const handled = await handleBroadcastWizardMessage(ctx);
+    if (handled) return;
+  }
+  return ctx.reply('No active operation to cancel.');
+});
+
 // Handle callback queries
 adminBot.on('callback_query', async (ctx) => {
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -211,7 +245,7 @@ adminBot.on('callback_query', async (ctx) => {
   await ctx.answerCbQuery();
 });
 
-// Fallback for any other private message
+// Message handler for in-chat wizard & fallbacks
 adminBot.on('message', async (ctx) => {
   if (ctx.chat?.type !== 'private') return;
   const from = ctx.from;
@@ -223,6 +257,13 @@ adminBot.on('message', async (ctx) => {
     }
     return;
   }
+
+  // Check if admin is currently in a broadcast wizard session
+  if (hasActiveBroadcastWizard(from.id)) {
+    const handled = await handleBroadcastWizardMessage(ctx);
+    if (handled) return;
+  }
+
   try {
     await ctx.reply('Use /menu to view available actions.');
   } catch (err: any) {

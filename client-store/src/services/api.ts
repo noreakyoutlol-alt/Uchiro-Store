@@ -10,6 +10,7 @@ import {
   OrderReceipt,
   GachaStatus,
   RecentGachaWinner,
+  RedeemCodeResult,
 } from '../types';
 
 const api = axios.create({
@@ -88,6 +89,15 @@ export const StoreAPI = {
     return res.data.data;
   },
 
+  setUserLanguage: async (language: 'km' | 'en') => {
+    try {
+      const res = await api.post('/user/language', { language });
+      return res.data;
+    } catch {
+      return null;
+    }
+  },
+
   // Categories
   getCategories: async (): Promise<Category[]> => {
     const res = await api.get('/categories');
@@ -124,6 +134,16 @@ export const StoreAPI = {
       subtotal,
       currency: 'USD',
     });
+    return res.data.data;
+  },
+
+  // Member Redeem Code (Points, Gacha Tickets, Coupons)
+  redeemCode: async (code: string, idempotencyKey?: string): Promise<RedeemCodeResult> => {
+    const res = await api.post(
+      '/redeem-code',
+      { code: code.trim() },
+      idempotencyKey ? { headers: { 'x-idempotency-key': idempotencyKey } } : undefined
+    );
     return res.data.data;
   },
 

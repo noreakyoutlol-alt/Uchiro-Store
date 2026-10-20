@@ -479,7 +479,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             const isGift = p.delivery_mode === 'manual_service' || p.product_type === 'gift';
             const isTrade = p.delivery_mode === 'trade_item' || p.product_type === 'trade';
             const isKey = p.delivery_mode === 'digital_code' || p.product_type === 'digital_code';
-            const primaryImage = p.media?.find((m) => m.is_primary)?.url || p.media?.[0]?.url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800';
+            const primaryImage = p.media?.find((m) => m.is_primary)?.url || p.media?.[0]?.url || '/placeholder.svg';
 
             return (
               <div

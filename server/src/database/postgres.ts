@@ -275,6 +275,40 @@ export async function initDatabase(): Promise<void> {
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_group_announcements_event_id ON group_announcements(event_id);
+
+        -- 6. Durable Redeem Codes & Usages Tables
+        CREATE TABLE IF NOT EXISTS redeem_codes (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          code TEXT UNIQUE NOT NULL,
+          reward_type TEXT NOT NULL,
+          reward_amount INT DEFAULT 0 NOT NULL,
+          reward_data JSONB DEFAULT '{}'::jsonb NOT NULL,
+          use_mode TEXT DEFAULT 'one_per_member' NOT NULL,
+          max_uses INT,
+          times_used INT DEFAULT 0 NOT NULL,
+          per_user_limit INT DEFAULT 1 NOT NULL,
+          is_active BOOLEAN DEFAULT true NOT NULL,
+          expires_at TIMESTAMPTZ,
+          created_by TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_redeem_codes_code ON redeem_codes(code);
+        CREATE INDEX IF NOT EXISTS idx_redeem_codes_is_active ON redeem_codes(is_active);
+
+        CREATE TABLE IF NOT EXISTS redeem_code_usages (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          code_id UUID NOT NULL,
+          code TEXT NOT NULL,
+          telegram_id TEXT NOT NULL,
+          reward_type TEXT NOT NULL,
+          reward_value NUMERIC(10, 2) NOT NULL,
+          reward_data JSONB DEFAULT '{}'::jsonb NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_redeem_code_usages_code_id ON redeem_code_usages(code_id);
+        CREATE INDEX IF NOT EXISTS idx_redeem_code_usages_telegram_id ON redeem_code_usages(telegram_id);
+        CREATE INDEX IF NOT EXISTS idx_redeem_code_usages_code_user ON redeem_code_usages(code_id, telegram_id);
       `);
       console.log('[Postgres] Schema verified and initialized successfully');
     } finally {

@@ -91,6 +91,7 @@ userRouter.get(['/profile', '/me'], async (req: Request, res: Response) => {
         gacha_tickets: snap.gachaTickets,
         total_orders: snap.ordersCount,
         total_spent: snap.totalSpent,
+        language_preference: user?.language_preference || null,
         created_at: user?.created_at,
         server_now: new Date().toISOString(),
       },
@@ -189,6 +190,35 @@ userRouter.post('/deduct-points', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'DEDUCT_ERROR', message: err.message || 'Internal server error' },
+    });
+  }
+});
+
+/**
+ * POST /api/user/language
+ * Update customer language preference ('km' or 'en')
+ */
+userRouter.post(['/language', '/set-language'], async (req: Request, res: Response) => {
+  try {
+    const telegramId = extractTelegramId(req);
+    const lang = req.body?.language || req.body?.lang;
+    if (!telegramId || !lang || (lang !== 'km' && lang !== 'en')) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: 'Valid telegramId and language (km or en) required' },
+      });
+      return;
+    }
+    const numId = Number(telegramId);
+    DataStore.setUserLanguagePreference(numId, lang);
+    res.json({
+      success: true,
+      data: { telegram_id: String(telegramId), language_preference: lang },
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: { code: 'LANGUAGE_UPDATE_ERROR', message: err.message || 'Internal server error' },
     });
   }
 });

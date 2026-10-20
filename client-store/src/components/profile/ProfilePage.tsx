@@ -28,6 +28,7 @@ import { StoreAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { DailyRewardWidget } from '../home/DailyRewardWidget';
+import { RedeemCodeModal } from './RedeemCodeModal';
 
 interface ProfilePageProps {
   user: TelegramUser | null;
@@ -50,6 +51,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
   const { themeMode, setThemeMode } = useTheme();
 
   const [profile, setProfile] = useState<Profile | null>(initialProfile);
+  const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
 
   useEffect(() => {
     setProfile(initialProfile);
@@ -373,6 +375,28 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             Open →
           </span>
         </button>
+
+        {/* Redeem Code Entry Banner (Prompt 12) */}
+        <button
+          type="button"
+          onClick={() => setIsRedeemModalOpen(true)}
+          className="w-full mt-2 p-2.5 rounded-xl bg-gradient-to-r from-indigo-500/15 via-amber-500/10 to-indigo-500/15 border border-amber-500/30 flex items-center justify-between text-xs font-bold text-white hover:brightness-110 transition-all cursor-pointer shadow-sm active:scale-98"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-base">🎟️</span>
+            <div className="text-left">
+              <span className="block text-white leading-tight font-black">
+                {t('redeem_code_entry_title')}
+              </span>
+              <span className="text-[10px] text-slate-300 font-normal">
+                {t('redeem_code_entry_desc')}
+              </span>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30 flex items-center gap-1">
+            Redeem →
+          </span>
+        </button>
       </div>
 
       {/* 2. Daily Check-in Reward (Section 30: Dedicated in Profile / Rewards) */}
@@ -458,6 +482,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
               <Ticket className="w-3.5 h-3.5 text-[#FFD166]" />
               My Coupon Wallet ({myCoupons.length})
             </span>
+            <button
+              type="button"
+              onClick={() => setIsRedeemModalOpen(true)}
+              className="text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30 transition-colors cursor-pointer"
+            >
+              + Redeem Code
+            </button>
           </div>
 
           {myCoupons.length === 0 ? (
@@ -820,6 +851,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
           </a>
         </div>
       </div>
+
+      <RedeemCodeModal
+        isOpen={isRedeemModalOpen}
+        onClose={() => setIsRedeemModalOpen(false)}
+        onSuccess={() => {
+          if (onRefreshProfile) onRefreshProfile();
+          loadProfileStats();
+          loadLedger();
+          loadCoupons();
+        }}
+      />
     </div>
   );
 });

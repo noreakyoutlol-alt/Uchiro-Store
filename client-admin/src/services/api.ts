@@ -9,6 +9,9 @@ import {
   Coupon,
   CustomerUser,
   AuditLog,
+  RedeemCode,
+  RedeemCodeUsage,
+  CreateRedeemCodeDTO,
 } from '../types';
 
 const api = axios.create({
@@ -213,7 +216,7 @@ export const AdminAPI = {
     return res.data.data;
   },
 
-  // Broadcast
+  // Broadcast (legacy stock alert)
   broadcast: async (message: string) => {
     const res = await api.post('/broadcast', { message });
     return res.data.data;
@@ -231,6 +234,37 @@ export const AdminAPI = {
 
   dismissOrderDraft: async (id: string) => {
     const res = await api.post(`/broadcast/drafts/${id}/dismiss`);
+    return res.data.data;
+  },
+
+  // Broadcast Center (Unified)
+  listBroadcastCampaigns: async () => {
+    const res = await api.get('/broadcast/campaigns');
+    return res.data.data;
+  },
+
+  getBroadcastCampaign: async (id: string) => {
+    const res = await api.get(`/broadcast/campaigns/${id}`);
+    return res.data.data;
+  },
+
+  previewBroadcast: async (params: any) => {
+    const res = await api.post('/broadcast/preview', params);
+    return res.data.data;
+  },
+
+  createBroadcastCampaign: async (params: any, idempotencyKey?: string) => {
+    const res = await api.post('/broadcast/campaigns', { ...params, idempotency_key: idempotencyKey });
+    return res.data.data;
+  },
+
+  confirmBroadcast: async (campaignId: string) => {
+    const res = await api.post(`/broadcast/campaigns/${campaignId}/confirm`);
+    return res.data.data;
+  },
+
+  cancelBroadcast: async (campaignId: string) => {
+    const res = await api.post(`/broadcast/campaigns/${campaignId}/cancel`);
     return res.data.data;
   },
 
@@ -281,6 +315,17 @@ export const AdminAPI = {
     return res.data.data;
   },
 
+  // Robux Shared Stock Pool (Prompt 11)
+  getRobuxStock: async () => {
+    const res = await api.get('/robux/stock');
+    return res.data.data;
+  },
+
+  updateRobuxStock: async (data: { total: number; rate_per_1000?: number; is_active?: boolean; reason?: string }) => {
+    const res = await api.put('/robux/stock', data);
+    return res.data.data;
+  },
+
   // System Backup & Restore
   getBackup: async () => {
     const res = await api.get('/backup');
@@ -316,5 +361,46 @@ export const AdminAPI = {
   getSecurityAuditLogs: async (params?: { limit?: number; offset?: number }) => {
     const res = await api.get('/security/audit-logs', { params });
     return res.data;
+  },
+
+  // Redeem Code Management (Prompt 12)
+  getRedeemCodes: async (params?: { search?: string; reward_type?: string; status?: string }): Promise<RedeemCode[]> => {
+    const res = await api.get('/redeem-codes', { params });
+    return res.data.data;
+  },
+
+  getRedeemCode: async (id: string): Promise<RedeemCode> => {
+    const res = await api.get(`/redeem-codes/${id}`);
+    return res.data.data;
+  },
+
+  getRedeemCodeUsages: async (id: string): Promise<RedeemCodeUsage[]> => {
+    const res = await api.get(`/redeem-codes/${id}/usages`);
+    return res.data.data;
+  },
+
+  createRedeemCode: async (data: CreateRedeemCodeDTO): Promise<RedeemCode> => {
+    const res = await api.post('/redeem-codes', data);
+    return res.data.data;
+  },
+
+  generateRedeemCode: async (): Promise<string> => {
+    const res = await api.post('/redeem-codes/generate');
+    return res.data.data.code;
+  },
+
+  updateRedeemCode: async (id: string, data: Partial<CreateRedeemCodeDTO>): Promise<RedeemCode> => {
+    const res = await api.put(`/redeem-codes/${id}`, data);
+    return res.data.data;
+  },
+
+  toggleRedeemCodeActive: async (id: string): Promise<RedeemCode> => {
+    const res = await api.post(`/redeem-codes/${id}/toggle-active`);
+    return res.data.data;
+  },
+
+  deleteRedeemCode: async (id: string): Promise<boolean> => {
+    const res = await api.delete(`/redeem-codes/${id}`);
+    return res.data.success;
   },
 };

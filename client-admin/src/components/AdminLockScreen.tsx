@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ShieldCheck, ShieldAlert, Lock, Delete, RotateCcw, Loader2 } from 'lucide-react';
 import { verifyPin } from '../services/admin-auth';
 import { AdminSpaceBackground } from './background/AdminSpaceBackground';
 
@@ -16,36 +17,37 @@ export const AdminLockScreen: React.FC<Props> = ({ onSuccess }) => {
     setSubmitting(true);
     setError(null);
     try {
-      const ok = await verifyPin(candidatePin.trim());
-      if (ok) {
+      const res = await verifyPin(candidatePin.trim());
+      if (res.success) {
         onSuccess();
       } else {
-        setError('Incorrect PIN. Please try again.');
+        setError(res.message || 'Access Denied. Incorrect Security PIN.');
         setPin('');
       }
     } catch {
-      setError('Network error, please try again.');
+      setError('Network communication failed. Please retry.');
     } finally {
       setSubmitting(false);
     }
   }, [submitting, onSuccess]);
 
-  // Auto-submit immediately once '1686' is entered
+  // Dynamic automatic submission when PIN reaches 4 digits without exposing the PIN value in source
   useEffect(() => {
-    if (pin === '1686' && !submitting) {
-      attemptUnlock('1686');
+    if (pin.length === 4 && !submitting) {
+      attemptUnlock(pin);
     }
   }, [pin, submitting, attemptUnlock]);
 
   const handleDigit = (digit: string) => {
-    if (submitting || pin.length >= 6) return;
-    const nextPin = pin + digit;
-    setPin(nextPin);
+    if (submitting || pin.length >= 4) return;
+    setPin(prev => prev + digit);
+    setError(null);
   };
 
   const handleDelete = () => {
     if (submitting) return;
     setPin(prev => prev.slice(0, -1));
+    setError(null);
   };
 
   const handleClear = () => {
@@ -62,131 +64,142 @@ export const AdminLockScreen: React.FC<Props> = ({ onSuccess }) => {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: '#070A14',
-      color: '#fff', fontFamily: 'system-ui, -apple-system, sans-serif', padding: '1rem',
-      position: 'relative',
-    }}>
+    <div className="min-h-screen bg-[#070A14] text-slate-100 flex items-center justify-center p-4 relative select-none">
       <AdminSpaceBackground />
-      <div style={{
-        width: '100%', maxWidth: '340px', background: '#111622', padding: '2rem 1.75rem',
-        borderRadius: '16px', border: '1px solid #1f2937', boxSizing: 'border-box',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-        position: 'relative', zIndex: 10,
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: '48px', height: '48px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-            marginBottom: '0.75rem', fontSize: '1.5rem',
-          }}>
-            🛡️
+
+      <div className="w-full max-w-sm rounded-2xl bg-gradient-to-b from-[#121727] via-[#0E1322] to-[#0A0D16] border border-white/10 p-6 sm:p-7 relative z-10 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.12)] card-3d">
+        {/* Top Specular Rim */}
+        <div className="absolute inset-x-8 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent pointer-events-none" />
+
+        {/* Security Shield Header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 p-0.5 shadow-[0_0_24px_rgba(99,102,241,0.4)] mb-3 relative group">
+            <div className="w-full h-full bg-[#0E1322] rounded-[14px] flex items-center justify-center">
+              {submitting ? (
+                <Loader2 className="w-7 h-7 text-indigo-400 animate-spin" />
+              ) : error ? (
+                <ShieldAlert className="w-7 h-7 text-rose-400 animate-pulse" />
+              ) : (
+                <ShieldCheck className="w-7 h-7 text-indigo-400 group-hover:scale-110 transition-transform" />
+              )}
+            </div>
           </div>
-          <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.25rem', fontWeight: 700 }}>Admin Session Lock</h1>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#9ca3af' }}>
-            Enter 4-digit PIN to authenticate
-          </p>
+          <h1 className="text-lg font-black tracking-wide text-white uppercase">Admin Security Portal</h1>
+          <p className="text-xs text-slate-400 mt-1 font-medium">Enter 4-digit Master PIN to unlock console</p>
         </div>
 
-        {/* Pin Dots Display */}
-        <div style={{
-          display: 'flex', justifyContent: 'center', gap: '0.75rem',
-          margin: '1.5rem 0',
-        }}>
+        {/* PIN Dots Indicator */}
+        <div className="flex justify-center items-center gap-3.5 mb-6">
           {[0, 1, 2, 3].map((index) => {
             const isFilled = pin.length > index;
             return (
               <div
                 key={index}
-                style={{
-                  width: '16px', height: '16px', borderRadius: '50%',
-                  background: isFilled ? '#3b82f6' : '#374151',
-                  border: isFilled ? '2px solid #60a5fa' : '2px solid #4b5563',
-                  transition: 'all 0.15s ease',
-                  boxShadow: isFilled ? '0 0 10px rgba(59, 130, 246, 0.7)' : 'none',
-                }}
+                className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${
+                  isFilled
+                    ? 'bg-indigo-400 scale-125 shadow-[0_0_12px_rgba(99,102,241,0.9)] border border-indigo-200'
+                    : 'bg-white/10 border border-white/20'
+                }`}
               />
             );
           })}
         </div>
 
-        {/* Hidden keyboard input for accessibility and physical keyboards */}
-        <form onSubmit={handleSubmit}>
-          <input
-            type="password"
-            inputMode="numeric"
-            maxLength={6}
-            autoFocus
-            value={pin}
-            onChange={(e) => {
-              const val = e.target.value.replace(/\D/g, '');
-              setPin(val);
-            }}
-            placeholder="••••"
-            style={{
-              width: '100%', padding: '0.625rem', fontSize: '1.25rem', textAlign: 'center',
-              letterSpacing: '0.5em', background: '#0b0f19', border: '1px solid #374151',
-              borderRadius: '8px', color: '#fff', boxSizing: 'border-box', marginBottom: '1.25rem',
-            }}
-          />
-
-          {error && (
-            <div style={{
-              color: '#f87171', background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.5rem',
-              borderRadius: '6px', fontSize: '0.8125rem', margin: '0 0 1rem', textAlign: 'center',
-            }}>
-              {error}
+        {/* Physical Keyboard Accessible Input */}
+        <form onSubmit={handleSubmit} className="mb-4">
+          <div className="relative">
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              autoFocus
+              value={pin}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                setPin(val);
+                setError(null);
+              }}
+              placeholder="••••"
+              disabled={submitting}
+              className="w-full py-2 px-3 text-center text-lg tracking-[0.5em] font-mono bg-black/50 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+              <Lock className="w-4 h-4" />
             </div>
-          )}
-
-          {/* Numeric Keypad Grid */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.625rem',
-            marginBottom: '1rem',
-          }}>
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((item) => {
-              const isAction = item === 'C' || item === '⌫';
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => {
-                    if (item === 'C') handleClear();
-                    else if (item === '⌫') handleDelete();
-                    else handleDigit(item);
-                  }}
-                  disabled={submitting}
-                  style={{
-                    padding: '0.75rem 0', fontSize: isAction ? '1rem' : '1.25rem',
-                    fontWeight: 600, color: isAction ? '#9ca3af' : '#f3f4f6',
-                    background: isAction ? '#1f2937' : '#1e293b',
-                    border: '1px solid #334155', borderRadius: '10px',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    userSelect: 'none', transition: 'all 0.1s ease',
-                  }}
-                >
-                  {item}
-                </button>
-              );
-            })}
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting || pin.length < 4}
-            style={{
-              width: '100%', padding: '0.75rem', fontSize: '0.9375rem',
-              fontWeight: 600, background: '#2563eb', color: '#fff', border: 0,
-              borderRadius: '8px', cursor: submitting || pin.length < 4 ? 'not-allowed' : 'pointer',
-              opacity: submitting || pin.length < 4 ? 0.6 : 1, transition: 'opacity 0.2s',
-            }}
-          >
-            {submitting ? 'Verifying…' : 'Unlock Dashboard'}
-          </button>
+          {error && (
+            <div className="mt-2.5 p-2 rounded-xl bg-rose-950/80 border border-rose-500/30 text-rose-300 text-xs font-semibold text-center flex items-center justify-center gap-1.5 animate-fadeIn">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
         </form>
+
+        {/* Tactile 3D Cyber Keypad */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-4">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((item) => {
+            const isClear = item === 'C';
+            const isBackspace = item === '⌫';
+
+            return (
+              <button
+                key={item}
+                type="button"
+                disabled={submitting}
+                onClick={() => {
+                  if (isClear) handleClear();
+                  else if (isBackspace) handleDelete();
+                  else handleDigit(item);
+                }}
+                className={`h-12 rounded-xl font-black text-sm transition-all duration-150 flex items-center justify-center active:scale-95 cursor-pointer shadow-sm ${
+                  isClear || isBackspace
+                    ? 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white'
+                    : 'bg-[#151B2E] hover:bg-[#1A223B] border border-white/10 hover:border-indigo-500/50 text-white hover:text-indigo-300 shadow-[0_2px_4px_rgba(0,0,0,0.4)]'
+                }`}
+              >
+                {isClear ? (
+                  <RotateCcw className="w-4 h-4" />
+                ) : isBackspace ? (
+                  <Delete className="w-4 h-4" />
+                ) : (
+                  <span>{item}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Submit Button */}
+        <button
+          type="button"
+          disabled={pin.length < 4 || submitting}
+          onClick={() => handleSubmit()}
+          className={`w-full py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${
+            pin.length < 4 || submitting
+              ? 'bg-white/5 text-slate-500 border border-white/5 cursor-not-allowed'
+              : 'btn-3d-primary shadow-[0_4px_16px_rgba(99,102,241,0.4)] hover:brightness-110 active:scale-[0.98]'
+          }`}
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Verifying Session...</span>
+            </>
+          ) : (
+            <>
+              <Lock className="w-3.5 h-3.5" />
+              <span>Unlock Admin Panel</span>
+            </>
+          )}
+        </button>
+
+        {/* Security watermark footer */}
+        <div className="mt-4 pt-3 border-t border-white/5 text-center">
+          <p className="text-[10px] text-slate-500 font-mono tracking-wider">
+            UCHIRO V3 ENTERPRISE CORE • ZERO-TRUST PIN GATE
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { DataStore } from '../database/data-store';
 import { env } from '../config/env';
 import { AppError } from '../middleware/error-handler';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
+import { paymentPollingLimiter } from '../middleware/rate-limiter';
 
 export const paymentRouter = Router();
 
@@ -52,8 +53,8 @@ paymentRouter.post('/create-qr', requireTelegramAuth, async (req: RequestWithAut
   }
 });
 
-// Payment Status Check / Polling
-paymentRouter.get('/:id/status', async (req, res, next) => {
+// Payment Status Check / Polling (Protected with specialized polling limiter)
+paymentRouter.get('/:id/status', paymentPollingLimiter, async (req, res, next) => {
   try {
     const status = await PaymentService.getPaymentStatus(req.params.id);
     res.json({

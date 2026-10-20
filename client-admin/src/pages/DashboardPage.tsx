@@ -136,56 +136,72 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </p>
       </div>
 
-      {/* Primary KPI Cards Grid (Direct live backend metrics with honest zero states) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {/* Primary KPI Cards Grid (Direct live backend metrics with 3D depth and honest zero states) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Total Gross Revenue */}
-        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-[#13192B] to-[#0D1220] border border-emerald-500/30 space-y-1 shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] card-3d relative overflow-hidden group">
+          <div className="absolute top-0 inset-x-4 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Total Gross Revenue</span>
-            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <span className="font-semibold text-slate-300">Total Revenue</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-black text-white">
+          <div className="text-lg sm:text-xl font-black text-white tracking-tight">
             ${totalRevenue.toFixed(2)}
           </div>
-          <span className="text-[10px] text-emerald-400 font-semibold">
+          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             Verified Net Sales
           </span>
         </div>
 
         {/* Total Orders */}
-        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-[#13192B] to-[#0D1220] border border-indigo-500/30 space-y-1 shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] card-3d relative overflow-hidden group">
+          <div className="absolute top-0 inset-x-4 h-[1px] bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Total Orders</span>
-            <ShoppingBag className="w-4 h-4 text-indigo-400" />
+            <span className="font-semibold text-slate-300">Total Orders</span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4 text-indigo-400" />
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-black text-white">{totalOrders}</div>
-          <span className="text-[10px] text-indigo-400 font-semibold">
+          <div className="text-lg sm:text-xl font-black text-white tracking-tight">{totalOrders}</div>
+          <span className="text-[10px] text-indigo-400 font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
             {paidOrders} Paid & Delivered
           </span>
         </div>
 
         {/* Pending Manual Gifts & Trades */}
-        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-[#13192B] to-[#0D1220] border border-amber-500/30 space-y-1 shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] card-3d relative overflow-hidden group">
+          <div className="absolute top-0 inset-x-4 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Pending Fulfillment</span>
-            <Clock className="w-4 h-4 text-amber-400" />
+            <span className="font-semibold text-slate-300">Fulfillment Queue</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-amber-400" />
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-black text-white">{pendingFulfillment}</div>
-          <span className="text-[10px] text-amber-400 font-semibold">
+          <div className="text-lg sm:text-xl font-black text-amber-400 tracking-tight">{pendingFulfillment}</div>
+          <span className="text-[10px] text-amber-400/90 font-bold flex items-center gap-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${pendingFulfillment > 0 ? 'bg-amber-400 animate-pulse' : 'bg-slate-500'}`} />
             Awaiting Staff Delivery
           </span>
         </div>
 
         {/* In-Stock Inventory Items */}
-        <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/10 space-y-0.5">
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-b from-[#13192B] to-[#0D1220] border border-cyan-500/30 space-y-1 shadow-[0_4px_16px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.1)] card-3d relative overflow-hidden group">
+          <div className="absolute top-0 inset-x-4 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent pointer-events-none" />
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>In-Stock Inventory</span>
-            <Boxes className="w-4 h-4 text-cyan-400" />
+            <span className="font-semibold text-slate-300">Available Stock</span>
+            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+              <Boxes className="w-4 h-4 text-cyan-400" />
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-black text-white">{availableInventory}</div>
-          <span className="text-[10px] text-cyan-400 font-semibold">
+          <div className="text-lg sm:text-xl font-black text-cyan-400 tracking-tight">{availableInventory}</div>
+          <span className="text-[10px] text-cyan-400/90 font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             {accountsInStock > 0 || keysInStock > 0
-              ? `${accountsInStock} Accounts • ${keysInStock} Keys`
+              ? `${accountsInStock} Accts • ${keysInStock} Keys`
               : 'Available Items'}
           </span>
         </div>

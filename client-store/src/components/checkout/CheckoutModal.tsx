@@ -274,9 +274,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div
-        className="w-full max-w-md bg-[#0E121E] border border-white/10 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl relative"
+        className="w-full max-w-md bg-[#0B0F1D] border border-white/10 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.12)] relative card-3d"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Top Specular Rim */}
+        <div className="absolute inset-x-8 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
+
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -297,7 +300,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <img
               src={
                 product.media?.[0]?.url ||
-                'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80'
+                '/placeholder.svg'
               }
               alt=""
               className="w-14 h-14 rounded-xl object-cover bg-black/40 border border-white/10 flex-shrink-0"
@@ -531,7 +534,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <button
             disabled={isSubmitting || !isFulfillmentReady}
             onClick={handleProceedToPayment}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#E63946] via-[#FFD166] to-[#E63946] bg-[length:200%_auto] hover:bg-right font-black text-sm text-black shadow-lg shadow-[#E63946]/30 flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm text-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              isSubmitting || !isFulfillmentReady
+                ? 'bg-white/10 text-slate-500 cursor-not-allowed opacity-60'
+                : 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
+            }`}
           >
             {isSubmitting ? (
               <>

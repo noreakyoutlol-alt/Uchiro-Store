@@ -736,7 +736,7 @@ export const GachaPage: React.FC = () => {
                   type="url"
                   value={editingPool.banner_url || ''}
                   onChange={(e) => setEditingPool({ ...editingPool, banner_url: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
+                  placeholder="https://... or /banner.jpg"
                   className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-white"
                 />
               </div>

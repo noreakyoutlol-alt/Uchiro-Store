@@ -94,11 +94,135 @@ html.light ::-webkit-scrollbar-thumb:hover {
   scrollbar-width: none;
 }
 
+/* ========================================================================= */
+/* PREMIUM 3D DEPTH, GLASS & FUTURISTIC GAMING DESIGN SYSTEM TOKENS         */
+/* ========================================================================= */
+@layer components {
+  /* 3D Elevated Dark Glass Card */
+  .card-3d {
+    background: linear-gradient(180deg, rgba(18, 24, 42, 0.88) 0%, rgba(10, 14, 26, 0.96) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.4),
+      0 10px 24px -3px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .card-3d:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow:
+      0 8px 24px -2px rgba(0, 0, 0, 0.6),
+      0 0 20px -4px rgba(99, 102, 241, 0.2),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+  }
+
+  /* 3D Gold Accent / Grand Prize Card */
+  .card-3d-gold {
+    background: linear-gradient(180deg, rgba(28, 22, 14, 0.92) 0%, rgba(14, 12, 18, 0.98) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    box-shadow:
+      0 6px 20px -2px rgba(0, 0, 0, 0.7),
+      0 0 30px -4px rgba(245, 158, 11, 0.25),
+      inset 0 1px 0 0 rgba(254, 240, 138, 0.3);
+  }
+
+  /* 3D Cyan / Tech Accent Card */
+  .card-3d-cyan {
+    background: linear-gradient(180deg, rgba(12, 26, 38, 0.92) 0%, rgba(8, 14, 24, 0.98) 100%);
+    border: 1px solid rgba(6, 182, 212, 0.35);
+    box-shadow:
+      0 6px 20px -2px rgba(0, 0, 0, 0.7),
+      0 0 30px -4px rgba(6, 182, 212, 0.25),
+      inset 0 1px 0 0 rgba(165, 243, 252, 0.3);
+  }
+
+  /* 3D Purple / Mythical Accent Card */
+  .card-3d-purple {
+    background: linear-gradient(180deg, rgba(26, 14, 38, 0.92) 0%, rgba(12, 8, 24, 0.98) 100%);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    box-shadow:
+      0 6px 20px -2px rgba(0, 0, 0, 0.7),
+      0 0 30px -4px rgba(168, 85, 247, 0.25),
+      inset 0 1px 0 0 rgba(233, 213, 255, 0.3);
+  }
+
+  /* 3D Luxury Action Button (Gold) */
+  .btn-3d-gold {
+    background: linear-gradient(180deg, #FBBF24 0%, #D97706 100%);
+    border: 1px solid rgba(254, 243, 199, 0.4);
+    box-shadow:
+      0 3px 6px rgba(0, 0, 0, 0.4),
+      0 6px 16px rgba(217, 119, 6, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -2px 0 rgba(146, 64, 14, 0.6);
+    color: #1E1202;
+    transition: all 0.15s ease;
+  }
+
+  .btn-3d-gold:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(217, 119, 6, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 -1px 0 rgba(146, 64, 14, 0.6);
+  }
+
+  /* 3D Primary Button (Cyber Indigo) */
+  .btn-3d-primary {
+    background: linear-gradient(180deg, #6366F1 0%, #4338CA 100%);
+    border: 1px solid rgba(199, 210, 254, 0.3);
+    box-shadow:
+      0 3px 6px rgba(0, 0, 0, 0.4),
+      0 6px 16px rgba(99, 102, 241, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 -2px 0 rgba(49, 46, 129, 0.6);
+    color: #FFFFFF;
+    transition: all 0.15s ease;
+  }
+
+  .btn-3d-primary:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(99, 102, 241, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      inset 0 -1px 0 rgba(49, 46, 129, 0.6);
+  }
+
+  /* Frosted Glass Floating Panel */
+  .glass-panel {
+    background: rgba(11, 15, 28, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Specular Highlight Top Rim */
+  .specular-rim {
+    position: relative;
+  }
+  .specular-rim::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    pointer-events: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .card-3d:hover {
+    transform: none !important;
   }
 }

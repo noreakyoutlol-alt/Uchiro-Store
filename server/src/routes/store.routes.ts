@@ -3,6 +3,8 @@ import { StoreService } from '../services/store.service';
 import { ProductController } from '../controllers/product.controller';
 import { DataStore, claimDailyReward, getUserSnapshot } from '../database/data-store';
 import { RobloxService } from '../services/roblox.service';
+import { RobuxService } from '../services/robux.service';
+import { RedeemCodeService } from '../services/redeem.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
 
 export const storeRouter = Router();
@@ -41,6 +43,50 @@ storeRouter.get('/coupons/my-coupons', requireTelegramAuth, (req: RequestWithAut
   res.json({
     success: true,
     data: coupons,
+  });
+});
+
+// Member Redeem Code (Points, Gacha Tickets, Coupons)
+storeRouter.post(['/redeem-code', '/redeem', '/codes/redeem'], requireTelegramAuth, async (req: RequestWithAuth, res) => {
+  const code = (req.body?.code || '').trim();
+  if (!code) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_CODE', message: 'Redeem code is required' },
+    });
+    return;
+  }
+
+  const telegramId = req.user!.telegram_id;
+  const idempotencyKey = (req.headers['x-idempotency-key'] as string) || req.body?.idempotencyKey;
+
+  const result = await RedeemCodeService.redeem(telegramId, code, idempotencyKey);
+
+  if (!result.success) {
+    const statusCode =
+      result.error_code === 'UNAUTHORIZED' ? 401 :
+      result.error_code === 'INVALID_CODE' ? 400 :
+      result.error_code === 'CODE_EXPIRED' ||
+      result.error_code === 'CODE_DISABLED' ||
+      result.error_code === 'CODE_EXHAUSTED' ||
+      result.error_code === 'MEMBER_LIMIT_REACHED'
+        ? 400
+        : 500;
+
+    res.status(statusCode).json({
+      success: false,
+      error: {
+        code: result.error_code || 'REDEMPTION_FAILED',
+        message: result.error || 'Failed to redeem code',
+      },
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: result,
+    message: `Successfully redeemed ${result.reward_title}!`,
   });
 });
 
@@ -137,6 +183,38 @@ storeRouter.get('/roblox/profile/:username', async (req, res) => {
     success: true,
     data: profile,
   });
+});
+
+// Robux Stock Availability & Policy Status (Prompt 11: Authoritative Consistency)
+storeRouter.get(['/robux/stock', '/store/robux/stock'], async (_req, res, next) => {
+  try {
+    const stock = await RobuxService.getStockConfig();
+    const available = Math.max(0, stock.total_balance - stock.reserved_balance);
+    const tiers = RobuxService.calculateTiers(stock);
+
+    res.json({
+      success: true,
+      data: {
+        total_balance: stock.total_balance,
+        reserved_balance: stock.reserved_balance,
+        available_balance: available,
+        rate_per_1000: stock.rate_per_1000,
+        is_active: stock.is_active,
+        policy_gated: !stock.is_active,
+        compliance_notice: !stock.is_active
+          ? {
+              policy: 'Roblox Terms of Use (May 19, 2026)',
+              official_url: 'https://www.roblox.com/upgrades/robux',
+              message:
+                'Direct automated third-party Robux purchase/fulfillment is safely held disabled pending documented platform authorization. Please purchase directly via official Roblox channels.',
+            }
+          : null,
+        tiers,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Live Buyer Events Feed (Requirement 35)

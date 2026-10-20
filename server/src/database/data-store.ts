@@ -30,6 +30,13 @@ import {
   DeliveryAccessLog,
   DeliveryAccessAction,
   DeliveredAccount,
+  BroadcastCampaign,
+  RedeemCode,
+  RedeemCodeUsage,
+  RedeemCodeResult,
+  RedeemRewardType,
+  RedeemCodeUseMode,
+  CouponRewardData,
 } from '../types';
 import { encrypt, decrypt } from '../security/encryption';
 import { TOTPService } from '../security/totp';
@@ -211,6 +218,60 @@ const initialCoupons: Coupon[] = [
   },
 ];
 
+// Seed Redeem Codes
+const initialRedeemCodes: RedeemCode[] = [
+  {
+    id: '77777777-7777-7777-7777-777777777701',
+    code: 'WELCOME100',
+    reward_type: 'points',
+    reward_amount: 100,
+    reward_data: {},
+    use_mode: 'one_per_member',
+    max_uses: 1000,
+    times_used: 0,
+    per_user_limit: 1,
+    is_active: true,
+    expires_at: new Date(Date.now() + 180 * 86400000).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '77777777-7777-7777-7777-777777777702',
+    code: 'GACHATICKET',
+    reward_type: 'gacha_tickets',
+    reward_amount: 5,
+    reward_data: {},
+    use_mode: 'one_per_member',
+    max_uses: 500,
+    times_used: 0,
+    per_user_limit: 1,
+    is_active: true,
+    expires_at: new Date(Date.now() + 180 * 86400000).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '77777777-7777-7777-7777-777777777703',
+    code: 'UCHIROCOUPON',
+    reward_type: 'discount_coupon',
+    reward_amount: 0,
+    reward_data: {
+      discount_type: 'fixed',
+      discount_value: 2.0,
+      min_order_amount: 5.0,
+      max_discount_amount: null,
+    },
+    use_mode: 'one_per_member',
+    max_uses: 500,
+    times_used: 0,
+    per_user_limit: 1,
+    is_active: true,
+    expires_at: new Date(Date.now() + 180 * 86400000).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 // Seed Gacha Pools & Prizes
 const initialGachaPools: GachaPool[] = [
   {
@@ -367,6 +428,9 @@ export class DataStore {
   }));
   private static inventory: InventoryItem[] = [...initialInventory];
   private static coupons: Coupon[] = [...initialCoupons];
+  private static redeemCodes: RedeemCode[] = [...initialRedeemCodes];
+  private static redeemCodeUsages: RedeemCodeUsage[] = [];
+  private static codeLocks: Map<string, Promise<void>> = new Map();
   private static gachaPools: GachaPool[] = [...initialGachaPools];
   private static gachaPrizes: GachaPrize[] = [...initialGachaPrizes];
   private static gachaSpins: GachaSpin[] = [];
@@ -406,6 +470,7 @@ export class DataStore {
   private static pointLedger: PointLedgerEntry[] = [];
   private static dailyRewards: Map<number, { lastClaimed: number; streak: number; totalPoints: number }> = new Map();
   private static orderNotificationDrafts: OrderNotificationDraft[] = [];
+  private static broadcastCampaigns: Map<string, BroadcastCampaign> = new Map();
   private static qualifyingOrderCounter: number = 0;
   private static activeHeartbeats: Map<string, number> = new Map();
   private static storeSettings: StoreSettings = {
@@ -1154,6 +1219,366 @@ export class DataStore {
       return true;
     }
     return false;
+  }
+
+  // ================= REDEEM CODES =================
+  private static async acquireCodeLock(code: string): Promise<() => void> {
+    const key = code.toUpperCase().trim();
+    while (this.codeLocks.has(key)) {
+      try {
+        await this.codeLocks.get(key);
+      } catch {}
+    }
+    let resolver: () => void;
+    const promise = new Promise<void>((resolve) => {
+      resolver = resolve;
+    });
+    this.codeLocks.set(key, promise);
+    return () => {
+      this.codeLocks.delete(key);
+      resolver!();
+    };
+  }
+
+  static getRedeemCodes(): RedeemCode[] {
+    return this.redeemCodes;
+  }
+
+  static getRedeemCodeById(id: string): RedeemCode | null {
+    return this.redeemCodes.find((c) => c.id === id) || null;
+  }
+
+  static getRedeemCodeByCode(code: string): RedeemCode | null {
+    if (!code) return null;
+    const clean = code.trim().toUpperCase();
+    return this.redeemCodes.find((c) => c.code.toUpperCase() === clean) || null;
+  }
+
+  static getRedeemCodeUsages(codeId?: string): RedeemCodeUsage[] {
+    if (codeId) {
+      return this.redeemCodeUsages.filter((u) => u.code_id === codeId);
+    }
+    return this.redeemCodeUsages;
+  }
+
+  static getUserRedeemCodeUsages(telegramId: number, codeId?: string): RedeemCodeUsage[] {
+    return this.redeemCodeUsages.filter(
+      (u) => u.telegram_id === telegramId && (!codeId || u.code_id === codeId)
+    );
+  }
+
+  static createRedeemCode(data: Partial<RedeemCode>): RedeemCode {
+    const cleanCode = (data.code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      throw new AppError('Redeem code is required', 400, 'CODE_REQUIRED');
+    }
+
+    const existing = this.getRedeemCodeByCode(cleanCode);
+    if (existing) {
+      throw new AppError('Redeem code already exists', 409, 'CODE_EXISTS');
+    }
+
+    const rewardType = data.reward_type || 'points';
+    let rewardAmount = Math.max(0, Math.floor(Number(data.reward_amount) || 0));
+    const rewardData: any = data.reward_data ? { ...data.reward_data } : {};
+
+    if (rewardType === 'points' && rewardAmount <= 0) {
+      throw new AppError('Points reward amount must be a positive integer', 400, 'INVALID_REWARD_AMOUNT');
+    }
+    if (rewardType === 'gacha_tickets' && rewardAmount <= 0) {
+      throw new AppError('Gacha tickets reward amount must be a positive integer', 400, 'INVALID_REWARD_AMOUNT');
+    }
+    if (rewardType === 'discount_coupon') {
+      const discountType = rewardData.discount_type === 'fixed' ? 'fixed' : 'percentage';
+      const discountValue = Number(rewardData.discount_value) || 10;
+      if (discountValue <= 0) {
+        throw new AppError('Discount value must be greater than zero', 400, 'INVALID_DISCOUNT_VALUE');
+      }
+      if (discountType === 'percentage' && discountValue > 100) {
+        throw new AppError('Percentage discount cannot exceed 100%', 400, 'INVALID_DISCOUNT_VALUE');
+      }
+      rewardData.discount_type = discountType;
+      rewardData.discount_value = discountValue;
+      rewardData.min_order_amount = Math.max(0, Number(rewardData.min_order_amount) || 0);
+      if (rewardData.max_discount_amount !== undefined && rewardData.max_discount_amount !== null) {
+        rewardData.max_discount_amount = Number(rewardData.max_discount_amount);
+      }
+    }
+
+    const useMode: RedeemCodeUseMode = data.use_mode || 'one_per_member';
+    let maxUses: number | null = null;
+    let perUserLimit = 1;
+
+    if (useMode === 'single_use') {
+      maxUses = 1;
+      perUserLimit = 1;
+    } else if (useMode === 'one_per_member') {
+      perUserLimit = 1;
+      maxUses = data.max_uses !== undefined && data.max_uses !== null ? Math.max(1, Math.floor(Number(data.max_uses))) : null;
+    } else {
+      // reusable
+      perUserLimit = Math.max(1, Math.floor(Number(data.per_user_limit) || 1));
+      maxUses = data.max_uses !== undefined && data.max_uses !== null ? Math.max(perUserLimit, Math.floor(Number(data.max_uses))) : null;
+    }
+
+    const newCode: RedeemCode = {
+      id: data.id || uuidv4(),
+      code: cleanCode,
+      reward_type: rewardType,
+      reward_amount: rewardAmount,
+      reward_data: rewardData,
+      use_mode: useMode,
+      max_uses: maxUses,
+      times_used: 0,
+      per_user_limit: perUserLimit,
+      is_active: data.is_active ?? true,
+      expires_at: data.expires_at || null,
+      created_by: data.created_by || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.redeemCodes.unshift(newCode);
+
+    // Sync to PostgreSQL if configured
+    if (isPostgresConfigured()) {
+      pgPool.query(
+        `INSERT INTO redeem_codes (id, code, reward_type, reward_amount, reward_data, use_mode, max_uses, times_used, per_user_limit, is_active, expires_at, created_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, NOW(), NOW())
+         ON CONFLICT (code) DO NOTHING`,
+        [
+          newCode.id,
+          newCode.code,
+          newCode.reward_type,
+          newCode.reward_amount,
+          JSON.stringify(newCode.reward_data),
+          newCode.use_mode,
+          newCode.max_uses,
+          newCode.per_user_limit,
+          newCode.is_active,
+          newCode.expires_at,
+          String(newCode.created_by || ''),
+        ]
+      ).catch((err) => console.warn('[DataStore] createRedeemCode postgres error:', err?.message));
+    }
+
+    return newCode;
+  }
+
+  static updateRedeemCode(id: string, updates: Partial<RedeemCode>): RedeemCode | null {
+    const code = this.redeemCodes.find((c) => c.id === id);
+    if (!code) return null;
+
+    if (updates.is_active !== undefined) code.is_active = Boolean(updates.is_active);
+    if (updates.expires_at !== undefined) code.expires_at = updates.expires_at;
+    if (updates.max_uses !== undefined) code.max_uses = updates.max_uses;
+    if (updates.per_user_limit !== undefined) code.per_user_limit = Math.max(1, Math.floor(Number(updates.per_user_limit)));
+    code.updated_at = new Date().toISOString();
+
+    if (isPostgresConfigured()) {
+      pgPool.query(
+        `UPDATE redeem_codes
+         SET is_active = $1, expires_at = $2, max_uses = $3, per_user_limit = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [code.is_active, code.expires_at, code.max_uses, code.per_user_limit, code.id]
+      ).catch((err) => console.warn('[DataStore] updateRedeemCode postgres error:', err?.message));
+    }
+
+    return code;
+  }
+
+  static deleteRedeemCode(id: string): boolean {
+    const idx = this.redeemCodes.findIndex((c) => c.id === id);
+    if (idx < 0) return false;
+
+    const code = this.redeemCodes[idx];
+    const hasUsages = this.redeemCodeUsages.some((u) => u.code_id === id);
+
+    if (hasUsages) {
+      // Soft-deactivate to preserve audit history and foreign keys
+      code.is_active = false;
+      code.updated_at = new Date().toISOString();
+      if (isPostgresConfigured()) {
+        pgPool.query('UPDATE redeem_codes SET is_active = false, updated_at = NOW() WHERE id = $1', [id])
+          .catch((err) => console.warn('[DataStore] deactivate postgres error:', err?.message));
+      }
+      return true;
+    }
+
+    this.redeemCodes.splice(idx, 1);
+    if (isPostgresConfigured()) {
+      pgPool.query('DELETE FROM redeem_codes WHERE id = $1', [id])
+        .catch((err) => console.warn('[DataStore] deleteRedeemCode postgres error:', err?.message));
+    }
+    return true;
+  }
+
+  static async redeemCode(
+    telegramId: number,
+    codeStr: string,
+    _idempotencyKey?: string
+  ): Promise<RedeemCodeResult> {
+    if (!telegramId) {
+      return { success: false, error_code: 'UNAUTHORIZED', error: 'Authentication required' };
+    }
+
+    const clean = (codeStr || '').trim().toUpperCase();
+    if (!clean) {
+      return { success: false, error_code: 'INVALID_CODE', error: 'Please enter a redeem code' };
+    }
+
+    // Acquire serialized lock on this code to guarantee 100% atomic execution and race condition protection
+    const releaseLock = await this.acquireCodeLock(clean);
+
+    try {
+      // Ensure member profile exists
+      let profile = this.profiles.get(telegramId);
+      if (!profile) {
+        this.findOrCreateTelegramUser({ telegram_id: telegramId, first_name: 'Member' });
+        profile = this.profiles.get(telegramId)!;
+      }
+
+      // Check existence
+      const code = this.getRedeemCodeByCode(clean);
+      if (!code) {
+        return { success: false, error_code: 'INVALID_CODE', error: 'Invalid or unrecognized redeem code' };
+      }
+
+      // Check active state
+      if (!code.is_active) {
+        return { success: false, error_code: 'CODE_DISABLED', error: 'This redeem code is currently inactive' };
+      }
+
+      // Check expiry
+      if (code.expires_at && new Date(code.expires_at).getTime() < Date.now()) {
+        code.is_active = false;
+        return { success: false, error_code: 'CODE_EXPIRED', error: 'This redeem code has expired' };
+      }
+
+      // Check total maximum uses
+      if (code.max_uses !== null && code.times_used >= code.max_uses) {
+        return { success: false, error_code: 'CODE_EXHAUSTED', error: 'This redeem code has reached its maximum redemption limit' };
+      }
+
+      // Check member redemption limit
+      const priorMemberUsages = this.redeemCodeUsages.filter(
+        (u) => u.code_id === code.id && u.telegram_id === telegramId
+      );
+      if (priorMemberUsages.length >= code.per_user_limit) {
+        return { success: false, error_code: 'MEMBER_LIMIT_REACHED', error: 'You have already redeemed this code' };
+      }
+
+      // Atomically increment times_used
+      code.times_used += 1;
+      code.updated_at = new Date().toISOString();
+
+      // Record usage audit entry
+      const usageId = uuidv4();
+      const usageEntry: RedeemCodeUsage = {
+        id: usageId,
+        code_id: code.id,
+        code: code.code,
+        telegram_id: telegramId,
+        reward_type: code.reward_type,
+        reward_value: code.reward_amount || (code.reward_data as any)?.discount_value || 0,
+        reward_data: code.reward_data || {},
+        created_at: new Date().toISOString(),
+      };
+      this.redeemCodeUsages.unshift(usageEntry);
+
+      // Apply the reward atomically
+      try {
+        if (code.reward_type === 'points') {
+          const ledgerResult = this.addPointTransaction(
+            telegramId,
+            code.reward_amount,
+            'redeem_code',
+            `Redeemed Code: ${code.code}`,
+            code.id
+          );
+
+          return {
+            success: true,
+            code: code.code,
+            reward_type: 'points',
+            reward_amount: code.reward_amount,
+            reward_title: `${code.reward_amount.toLocaleString()} Uchiro Points`,
+            reward_description: `Added ${code.reward_amount.toLocaleString()} reward points to your account balance`,
+            points_balance: ledgerResult.newBalance,
+            tickets_balance: profile.gacha_tickets || 0,
+          };
+        } else if (code.reward_type === 'gacha_tickets') {
+          const qty = code.reward_amount;
+          profile.gacha_tickets = (profile.gacha_tickets || 0) + qty;
+          profile.updated_at = new Date().toISOString();
+
+          const user = this.users.get(telegramId);
+          if (user) {
+            user.gacha_tickets = profile.gacha_tickets;
+          }
+
+          persistTicketsDelta(telegramId, qty).catch(() => {});
+
+          return {
+            success: true,
+            code: code.code,
+            reward_type: 'gacha_tickets',
+            reward_amount: qty,
+            reward_title: `${qty} Gacha Ticket${qty > 1 ? 's' : ''}`,
+            reward_description: `Added ${qty} Gacha Ticket${qty > 1 ? 's' : ''} to your inventory`,
+            points_balance: profile.points || 0,
+            tickets_balance: profile.gacha_tickets,
+          };
+        } else if (code.reward_type === 'discount_coupon') {
+          const cData = (code.reward_data || {}) as CouponRewardData;
+          const couponSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+          const memberSuffix = Math.abs(telegramId).toString(36).toUpperCase().slice(-4);
+          const generatedCode = `UCH-${code.code.slice(0, 4)}-${couponSuffix}-${memberSuffix}`;
+
+          const newCoupon = this.createCoupon({
+            code: generatedCode,
+            discount_type: cData.discount_type || 'fixed',
+            discount_value: Number(cData.discount_value) || 1.0,
+            min_order_amount: Number(cData.min_order_amount) || 0,
+            max_discount_amount: cData.max_discount_amount !== undefined ? cData.max_discount_amount : null,
+            usage_limit: 1,
+            per_user_limit: 1,
+            customer_telegram_id: telegramId,
+            status: 'AVAILABLE',
+            is_active: true,
+            expires_at: code.expires_at || new Date(Date.now() + 30 * 86400000).toISOString(),
+          });
+
+          const discountLabel =
+            cData.discount_type === 'percentage'
+              ? `${cData.discount_value}% OFF`
+              : `$${Number(cData.discount_value).toFixed(2)} OFF`;
+
+          return {
+            success: true,
+            code: code.code,
+            reward_type: 'discount_coupon',
+            reward_amount: Number(cData.discount_value),
+            reward_title: `${discountLabel} Store Coupon`,
+            reward_description: `Coupon ${newCoupon.code} added to your wallet (Min order: $${Number(cData.min_order_amount || 0).toFixed(2)})`,
+            points_balance: profile.points || 0,
+            tickets_balance: profile.gacha_tickets || 0,
+            coupon: newCoupon,
+          };
+        } else {
+          throw new Error(`Unsupported reward type: ${code.reward_type}`);
+        }
+      } catch (rewardErr: any) {
+        // Rollback atomic increment and usage entry
+        code.times_used = Math.max(0, code.times_used - 1);
+        const uIdx = this.redeemCodeUsages.findIndex((u) => u.id === usageId);
+        if (uIdx >= 0) this.redeemCodeUsages.splice(uIdx, 1);
+        console.error('[DataStore] Reward application error:', rewardErr?.message);
+        return { success: false, error_code: 'SYSTEM_ERROR', error: 'Failed to apply reward to account' };
+      }
+    } finally {
+      releaseLock();
+    }
   }
 
   // ================= ORDERS =================
@@ -2963,6 +3388,40 @@ export class DataStore {
     return draft;
   }
 
+  // ================= UNIFIED BROADCAST CENTER =================
+  static saveBroadcastCampaign(campaign: BroadcastCampaign): void {
+    this.broadcastCampaigns.set(campaign.id, { ...campaign });
+  }
+
+  static getBroadcastCampaign(id: string): BroadcastCampaign | null {
+    const c = this.broadcastCampaigns.get(id);
+    return c ? { ...c } : null;
+  }
+
+  static getAllBroadcastCampaigns(): BroadcastCampaign[] {
+    return Array.from(this.broadcastCampaigns.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  static updateBroadcastCampaign(id: string, updates: Partial<BroadcastCampaign>): BroadcastCampaign | null {
+    const existing = this.broadcastCampaigns.get(id);
+    if (!existing) return null;
+    const updated = { ...existing, ...updates };
+    this.broadcastCampaigns.set(id, updated);
+    return { ...updated };
+  }
+
+  static getBroadcastByIdempotencyKey(key: string): BroadcastCampaign | null {
+    if (!key) return null;
+    for (const campaign of this.broadcastCampaigns.values()) {
+      if (campaign.idempotency_key === key) {
+        return { ...campaign };
+      }
+    }
+    return null;
+  }
+
   // ================= GACHA ADMIN MANAGEMENT =================
   static getAllGachaPoolsAdmin(): (GachaPool & { prizes: GachaPrize[] })[] {
     return this.gachaPools.map((pool) => {
@@ -3631,6 +4090,8 @@ export class DataStore {
     this.products = JSON.parse(JSON.stringify(initialProducts));
     this.inventory = JSON.parse(JSON.stringify(initialInventory));
     this.coupons = JSON.parse(JSON.stringify(initialCoupons));
+    this.redeemCodes = JSON.parse(JSON.stringify(initialRedeemCodes));
+    this.redeemCodeUsages = [];
     this.gachaPools = JSON.parse(JSON.stringify(initialGachaPools));
     this.gachaPrizes = JSON.parse(JSON.stringify(initialGachaPrizes));
     this.orders = [];

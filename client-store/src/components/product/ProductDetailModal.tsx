@@ -61,7 +61,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const images = product?.media && product.media.length > 0
     ? product.media.map((m) => m.url)
-    : ['https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80'];
+    : ['/placeholder.svg'];
 
   useEffect(() => {
     if (images.length > 0) {
@@ -242,7 +242,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-lg max-h-[92vh] bg-white dark:bg-[#0F1320] border rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col relative text-slate-900 dark:text-white transition-all ${modalBorderClasses}`}
+        className={`w-full max-w-lg max-h-[92vh] bg-white dark:bg-[#0B0F1D] border rounded-t-3xl sm:rounded-2xl overflow-hidden flex flex-col relative text-slate-900 dark:text-white transition-all card-3d shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.12)] ${modalBorderClasses}`}
         onClick={(e) => e.stopPropagation()}
       >
         {modalTopHighlight}
@@ -270,9 +270,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 src={modalImgSrc || images[0]}
                 alt={product.title}
                 onError={() =>
-                  setModalImgSrc(
-                    'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80'
-                  )
+                  setModalImgSrc('/placeholder.svg')
                 }
                 className="w-full h-full object-cover"
                 loading="lazy"
@@ -570,11 +568,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               String(robloxProfile?.id || '') || undefined,
               currentQuantity,
             )}
-            className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-md active:scale-[0.99] ${
+            className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-md active:scale-[0.99] cursor-pointer ${
               canProceed
-                ? tierInfo?.tier === 'mythical'
-                  ? 'bg-gradient-to-r from-amber-400 via-[#FFD166] to-amber-300 text-black hover:brightness-105 shadow-[0_4px_16px_rgba(255,209,102,0.3)]'
-                  : 'bg-amber-400 dark:bg-[#FFD166] text-black hover:bg-amber-300 dark:hover:bg-[#ffe082]'
+                ? 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
                 : 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
             }`}
           >

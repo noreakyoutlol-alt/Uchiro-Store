@@ -202,9 +202,9 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
               type="button"
               key={c.slug}
               onClick={() => onSelectCollection(c.slug)}
-              className={`group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 text-left active:scale-[0.98] shadow-sm ${
+              className={`group flex items-center justify-between p-3 rounded-2xl border transition-all duration-200 text-left active:scale-[0.98] card-3d ${
                 isSelected
-                  ? 'border-amber-400 dark:border-[#FFD166] bg-amber-50/80 dark:bg-amber-400/10 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                  ? 'border-amber-400 dark:border-[#FFD166] bg-amber-50/80 dark:bg-amber-400/10 shadow-[0_0_20px_rgba(245,158,11,0.25),inset_0_1px_0_rgba(255,255,255,0.2)]'
                   : `border-slate-200/80 dark:border-white/10 bg-white/95 dark:bg-[#0E1322] hover:border-amber-400/60 ${c.borderHoverClass}`
               }`}
             >
@@ -266,7 +266,7 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
             type="button"
             key={c.slug}
             onClick={() => onSelectCollection(c.slug)}
-            className={`group flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/90 dark:bg-[#0E1322]/90 backdrop-blur-sm hover:border-amber-400/50 transition-all duration-200 active:scale-[0.96] text-center shadow-sm min-w-0 ${c.borderHoverClass}`}
+            className={`group flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/90 dark:bg-[#0E1322]/90 backdrop-blur-sm hover:border-amber-400/50 transition-all duration-200 active:scale-[0.96] text-center card-3d min-w-0 ${c.borderHoverClass}`}
           >
             {/* Modern Rounded Container with Matching Aura */}
             <div

@@ -621,105 +621,11 @@ export const GachaPage: React.FC<GachaPageProps> = ({
       </div>
 
       {/* ========================================================= */}
-      {/* 2. FEATURED GRAND PRIZE SHOWCASE */}
+      {/* 2. ROULETTE REEL CASING & STREAMLINED SPIN CONTROLS */}
       {/* ========================================================= */}
-      {featuredPrize && (
-        <div
-          className={`rounded-2xl bg-[#0B0F1D]/95 border ${
-            featuredRarityConfig?.cardBorder || 'border-amber-500/30'
-          } p-3 shadow-lg relative overflow-hidden space-y-2.5`}
-        >
-          {/* Ambient Radial Nebula Glow */}
-          <div
-            className="absolute -right-8 -top-8 w-40 h-40 rounded-full pointer-events-none opacity-25 blur-2xl"
-            style={{
-              backgroundColor: featuredRarityConfig?.accentColor || '#F59E0B',
-            }}
-          />
-
-          {/* Header Row with Badges */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[9px] font-black uppercase tracking-wider">
-                <Crown className="w-3 h-3 text-amber-400" />
-                FEATURED GRAND PRIZE
-              </span>
-              <span
-                className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                  featuredRarityConfig?.badgeStyle || ''
-                }`}
-              >
-                {featuredRarityConfig?.label || featuredPrize.rarity}
-              </span>
-            </div>
-
-            <span className="text-[10px] font-black text-amber-400/90">
-              {featuredPrize.probability_percent}% Drop Chance
-            </span>
-          </div>
-
-          {/* Main Showcase Banner (Aspect ratio preserved, responsive) */}
-          <div className="flex items-center gap-3">
-            {/* Prize Artwork Container */}
-            <div
-              className={`w-18 h-18 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-black/60 border ${
-                featuredRarityConfig?.cardBorder || 'border-white/10'
-              } shrink-0 relative flex items-center justify-center p-1.5 shadow-md`}
-            >
-              <PrizeImage
-                src={featuredPrize.image || featuredPrize.icon_url}
-                alt={featuredPrize.name || featuredPrize.title}
-                className="w-full h-full rounded-lg"
-                iconSize="w-7 h-7"
-              />
-            </div>
-
-            {/* Details Column */}
-            <div className="space-y-1 min-w-0 flex-1">
-              <h2 className="text-sm sm:text-base font-black text-white leading-tight truncate">
-                {featuredPrize.name || featuredPrize.title}
-              </h2>
-
-              {featuredPrize.description && (
-                <p className="text-[11px] text-zinc-300 line-clamp-2 leading-relaxed">
-                  {featuredPrize.description}
-                </p>
-              )}
-
-              {/* Meta Tag Chips */}
-              <div className="flex items-center gap-2 pt-0.5 text-[10px] text-zinc-400">
-                <span className="inline-flex items-center gap-1 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  Stock: <strong className="text-white">{featuredPrize.stock}</strong> left
-                </span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1 text-zinc-400 font-medium capitalize">
-                  <ShieldCheck className="w-3 h-3 text-cyan-400" />
-                  {featuredPrize.delivery_mode.replace('_', ' ')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Next Standby Draft Teaser (if backend returned draft slot) */}
-          {nextPrize && (
-            <div className="pt-1 border-t border-white/5 flex items-center justify-between text-[9px] text-zinc-400">
-              <span className="flex items-center gap-1 text-zinc-400">
-                <Flame className="w-2.5 h-2.5 text-purple-400" />
-                Next on Deck: <strong className="text-zinc-200">{nextPrize.name || nextPrize.title}</strong>
-              </span>
-              <span className="text-purple-400 font-bold">Auto-promotes at 0 stock</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* 3. ROULETTE REEL CASING & STREAMLINED SPIN CONTROLS */}
-      {/* ========================================================= */}
-      <div className="rounded-2xl bg-[#080B15] border border-amber-500/25 p-3 space-y-3 shadow-[0_0_25px_rgba(0,0,0,0.6)] relative overflow-hidden">
+      <div className="rounded-2xl bg-[#080B15] border border-amber-500/30 p-3 space-y-3 shadow-[0_0_30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)] relative overflow-hidden card-3d">
         {/* Glowing Rim Borders */}
-        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/70 to-transparent pointer-events-none" />
         <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-purple-500/40 to-transparent pointer-events-none" />
 
         {/* Reel Viewport (Height 136px for comfortable card padding) */}
@@ -923,6 +829,124 @@ export const GachaPage: React.FC<GachaPageProps> = ({
           </div>
         )}
       </div>
+
+      {/* ========================================================= */}
+      {/* 3. FEATURED GRAND PRIZE SHOWCASE (BELOW GACHA MACHINE)     */}
+      {/* ========================================================= */}
+      {featuredPrize && (
+        <div
+          className={`rounded-2xl bg-gradient-to-b from-[#11162B] via-[#0B0F1E] to-[#070A14] border-2 ${
+            featuredRarityConfig?.cardBorder || 'border-amber-500/40'
+          } p-3.5 sm:p-4 shadow-[0_10px_30px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.15)] relative overflow-hidden space-y-3 card-3d card-3d-gold`}
+        >
+          {/* Ambient Radial Nebula Lighting */}
+          <div
+            className="absolute -right-12 -top-12 w-56 h-56 rounded-full pointer-events-none opacity-20 blur-3xl"
+            style={{
+              backgroundColor: featuredRarityConfig?.accentColor || '#F59E0B',
+            }}
+          />
+          <div
+            className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full pointer-events-none opacity-15 blur-2xl"
+            style={{
+              backgroundColor: '#6366F1',
+            }}
+          />
+
+          {/* Header Row with Badges & Real Drop Chance */}
+          <div className="flex items-center justify-between gap-2 relative z-10">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/25 to-amber-600/20 text-amber-300 border border-amber-400/50 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                <Crown className="w-3.5 h-3.5 text-amber-400" />
+                GRAND PRIZE
+              </span>
+              <span
+                className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-sm ${
+                  featuredRarityConfig?.badgeStyle || 'bg-purple-950/90 text-purple-200 border-purple-500/50'
+                }`}
+              >
+                {featuredRarityConfig?.label || featuredPrize.rarity}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 border border-white/10 text-[10px] font-black text-amber-400 shadow-sm">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>{featuredPrize.probability_percent}% Rate</span>
+            </div>
+          </div>
+
+          {/* Large Clear Artwork Area (Vertical Mobile Layout with 3D Depth) */}
+          <div className="relative w-full rounded-xl overflow-hidden bg-gradient-to-b from-[#182038] to-[#0A0E1C] border border-white/15 p-4 flex flex-col items-center justify-center min-h-[160px] sm:min-h-[190px] shadow-inner group">
+            {/* Subtle Pedestal Lighting */}
+            <div className="absolute inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none opacity-60" />
+            <div className="absolute bottom-0 inset-x-8 h-8 rounded-full bg-amber-400/15 blur-lg pointer-events-none" />
+
+            <div className="relative z-10 w-28 h-28 sm:w-36 sm:h-36 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+              <PrizeImage
+                src={featuredPrize.image || featuredPrize.icon_url}
+                alt={featuredPrize.name || featuredPrize.title}
+                className="w-full h-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
+                iconSize="w-16 h-16 sm:w-20 sm:h-20"
+              />
+            </div>
+
+            {/* Glowing Floor Rim */}
+            <div className="absolute bottom-2 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent pointer-events-none" />
+          </div>
+
+          {/* Reward Details & Metadata Strip */}
+          <div className="space-y-2.5 relative z-10">
+            <div className="text-center sm:text-left">
+              <h2 className="text-base sm:text-lg font-black text-white tracking-wide leading-tight">
+                {featuredPrize.name || featuredPrize.title}
+              </h2>
+              {featuredPrize.description && (
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed line-clamp-2">
+                  {featuredPrize.description}
+                </p>
+              )}
+            </div>
+
+            {/* Structured Real Data Spec Strip */}
+            <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center">
+                <span className="text-[9px] uppercase font-bold text-slate-400">Available Stock</span>
+                <span className="text-xs font-black text-white flex items-center gap-1 mt-0.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${featuredPrize.stock > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
+                  {featuredPrize.stock > 0 ? `${featuredPrize.stock} Units` : 'Out of Stock'}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center">
+                <span className="text-[9px] uppercase font-bold text-slate-400">Drop Odds</span>
+                <span className="text-xs font-black text-amber-400 mt-0.5">
+                  {featuredPrize.probability_percent}%
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center">
+                <span className="text-[9px] uppercase font-bold text-slate-400">Delivery</span>
+                <span className="text-xs font-black text-cyan-300 capitalize truncate mt-0.5 max-w-full px-1">
+                  {featuredPrize.delivery_mode ? featuredPrize.delivery_mode.replace('_', ' ') : 'Instant'}
+                </span>
+              </div>
+            </div>
+
+            {/* Standby Teaser (Real Data Next On Deck) */}
+            {nextPrize && (
+              <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400 px-0.5">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <Flame className="w-3 h-3 text-purple-400" />
+                  Next on Deck: <strong className="text-white font-bold">{nextPrize.name || nextPrize.title}</strong>
+                </span>
+                <span className="text-purple-400 font-bold text-[9px] uppercase tracking-wider">
+                  Auto-promotes at 0 stock
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ========================================================= */}
       {/* 4. REWARD POOL PRIZE LIST */}

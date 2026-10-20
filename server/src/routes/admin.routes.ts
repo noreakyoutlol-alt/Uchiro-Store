@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { AdminService } from '../services/admin.service';
 import { OrderService } from '../services/order.service';
-import { BroadcastService } from '../services/broadcast.service';
+import { BroadcastService, validateBroadcastParams } from '../services/broadcast.service';
 import { RequestWithAuth } from '../middleware/auth';
 import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
+import { RobuxService } from '../services/robux.service';
 
 import { handleVerifyPin } from './admin-auth.routes';
 import { IpSecurityService } from '../security/ip-security.service';
@@ -386,6 +387,75 @@ adminRouter.delete('/coupons/:id', (req: RequestWithAuth, res) => {
   });
 });
 
+// Redeem Codes Management
+adminRouter.get('/redeem-codes', (req, res) => {
+  const { search, reward_type, status } = req.query;
+  const codes = AdminService.listRedeemCodes({
+    search: search ? String(search) : undefined,
+    reward_type: reward_type ? String(reward_type) : undefined,
+    status: status ? (String(status) as any) : undefined,
+  });
+  res.json({
+    success: true,
+    data: codes,
+  });
+});
+
+adminRouter.post('/redeem-codes/generate', (_req, res) => {
+  const code = AdminService.generateUnpredictableCode();
+  res.json({
+    success: true,
+    data: { code },
+  });
+});
+
+adminRouter.get('/redeem-codes/:id', (req, res) => {
+  const code = AdminService.getRedeemCode(req.params.id);
+  res.json({
+    success: true,
+    data: code,
+  });
+});
+
+adminRouter.get('/redeem-codes/:id/usages', (req, res) => {
+  const usages = AdminService.getRedeemCodeUsages(req.params.id);
+  res.json({
+    success: true,
+    data: usages,
+  });
+});
+
+adminRouter.post('/redeem-codes', (req: RequestWithAuth, res) => {
+  const created = AdminService.createRedeemCode(req.admin!.telegram_id, req.body);
+  res.status(201).json({
+    success: true,
+    data: created,
+  });
+});
+
+adminRouter.put('/redeem-codes/:id', (req: RequestWithAuth, res) => {
+  const updated = AdminService.updateRedeemCode(req.admin!.telegram_id, req.params.id, req.body);
+  res.json({
+    success: true,
+    data: updated,
+  });
+});
+
+adminRouter.post('/redeem-codes/:id/toggle-active', (req: RequestWithAuth, res) => {
+  const toggled = AdminService.toggleRedeemCodeActive(req.admin!.telegram_id, req.params.id);
+  res.json({
+    success: true,
+    data: toggled,
+  });
+});
+
+adminRouter.delete('/redeem-codes/:id', (req: RequestWithAuth, res) => {
+  const deleted = AdminService.deleteRedeemCode(req.admin!.telegram_id, req.params.id);
+  res.json({
+    success: deleted,
+  });
+});
+
 // 7. Customers / Users
 adminRouter.get('/users', (_req, res) => {
   const users = AdminService.listUsers();
@@ -505,6 +575,69 @@ adminRouter.post('/broadcast', async (req: RequestWithAuth, res, next) => {
       success: true,
       data: result,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Broadcast Center (Unified) ─────────────────────────────────────────────────
+
+// GET /api/admin/broadcast/campaigns — list all campaigns (history)
+adminRouter.get('/broadcast/campaigns', (_req, res) => {
+  const campaigns = BroadcastService.listCampaigns();
+  res.json({ success: true, data: campaigns });
+});
+
+// GET /api/admin/broadcast/campaigns/:id — get single campaign
+adminRouter.get('/broadcast/campaigns/:id', (req, res) => {
+  const campaign = BroadcastService.getCampaign(req.params.id);
+  if (!campaign) {
+    res.status(404).json({ success: false, error: 'Campaign not found' });
+    return;
+  }
+  res.json({ success: true, data: campaign });
+});
+
+// POST /api/admin/broadcast/preview — validate + preview without creating/sending
+adminRouter.post('/broadcast/preview', async (req: RequestWithAuth, res, next) => {
+  try {
+    const params = req.body;
+    const preview = await BroadcastService.preview(params);
+    res.json({ success: true, data: preview });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/broadcast/campaigns — create a new draft campaign
+adminRouter.post('/broadcast/campaigns', async (req: RequestWithAuth, res, next) => {
+  try {
+    const { idempotency_key, ...params } = req.body;
+    const adminId = req.admin?.telegram_id ?? 0;
+    const result = await BroadcastService.createCampaign(adminId, params, idempotency_key);
+    res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/broadcast/campaigns/:id/confirm — confirm and dispatch delivery
+adminRouter.post('/broadcast/campaigns/:id/confirm', async (req: RequestWithAuth, res, next) => {
+  try {
+    const adminId = req.admin?.telegram_id ?? 0;
+    const campaign = await BroadcastService.confirmAndDispatch(adminId, req.params.id);
+    res.json({ success: true, data: campaign });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/broadcast/campaigns/:id/cancel — cancel a draft campaign
+adminRouter.post('/broadcast/campaigns/:id/cancel', (req: RequestWithAuth, res, next) => {
+  try {
+    const adminId = req.admin?.telegram_id ?? 0;
+    const campaign = BroadcastService.cancelCampaign(adminId, req.params.id);
+    res.json({ success: true, data: campaign });
   } catch (err) {
     next(err);
   }
@@ -717,3 +850,116 @@ adminRouter.get('/security/audit-logs', async (req, res, next) => {
     next(err);
   }
 });
+
+// 14. Robux Stock & Shared Pool Management (Prompt 11: Authoritative Stock & Consistency)
+adminRouter.get('/robux/stock', async (_req, res, next) => {
+  try {
+    const stock = await RobuxService.getStockConfig();
+    const available = Math.max(0, stock.total_balance - stock.reserved_balance);
+    const tiers = RobuxService.calculateTiers(stock);
+    const recentOrders = await RobuxService.getRecentOrders(10);
+
+    res.json({
+      success: true,
+      data: {
+        total_balance: stock.total_balance,
+        reserved_balance: stock.reserved_balance,
+        available_balance: available,
+        rate_per_1000: stock.rate_per_1000,
+        is_active: stock.is_active,
+        policy_gated: !stock.is_active,
+        tiers,
+        recentOrders,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.put('/robux/stock', async (req: RequestWithAuth, res, next) => {
+  try {
+    const { total, rate_per_1000, is_active, reason } = req.body;
+    const adminId = String(req.admin?.telegram_id || req.admin?.user_id || 'admin');
+
+    // Strict validation: must be an integer between 10 and 1,000,000 inclusive
+    const validation = RobuxService.validateStockAmount(total);
+    if (!validation.valid || validation.value === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_STOCK_RANGE',
+        message: validation.error,
+      });
+    }
+
+    const cleanTotal = validation.value;
+
+    // Optional rate validation
+    let cleanRate: number | undefined = undefined;
+    if (rate_per_1000 !== undefined && rate_per_1000 !== null && rate_per_1000 !== '') {
+      const numRate = Number(rate_per_1000);
+      if (isNaN(numRate) || numRate <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_RATE',
+          message: 'Rate per 1,000 Robux must be a positive number',
+        });
+      }
+      cleanRate = numRate;
+    }
+
+    try {
+      await RobuxService.setStock(adminId, cleanTotal, reason || 'Admin API stock update');
+
+      if (cleanRate !== undefined) {
+        await RobuxService.setRate(adminId, cleanRate, reason || 'Admin API rate update');
+      }
+
+      if (typeof is_active === 'boolean') {
+        await RobuxService.updateSettings(adminId, { is_active }, reason || 'Admin API status toggle');
+      }
+
+      const finalStock = await RobuxService.getStockConfig();
+      const available = Math.max(0, finalStock.total_balance - finalStock.reserved_balance);
+      const tiers = RobuxService.calculateTiers(finalStock);
+
+      AdminService.logAdminAction(Number(adminId) || 0, 'UPDATE_ROBUX_STOCK', {
+        total: finalStock.total_balance,
+        reserved: finalStock.reserved_balance,
+        available,
+        rate_per_1000: finalStock.rate_per_1000,
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          total_balance: finalStock.total_balance,
+          reserved_balance: finalStock.reserved_balance,
+          available_balance: available,
+          rate_per_1000: finalStock.rate_per_1000,
+          is_active: finalStock.is_active,
+          tiers,
+        },
+      });
+    } catch (serviceErr: any) {
+      if (serviceErr.message?.includes('STOCK_BELOW_RESERVED')) {
+        return res.status(400).json({
+          success: false,
+          error: 'STOCK_BELOW_RESERVED',
+          message: serviceErr.message,
+        });
+      }
+      if (serviceErr.message?.includes('INVALID_STOCK_RANGE') || serviceErr.message?.includes('INVALID_STOCK_AMOUNT')) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_STOCK_RANGE',
+          message: serviceErr.message,
+        });
+      }
+      throw serviceErr;
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+

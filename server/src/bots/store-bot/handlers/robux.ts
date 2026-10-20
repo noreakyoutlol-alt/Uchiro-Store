@@ -2,13 +2,13 @@ import { Context, Markup } from 'telegraf';
 import { RobuxService, RobloxAccountInfo } from '../../../services/robux.service';
 import { tgEmoji, formatTelegramHtml } from '../index';
 import { cb, urlBtn } from '../keyboards';
-import { adminBot } from '../../admin-bot';
+import { DataStore } from '../../../database/data-store';
 
 // Session state storage for multi-step Robux checkout
-interface RobuxUserSession {
-  state: 'idle' | 'awaiting_username' | 'confirming_profile';
-  selectedAmount?: number;
+export interface RobuxUserSession {
+  state: 'idle' | 'awaiting_username' | 'reviewing_account' | 'account_confirmed' | 'amount_selected';
   robloxInfo?: RobloxAccountInfo;
+  selectedAmount?: number;
   orderCode?: string;
 }
 
@@ -25,85 +25,131 @@ export function clearRobuxSession(telegramId: number): void {
   userSessions.delete(telegramId);
 }
 
+// Localized strings (Page labels, account-review info, status & errors)
+// Note: Button labels remain English as explicitly required by Prompt 11 Section 6.
+const I18N = {
+  en: {
+    menuTitle: 'BUY ROBUX — ACCOUNT REVIEW FIRST',
+    menuDesc:
+      'Please enter your exact <b>Roblox Username</b> (NOT your display name) to review and verify your account profile before choosing any Robux amount:\n\n' +
+      '<i>Example: builderman</i>\n\n' +
+      '🛡️ <b>Security Safeguard:</b> We only query public profile data from official Roblox APIs. We will <b>NEVER</b> ask for your account password, session cookies, or 2FA codes.',
+    invalidUsername:
+      '❌ <b>Invalid Roblox Username format!</b>\nRoblox usernames must be between 3 and 20 characters and contain only letters, numbers, and underscores.\n\nPlease try again:',
+    verifying: '🔍 <i>Verifying public Roblox profile via official Roblox API...</i>',
+    notFound: (u: string) =>
+      `❌ <b>Roblox Account Not Found!</b>\n` +
+      `We could not find any active public Roblox account with the username: <code>${u}</code>.\n\n` +
+      `Please check the spelling and try sending your exact username again, or click cancel:`,
+    bannedAccount:
+      '❌ <b>Account Ineligible:</b> This Roblox account is currently banned or inactive. Orders cannot be fulfilled for inactive accounts.',
+    profileReviewTitle: 'ROBLOX ACCOUNT PROFILE REVIEW',
+    usernameLabel: 'Username',
+    displayNameLabel: 'Display Name',
+    userIdLabel: 'User ID',
+    createdDateLabel: 'Account Created',
+    confirmNotice:
+      '⚠️ <b>Important Profile Confirmation:</b>\n' +
+      'Please carefully verify that this is your exact Roblox account before continuing to amount selection. Deliveries cannot be redirected once processed.\n\n' +
+      '<i>Do you confirm this account profile?</i>',
+    selectAmountTitle: 'SELECT ROBUX AMOUNT',
+    confirmedAccountLabel: 'Confirmed Account',
+    availableStockLabel: 'Available Shared Pool',
+    rateLabel: 'Current Rate',
+    selectPrompt: '<i>Choose your desired Robux amount below:</i>',
+    soldOutAlert: (d: number) => `❌ ${d} Robux is currently sold out in the shared stock pool!`,
+    policyGateTitle: 'ROBUX PURCHASE POLICY & SAFETY NOTICE',
+    policyNoticeText: (username: string, amount: number) =>
+      `👤 <b>Confirmed Account:</b> <code>${username}</code>\n` +
+      `💎 <b>Selected Amount:</b> ${amount.toLocaleString()} Robux\n\n` +
+      `⚠️ <b>Official Roblox Terms Notice:</b>\n` +
+      `Roblox's official Terms of Use (effective May 19, 2026) specify that Robux may only be acquired through channels and mechanisms provided or approved by Roblox. Third-party services for selling, transferring, or purchasing Robux without official platform authorization are prohibited.\n\n` +
+      `Because there is no documented Roblox-approved purchase or distribution integration in this project, real-money Robux purchases, QR payments, and automated fulfillments are <b>safely disabled</b> to protect your account and comply with platform terms.\n\n` +
+      `👉 <b>Official Acquisition Route:</b>\n` +
+      `Please acquire Robux or official Roblox Gift Cards directly from the official Roblox Store at <a href="https://www.roblox.com/upgrades/robux">roblox.com/upgrades/robux</a> or <a href="https://www.roblox.com/giftcards">roblox.com/giftcards</a>.\n\n` +
+      `For game accounts, digital keys, and verified catalog items, visit our Store Mini App.`,
+    paymentDisabledNotice:
+      '🛡️ <b>Payment Disabled:</b> Direct third-party Robux purchase/payment is held safely disabled pending documented Roblox authorization.',
+    cancelledNotice: 'Robux request cancelled.',
+  },
+  km: {
+    menuTitle: 'ទិញ ROBUX — ផ្ទៀងផ្ទាត់គណនីជាមុន',
+    menuDesc:
+      'សូមបញ្ចូល <b>ឈ្មោះគណនី Roblox (Username)</b> របស់អ្នក (មិនមែន Display Name ទេ) ដើម្បីពិនិត្យ និងផ្ទៀងផ្ទាត់គណនីមុនពេលជ្រើសរើសចំនួន Robux:\n\n' +
+      '<i>ឧទាហរណ៍: builderman</i>\n\n' +
+      '🛡️ <b>សុវត្ថិភាពខ្ពស់:</b> យើងផ្ទៀងផ្ទាត់តែទិន្នន័យសាធារណៈពី Roblox API ប៉ុណ្ណោះ។ យើង <b>មិនដែល</b> សួររកលេខសម្ងាត់ (Password), Cookie ឬកូដ 2FA ឡើយ។',
+    invalidUsername:
+      '❌ <b>ទម្រង់ឈ្មោះគណនីមិនត្រឹមត្រូវ!</b>\nឈ្មោះ Roblox ត្រូវមានពី 3 ដល់ 20 តួអក្សរ (អក្សរ លេខ ឬ _ តែប៉ុណ្ណោះ)។\n\nសូមសាកល្បងម្តងទៀត:',
+    verifying: '🔍 <i>កំពុងផ្ទៀងផ្ទាត់ទិន្នន័យសាធារណៈតាមរយៈ Roblox API...</i>',
+    notFound: (u: string) =>
+      `❌ <b>រកមិនឃើញគណនី Roblox ទេ!</b>\n` +
+      `យើងរកមិនឃើញគណនីសកម្មណាមួយដែលមានឈ្មោះ: <code>${u}</code> ឡើយ។\n\n` +
+      `សូមពិនិត្យអក្ខរាវិរុទ្ធ ហើយបញ្ចូលឈ្មោះម្តងទៀត ឬចុចបោះបង់:`,
+    bannedAccount:
+      '❌ <b>គណនីមិនមានសិទ្ធិ:</b> គណនី Roblox នេះត្រូវបានបិទ ឬផ្អាកដំណើរការ។ មិនអាចដំណើរការការបញ្ជាទិញបានទេ។',
+    profileReviewTitle: 'ការពិនិត្យមើលគណនី ROBLOX',
+    usernameLabel: 'ឈ្មោះគណនី (Username)',
+    displayNameLabel: 'ឈ្មោះបង្ហាញ (Display Name)',
+    userIdLabel: 'លេខសម្គាល់ (User ID)',
+    createdDateLabel: 'កាលបរិច្ឆេទបង្កើត',
+    confirmNotice:
+      '⚠️ <b>ការបញ្ជាក់គណនីសំខាន់:</b>\n' +
+      'សូមពិនិត្យឱ្យបានច្បាស់លាស់ថា នេះពិតជាគណនី Roblox របស់អ្នក មុនពេលបន្តទៅការជ្រើសរើសចំនួន Robux។\n\n' +
+      '<i>តើអ្នកបញ្ជាក់ថាគណនីនេះត្រឹមត្រូវដែរឬទេ?</i>',
+    selectAmountTitle: 'ជ្រើសរើសចំនួន ROBUX',
+    confirmedAccountLabel: 'គណនីដែលបានបញ្ជាក់',
+    availableStockLabel: 'ស្តុកដែលមានក្នុងប្រព័ន្ធ',
+    rateLabel: 'តម្លៃបច្ចុប្បន្ន',
+    selectPrompt: '<i>សូមជ្រើសរើសចំនួន Robux ខាងក្រោម:</i>',
+    soldOutAlert: (d: number) => `❌ ${d} Robux ដាច់ស្តុកហើយក្នុងប្រព័ន្ធ!`,
+    policyGateTitle: 'សេចក្តីជូនដំណឹងអំពីគោលការណ៍ និងសុវត្ថិភាព ROBUX',
+    policyNoticeText: (username: string, amount: number) =>
+      `👤 <b>គណនីដែលបានបញ្ជាក់:</b> <code>${username}</code>\n` +
+      `💎 <b>ចំនួនដែលបានជ្រើសរើស:</b> ${amount.toLocaleString()} Robux\n\n` +
+      `⚠️ <b>សេចក្តីជូនដំណឹងអំពីលក្ខខណ្ឌផ្លូវការរបស់ Roblox:</b>\n` +
+      `លក្ខខណ្ឌប្រើប្រាស់ផ្លូវការរបស់ Roblox (ចូលជាធរមានថ្ងៃទី 19 ឧសភា 2026) ចែងថា Robux អាចទទួលបានតែតាមរយៈបណ្តាញ និងយន្តការដែលបានផ្តល់ ឬអនុម័តដោយ Roblox ប៉ុណ្ណោះ។ សេវាកម្មភាគីទីបីក្នុងការលក់ ផ្ទេរ ឬទិញ Robux ដោយគ្មានការអនុញ្ញាតត្រូវបានហាមឃាត់យ៉ាងតឹងរ៉ឹង។\n\n` +
+      `ដោយសារប្រព័ន្ធនេះមិនមានកិច្ចព្រមព្រៀងចែកចាយផ្លូវការដែលបានអនុម័តពី Roblox ការទិញ Robux ដោយប្រាក់ពិត ការទូទាត់ QR និងការផ្ទេរស្វ័យប្រវត្តិត្រូវបាន <b>ផ្អាកដំណើរការដោយសុវត្ថិភាព</b> ដើម្បីការពារគណនីរបស់អ្នក។\n\n` +
+      `👉 <b>មធ្យោបាយទិញផ្លូវការ:</b>\n` +
+      `សូមទិញ Robux ឬកាត Roblox Gift Card ដោយផ្ទាល់ពី Roblox នៅ <a href="https://www.roblox.com/upgrades/robux">roblox.com/upgrades/robux</a> ឬ <a href="https://www.roblox.com/giftcards">roblox.com/giftcards</a>។`,
+    paymentDisabledNotice:
+      '🛡️ <b>ការទូទាត់ត្រូវបានបិទ:</b> ការទិញ Robux ត្រូវបានផ្អាកដំណើរការដោយសុវត្ថិភាព ដើម្បីអនុលោមតាមគោលការណ៍ផ្លូវការរបស់ Roblox។',
+    cancelledNotice: 'បានបោះបង់ការស្នើសុំ Robux។',
+  },
+};
+
+function getLang(telegramId?: number): 'en' | 'km' {
+  if (!telegramId) return 'en';
+  const pref = DataStore.getUserLanguagePreference(telegramId);
+  return pref === 'km' ? 'km' : 'en';
+}
+
 /**
- * Handle Buy Robux Menu Display
+ * Step 1: Entry Point — Account Review First (Prompt 11 Section 4)
+ * Demands Roblox Username before presenting any amount options.
  */
 export async function handleRobuxMenu(ctx: Context) {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
-  const supportUsername = (process.env.SUPPORT_TELEGRAM_USERNAME || 'uchirosupport').replace(/^@/, '');
-  const stock = await RobuxService.getStockConfig();
+  const lang = getLang(telegramId);
+  const t = I18N[lang];
 
-  // Compliance gate: Direct third-party Robux transfer held pending platform licensing verification
-  if (!stock.is_active) {
-    const text =
-      `💎 <b>BUY ROBUX SERVICES</b>\n\n` +
-      `🛡️ <b>Compliance Notice: Direct Fulfillment Verification in Progress</b>\n\n` +
-      `In adherence to digital asset platform terms of service and Roblox commercial guidelines, direct automated third-party Robux resale or transfer flows require official authorized distribution clearance.\n\n` +
-      `Direct in-chat transfers are temporarily held pending platform compliance clearance. You may browse our full verified catalog of accounts and items in the Store Mini App or contact support.\n\n` +
-      `💬 <b>Contact Support:</b> https://t.me/${supportUsername}`;
-
-    const keyboard = Markup.inlineKeyboard([
-      [urlBtn('Contact Support', `https://t.me/${supportUsername}`, 'SUPPORT')],
-      [cb('Back Home', 'cb_main_menu', 'HOME')],
-    ]);
-
-    try {
-      if (ctx.callbackQuery) {
-        await ctx.editMessageText(formatTelegramHtml(text), {
-          parse_mode: 'HTML',
-          ...keyboard,
-        });
-      } else {
-        await ctx.reply(formatTelegramHtml(text), {
-          parse_mode: 'HTML',
-          ...keyboard,
-        });
-      }
-    } catch {
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    }
-    return;
-  }
-
-  const tiers = RobuxService.calculateTiers(stock);
+  // Initialize or reset session to awaiting_username
+  const session = getRobuxSession(telegramId);
+  session.state = 'awaiting_username';
+  delete session.robloxInfo;
+  delete session.selectedAmount;
+  delete session.orderCode;
 
   const diamond = tgEmoji('DIAMOND', '💎');
 
-  let text =
-    `${diamond} <b>BUY ROBUX (INSTANT DELIVERY)</b>\n\n` +
-    `📦 <b>Current Shared Stock Pool:</b> ${stock.total_balance - stock.reserved_balance} R$\n` +
-    `💵 <b>Current Rate:</b> $${stock.rate_per_1000.toFixed(2)} per 1,000 R$\n\n` +
-    `<i>Choose your desired Robux pack below:</i>`;
+  const text =
+    `${diamond} <b>${t.menuTitle}</b>\n\n` +
+    `${t.menuDesc}`;
 
-  const buttons: any[] = [];
-  for (let i = 0; i < tiers.length; i += 2) {
-    const row: any[] = [];
-    const t1 = tiers[i];
-    if (t1) {
-      const label = t1.is_sold_out
-        ? `${t1.denomination} R$ (SOLD OUT)`
-        : `${t1.denomination} R$ — $${t1.price_usd.toFixed(2)}`;
-      row.push(Markup.button.callback(label, `cb_rbx_pack_${t1.denomination}`));
-    }
-
-    const t2 = tiers[i + 1];
-    if (t2) {
-      const label = t2.is_sold_out
-        ? `${t2.denomination} R$ (SOLD OUT)`
-        : `${t2.denomination} R$ — $${t2.price_usd.toFixed(2)}`;
-      row.push(Markup.button.callback(label, `cb_rbx_pack_${t2.denomination}`));
-    }
-    buttons.push(row);
-  }
-
-  buttons.push([cb('Back Home', 'cb_main_menu', 'HOME')]);
-
-  const keyboard = Markup.inlineKeyboard(buttons);
+  const keyboard = Markup.inlineKeyboard([
+    [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+  ]);
 
   try {
     if (ctx.callbackQuery) {
@@ -117,7 +163,7 @@ export async function handleRobuxMenu(ctx: Context) {
         ...keyboard,
       });
     }
-  } catch (err: any) {
+  } catch {
     await ctx.reply(formatTelegramHtml(text), {
       parse_mode: 'HTML',
       ...keyboard,
@@ -126,106 +172,86 @@ export async function handleRobuxMenu(ctx: Context) {
 }
 
 /**
- * Handle Denomination Selection
- */
-export async function handleSelectPack(ctx: Context, denomination: number) {
-  const telegramId = ctx.from?.id;
-  if (!telegramId) return;
-
-  const stock = await RobuxService.getStockConfig();
-  const availableRobux = stock.total_balance - stock.reserved_balance;
-
-  if (availableRobux < denomination) {
-    await ctx.answerCbQuery(
-      `❌ ${denomination} Robux is currently sold out! Please select a smaller pack.`,
-      { show_alert: true }
-    );
-    return;
-  }
-
-  const session = getRobuxSession(telegramId);
-  session.state = 'awaiting_username';
-  session.selectedAmount = denomination;
-
-  const priceUsd = Number(((denomination / 1000) * stock.rate_per_1000).toFixed(2));
-  const diamond = tgEmoji('DIAMOND', '💎');
-
-  const text =
-    `${diamond} <b>You selected: ${denomination} Robux ($${priceUsd.toFixed(2)})</b>\n\n` +
-    `👤 Please type and send your exact <b>Roblox Username</b> (NOT display name):\n` +
-    `<i>Example: builderman</i>\n\n` +
-    `⚠️ <b>Security Notice:</b> We will verify your avatar and account age. We will <b>NEVER</b> ask for your password or cookies.`;
-
-  const keyboard = Markup.inlineKeyboard([
-    [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
-  ]);
-
-  await ctx.editMessageText(formatTelegramHtml(text), {
-    parse_mode: 'HTML',
-    ...keyboard,
-  });
-}
-
-/**
- * Handle Username Input text message
+ * Step 2: Handle Username Input Text Message
+ * Resolves public profile via official Roblox API, validates eligibility, and requests confirmation.
  */
 export async function handleRobuxUsernameInput(ctx: Context, text: string): Promise<boolean> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return false;
 
   const session = getRobuxSession(telegramId);
-  if (session.state !== 'awaiting_username' || !session.selectedAmount) {
+  if (session.state !== 'awaiting_username') {
     return false;
   }
 
+  const lang = getLang(telegramId);
+  const t = I18N[lang];
   const username = text.trim();
+
+  // Validate Roblox Username format strictly
   if (username.length < 3 || username.length > 20 || !/^[a-zA-Z0-9_]+$/.test(username)) {
-    await ctx.reply(
-      '❌ <b>Invalid Roblox Username format!</b>\nRoblox usernames must be between 3 and 20 characters and contain only letters, numbers, and underscores.\n\nPlease try again:',
-      { parse_mode: 'HTML' }
-    );
+    await ctx.reply(formatTelegramHtml(t.invalidUsername), { parse_mode: 'HTML' });
     return true;
   }
 
-  const statusMsg = await ctx.reply('🔍 <i>Verifying Roblox account with Roblox API...</i>', {
-    parse_mode: 'HTML',
-  });
+  // Intermediate status indication
+  try {
+    await ctx.reply(formatTelegramHtml(t.verifying), { parse_mode: 'HTML' });
+  } catch {}
 
   const account = await RobuxService.resolveRobloxUser(username);
+
+  // Handle account not found or API failure — NEVER fabricate profile
   if (!account) {
-    await ctx.reply(
-      `❌ <b>Roblox Account Not Found!</b>\n` +
-      `We could not find any active Roblox account with the username: <code>${username}</code>.\n\n` +
-      `Please check the spelling and try sending your username again, or click cancel:`,
-      {
-        parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('❌ Cancel', 'cb_rbx_cancel')],
-        ]),
-      }
-    );
+    await ctx.reply(formatTelegramHtml(t.notFound(username)), {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+        [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
+      ]),
+    });
     return true;
   }
 
-  session.state = 'confirming_profile';
+  if (account.isBanned) {
+    await ctx.reply(formatTelegramHtml(t.bannedAccount), {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([[cb('Cancel', 'cb_rbx_cancel', 'CROSS')]]),
+    });
+    return true;
+  }
+
+  // Account verified — transition to reviewing_account state
+  session.state = 'reviewing_account';
   session.robloxInfo = account;
 
-  const stock = await RobuxService.getStockConfig();
-  const priceUsd = Number(((session.selectedAmount / 1000) * stock.rate_per_1000).toFixed(2));
+  let createdStr = '';
+  if (account.createdDate) {
+    try {
+      createdStr = new Date(account.createdDate).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      createdStr = account.createdDate;
+    }
+  }
+
+  const check = tgEmoji('CHECK', '✅');
 
   const caption =
-    `✅ <b>ROBLOX ACCOUNT FOUND!</b>\n\n` +
-    `👤 <b>Username:</b> <code>${account.username}</code>\n` +
-    `🏷️ <b>Display Name:</b> ${account.displayName}\n` +
-    `🆔 <b>User ID:</b> <code>${account.userId}</code>\n` +
-    (account.accountAgeDays !== undefined ? `📅 <b>Account Age:</b> ${account.accountAgeDays} days\n` : '') +
-    `\n💎 <b>Order:</b> ${session.selectedAmount} Robux ($${priceUsd.toFixed(2)})\n\n` +
-    `⚠️ <b>Please verify carefully:</b> Is this your public Roblox profile?`;
+    `${check} <b>${t.profileReviewTitle}</b>\n\n` +
+    `• ${t.usernameLabel}: <code>${account.username}</code>\n` +
+    `• ${t.displayNameLabel}: <b>${account.displayName}</b>\n` +
+    `• ${t.userIdLabel}: <code>${account.userId}</code>\n` +
+    (createdStr ? `• ${t.createdDateLabel}: <b>${createdStr}</b>\n` : '') +
+    `\n${t.confirmNotice}`;
 
+  // Button labels remain English as required
   const keyboard = Markup.inlineKeyboard([
-    [cb('Confirm My Username', 'cb_rbx_confirm', 'CHECK')],
-    [cb('Enter Different Username', `cb_rbx_pack_${session.selectedAmount}`, 'REFRESH')],
-    [cb('Back to Main Menu', 'cb_main_menu', 'BACK')],
+    [cb('Confirm Profile & Select Amount', 'cb_rbx_confirm_account', 'CHECK')],
+    [cb('Enter Different Username', 'cb_rbx_reenter_username', 'REFRESH')],
     [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
   ]);
 
@@ -248,70 +274,201 @@ export async function handleRobuxUsernameInput(ctx: Context, text: string): Prom
 }
 
 /**
- * Handle Account Confirmation -> Create Order & Show Payment
+ * Step 3: Handle Account Profile Confirmation -> Show Amount Options (Prompt 11 Section 4)
+ * Amount options are ONLY displayed AFTER the buyer confirms their verified profile.
  */
-export async function handleConfirmAccount(ctx: Context) {
+export async function handleConfirmAccountProfile(ctx: Context) {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
   const session = getRobuxSession(telegramId);
-  if (session.state !== 'confirming_profile' || !session.robloxInfo || !session.selectedAmount) {
-    await ctx.answerCbQuery('Session expired. Please start over.', { show_alert: true });
+  if (session.state !== 'reviewing_account' || !session.robloxInfo) {
+    await ctx.answerCbQuery('Session expired. Please review your account again.', { show_alert: true });
     return handleRobuxMenu(ctx);
   }
 
-  const { success, order, error } = await RobuxService.createOrder({
-    telegramId: String(telegramId),
-    robloxUsername: session.robloxInfo.username,
-    robloxUserId: String(session.robloxInfo.userId),
-    robuxAmount: session.selectedAmount,
-  });
+  session.state = 'account_confirmed';
 
-  if (!success || !order) {
-    await ctx.answerCbQuery(
-      error === 'INSUFFICIENT_ROBUX_STOCK'
-        ? '❌ Sorry, stock was just reserved by another buyer. Please choose a different pack.'
-        : '❌ Failed to create order. Please try again.',
-      { show_alert: true }
-    );
-    clearRobuxSession(telegramId);
-    return handleRobuxMenu(ctx);
-  }
+  const lang = getLang(telegramId);
+  const t = I18N[lang];
 
-  session.orderCode = order.order_code;
-  session.state = 'idle';
+  const stock = await RobuxService.getStockConfig();
+  const availableRobux = Math.max(0, stock.total_balance - stock.reserved_balance);
+  const tiers = RobuxService.calculateTiers(stock);
 
-  const check = tgEmoji('CHECK', '✅');
-  const receipt = tgEmoji('RECEIPT', '🧾');
-  const lightning = tgEmoji('LIGHTNING', '⚡');
+  const diamond = tgEmoji('DIAMOND', '💎');
 
   const text =
-    `${check} <b>ORDER CREATED SUCCESSFULLY!</b>\n\n` +
-    `${receipt} <b>Order Code:</b> <code>${order.order_code}</code>\n` +
-    `💎 <b>Amount:</b> ${order.robux_amount} Robux\n` +
-    `👤 <b>Roblox Account:</b> <code>${order.roblox_username}</code>\n` +
-    `💵 <b>Total Due:</b> $${order.price_usd.toFixed(2)}\n\n` +
-    `⏳ <b>Stock is reserved for 15 minutes!</b>\n` +
-    `Please proceed with payment below to receive your Robux:`;
+    `${diamond} <b>${t.selectAmountTitle}</b>\n\n` +
+    `👤 <b>${t.confirmedAccountLabel}:</b> <code>${session.robloxInfo.username}</code> (@${session.robloxInfo.displayName})\n` +
+    `📦 <b>${t.availableStockLabel}:</b> ${availableRobux.toLocaleString()} R$\n` +
+    `💵 <b>${t.rateLabel}:</b> $${stock.rate_per_1000.toFixed(2)} per 1,000 R$\n\n` +
+    `${t.selectPrompt}`;
 
-  const keyboard = Markup.inlineKeyboard([
-    [cb('Pay with KHQR / Bakong', `cb_rbx_pay_${order.order_code}`, 'FLAG_CAMBODIA')],
-    [cb('Check Payment Status', `cb_rbx_check_${order.order_code}`, 'REFRESH')],
-    [cb('Cancel Order', `cb_rbx_cancel_order_${order.order_code}`, 'CROSS')],
+  const buttons: any[] = [];
+  for (let i = 0; i < tiers.length; i += 2) {
+    const row: any[] = [];
+    const t1 = tiers[i];
+    if (t1) {
+      const label = t1.is_sold_out
+        ? `${t1.denomination} R$ (SOLD OUT)`
+        : `${t1.denomination} R$ — $${t1.price_usd.toFixed(2)}`;
+      const callback = t1.is_sold_out
+        ? `cb_rbx_soldout_${t1.denomination}`
+        : `cb_rbx_pack_${t1.denomination}`;
+      row.push(Markup.button.callback(label, callback));
+    }
+
+    const t2 = tiers[i + 1];
+    if (t2) {
+      const label = t2.is_sold_out
+        ? `${t2.denomination} R$ (SOLD OUT)`
+        : `${t2.denomination} R$ — $${t2.price_usd.toFixed(2)}`;
+      const callback = t2.is_sold_out
+        ? `cb_rbx_soldout_${t2.denomination}`
+        : `cb_rbx_pack_${t2.denomination}`;
+      row.push(Markup.button.callback(label, callback));
+    }
+    buttons.push(row);
+  }
+
+  buttons.push([
+    cb('Enter Different Username', 'cb_rbx_reenter_username', 'REFRESH'),
+    cb('Cancel', 'cb_rbx_cancel', 'CROSS'),
   ]);
 
-  await ctx.reply(formatTelegramHtml(text), {
-    parse_mode: 'HTML',
-    ...keyboard,
-  });
+  const keyboard = Markup.inlineKeyboard(buttons);
+
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch {
+    await ctx.reply(formatTelegramHtml(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  }
 }
 
 /**
- * Handle Order Cancellation
+ * Step 4: Handle Amount Selection -> Policy Gate & Official Guidance (Prompt 11 Section 5)
+ * Keeps real-money purchase safely disabled because no Roblox-approved distribution agreement exists.
  */
-export async function handleCancelRobuxOrder(ctx: Context, orderCode: string) {
-  await RobuxService.releaseReservation(orderCode);
-  clearRobuxSession(ctx.from!.id);
-  await ctx.answerCbQuery('Order cancelled and reserved stock released.', { show_alert: true });
+export async function handleSelectPack(ctx: Context, denomination: number) {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const session = getRobuxSession(telegramId);
+  if (session.state !== 'account_confirmed' || !session.robloxInfo) {
+    await ctx.answerCbQuery('Please verify your Roblox account first.', { show_alert: true });
+    return handleRobuxMenu(ctx);
+  }
+
+  const stock = await RobuxService.getStockConfig();
+  const availableRobux = Math.max(0, stock.total_balance - stock.reserved_balance);
+
+  if (availableRobux < denomination) {
+    const lang = getLang(telegramId);
+    await ctx.answerCbQuery(I18N[lang].soldOutAlert(denomination), { show_alert: true });
+    return;
+  }
+
+  session.state = 'amount_selected';
+  session.selectedAmount = denomination;
+
+  const lang = getLang(telegramId);
+  const t = I18N[lang];
+  const shield = tgEmoji('SHIELD', '🛡️');
+
+  const text =
+    `${shield} <b>${t.policyGateTitle}</b>\n\n` +
+    `${t.policyNoticeText(session.robloxInfo.username, denomination)}`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [urlBtn('Official Roblox Store', 'https://www.roblox.com/upgrades/robux', 'ROBUX')],
+    [urlBtn('Official Gift Cards', 'https://www.roblox.com/giftcards', 'GIFT')],
+    [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+  ]);
+
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch {
+    await ctx.reply(formatTelegramHtml(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  }
+}
+
+/**
+ * Handle Sold-out pack click
+ */
+export async function handleSoldOutPack(ctx: Context, denomination: number) {
+  const lang = getLang(ctx.from?.id);
+  await ctx.answerCbQuery(I18N[lang].soldOutAlert(denomination), { show_alert: true });
+}
+
+/**
+ * Handle Re-entering Username
+ */
+export async function handleReenterUsername(ctx: Context) {
+  const telegramId = ctx.from?.id;
+  if (telegramId) {
+    const session = getRobuxSession(telegramId);
+    session.state = 'awaiting_username';
+    delete session.robloxInfo;
+    delete session.selectedAmount;
+  }
   return handleRobuxMenu(ctx);
+}
+
+/**
+ * Handle Cancellation
+ */
+export async function handleCancelRobux(ctx: Context) {
+  const telegramId = ctx.from?.id;
+  if (telegramId) {
+    clearRobuxSession(telegramId);
+  }
+  try {
+    await ctx.answerCbQuery('Robux request cancelled.', { show_alert: false });
+  } catch {}
+  return handleRobuxMenu(ctx);
+}
+
+/**
+ * Handle Payment Trigger (Gated & Disabled by Policy)
+ */
+export async function handleDisabledPayment(ctx: Context) {
+  const lang = getLang(ctx.from?.id);
+  await ctx.answerCbQuery(
+    '🛡️ Robux payment is safely disabled in compliance with Roblox Terms of Use. Please use official channels.',
+    { show_alert: true }
+  );
+  await ctx.reply(formatTelegramHtml(I18N[lang].paymentDisabledNotice), {
+    parse_mode: 'HTML',
+    ...Markup.inlineKeyboard([
+      [urlBtn('Official Gift Cards', 'https://www.roblox.com/giftcards', 'GIFT')],
+      [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+    ]),
+  });
 }

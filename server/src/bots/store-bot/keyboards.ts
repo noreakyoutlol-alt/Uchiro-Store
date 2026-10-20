@@ -46,15 +46,14 @@ export function makeButton(
   const cleanLabel = stripLeadingEmoji(label);
   const hasCustomId = Boolean(customId && customId.trim() !== '');
 
-  // When custom emoji icon is displayed separately, use cleanLabel to prevent duplicate emoji.
-  // If no custom emoji icon, preserve or provide single fallback emoji.
-  let buttonText = cleanLabel;
-  if (!hasCustomId) {
-    if (label !== cleanLabel) {
-      buttonText = label;
-    } else if (fallback) {
-      buttonText = `${fallback} ${cleanLabel}`.trim();
-    }
+  // When custom emoji icon is active and label starts with that emoji's fallback,
+  // strip the leading unicode emoji to prevent duplicate emoji on Telegram clients.
+  // Otherwise, retain full label so standard clients and explicit custom labels are preserved.
+  let buttonText = label;
+  if (hasCustomId && fallback && label.startsWith(fallback)) {
+    buttonText = cleanLabel;
+  } else if (!hasCustomId && cleanLabel === label && fallback) {
+    buttonText = `${fallback} ${cleanLabel}`.trim();
   }
 
   let btn: any;
@@ -181,23 +180,23 @@ export function getMainMenuKeyboard(
 
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_gacha, 'cb_gacha_menu', 'GAMEPAD'),
+      cb(loc.btn_gacha, 'cb_gacha_menu', 'SLOT_MACHINE'),
       cb(loc.btn_daily, 'cb_daily_menu', 'GIFT'),
     ],
     [
       cb(loc.btn_vault, 'cb_vault_menu', 'BACKPACK'),
-      cb(loc.btn_orders, 'cb_orders_menu', 'RECEIPT'),
+      cb(loc.btn_orders, 'cb_orders_menu', 'SCROLL'),
     ],
     [
       cb(loc.btn_profile, 'cb_profile_menu', 'USER'),
       cb(loc.btn_language, 'cb_lang_menu', 'GLOBE'),
     ],
     [
-      cb(loc.btn_rules, 'cb_main_rules', 'DOCUMENT'),
+      cb(loc.btn_rules, 'cb_main_rules', 'SCROLL'),
       cb(loc.btn_help, 'cb_main_help', 'QUESTION'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_store, storeUrl, 'PACKAGE'),
+      createWebAppOrUrlButton(loc.btn_open_store, storeUrl, 'SHOPPING_BAGS'),
       urlBtn(loc.btn_support_admin, supportUrl, 'SUPPORT'),
     ],
   ]);
@@ -242,6 +241,7 @@ export function buildProfileKeyboard(
     ],
     [
       cb(loc.btn_view_vault, 'cb_vault_menu', 'BACKPACK'),
+      cb('Redeem Code', 'cb_redeem_code', 'TICKET'),
     ],
     [
       createWebAppOrUrlButton(loc.btn_open_profile_webapp, profileWebUrl, 'PACKAGE'),

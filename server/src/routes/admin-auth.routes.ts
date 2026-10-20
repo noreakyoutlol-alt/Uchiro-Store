@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { pinMatches, isAdminPinConfigured, issueAdminSession } from '../auth/admin-session';
 import { IpSecurityService } from '../security/ip-security.service';
 import { getClientIp } from '../middleware/ip-block.middleware';
+import { adminLoginLimiter } from '../middleware/rate-limiter';
 
 export const adminAuthRouter = Router();
 
@@ -31,23 +32,36 @@ export const handleVerifyPin = async (req: Request, res: Response): Promise<void
   const submittedPin = typeof body.pin === 'string' ? body.pin.trim() : '';
   const configuredPin = String(process.env.ADMIN_SECRET_PIN || process.env.ADMIN_PIN || process.env.ADMIN_PANEL_PIN || '').trim();
 
-  // 2. Validate PIN
-  const isMatch = configuredPin
-    ? pinMatches(submittedPin)
-    : (process.env.NODE_ENV !== 'production' && submittedPin === '1686');
+  // 2. Validate configuration - fail securely if not configured
+  if (!configuredPin) {
+    res.status(503).json({
+      success: false,
+      error: 'ADMIN_PIN_NOT_CONFIGURED',
+      message: 'Admin PIN authentication is not configured on the server. Please set ADMIN_SECRET_PIN in server environment.',
+    });
+    return;
+  }
+
+  // Validate submitted PIN using constant-time hash comparison
+  const isMatch = pinMatches(submittedPin);
 
   if (isMatch) {
     // Record successful login (clears failed attempts counter)
     await IpSecurityService.recordSuccessfulLogin(clientIp, userAgent);
 
-    let sessionToken = 'uchiro-admin-master-session-token';
-    let expiresAt = Date.now() + 2 * 60 * 60 * 1000;
+    let sessionToken: string;
+    let expiresAt: number;
     try {
       const session = issueAdminSession('admin');
       sessionToken = session.token;
       expiresAt = session.expiresAt;
     } catch {
-      // Fallback to token if session secret signing is unavailable
+      res.status(500).json({
+        success: false,
+        error: 'SESSION_SIGNING_FAILED',
+        message: 'Failed to issue admin session token. Please ensure ADMIN_SESSION_SECRET is configured with at least 32 characters.',
+      });
+      return;
     }
 
     res.json({
@@ -83,6 +97,6 @@ export const handleVerifyPin = async (req: Request, res: Response): Promise<void
   });
 };
 
-// Support mounting both at root and under /api
-adminAuthRouter.post('/api/admin/verify-pin', handleVerifyPin);
-adminAuthRouter.post('/admin/verify-pin', handleVerifyPin);
+// Support mounting both at root and under /api with rate limiting
+adminAuthRouter.post('/api/admin/verify-pin', adminLoginLimiter, handleVerifyPin);
+adminAuthRouter.post('/admin/verify-pin', adminLoginLimiter, handleVerifyPin);

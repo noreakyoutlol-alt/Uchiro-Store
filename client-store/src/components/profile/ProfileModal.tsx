@@ -13,11 +13,13 @@ import {
   Tag,
   Headphones,
   ExternalLink,
+  Gift,
 } from 'lucide-react';
 import { TelegramUser, Profile, Order, Coupon } from '../../types';
 import { StoreAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
+import { RedeemCodeModal } from './RedeemCodeModal';
 
 export interface ProfileModalProps {
   isOpen: boolean;
@@ -48,6 +50,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     text: string;
   } | null>(null);
   const [showOrdersList, setShowOrdersList] = useState(false);
+  const [isRedeemOpen, setIsRedeemOpen] = useState(false);
   const [userPoints, setUserPoints] = useState<number>(profile?.points ?? 0);
   const [canClaimDaily, setCanClaimDaily] = useState(true);
 
@@ -239,6 +242,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </span>
         </button>
 
+        {/* Redeem Code Button */}
+        <button
+          type="button"
+          onClick={() => setIsRedeemOpen(true)}
+          className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/15 to-indigo-500/15 hover:from-amber-500/25 hover:to-indigo-500/25 border border-amber-500/30 text-amber-300 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm cursor-pointer"
+        >
+          <Gift className="w-3.5 h-3.5 text-amber-400" />
+          <span>Redeem Code</span>
+        </button>
+
         {/* Collapsible Order History */}
         {showOrdersList && (
           <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 space-y-2 animate-fadeIn">
@@ -306,6 +319,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           </div>
         </div>
       </div>
+
+      <RedeemCodeModal
+        isOpen={isRedeemOpen}
+        onClose={() => setIsRedeemOpen(false)}
+        onSuccess={(res) => {
+          if (res.points_balance !== undefined) {
+            setUserPoints(res.points_balance);
+          }
+          if (onRefreshProfile) onRefreshProfile();
+        }}
+      />
     </div>
   );
 };

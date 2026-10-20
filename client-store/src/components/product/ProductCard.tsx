@@ -89,8 +89,7 @@ interface ProductCardProps {
   onQuickBuy?: (product: Product) => void;
 }
 
-const FALLBACK_IMAGE =
-  'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&auto=format&fit=crop&q=80';
+const FALLBACK_IMAGE = '/placeholder.svg';
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
@@ -200,34 +199,34 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     );
   };
 
-  // Card container styling based on tier
-  let containerTierClasses = 'border-slate-200/90 dark:border-white/10 hover:border-amber-400/60 dark:hover:border-amber-400/40 shadow-sm';
+  // Card container styling based on tier with 3D depth
+  let containerTierClasses = 'card-3d border-slate-200/90 dark:border-white/10 hover:border-amber-400/60 dark:hover:border-amber-400/40 shadow-sm';
   let topHighlight = null;
 
   if (tierInfo.tier === 'mythical') {
     containerTierClasses =
-      'border-purple-500/40 dark:border-purple-500/50 hover:border-purple-400 dark:hover:border-purple-300 shadow-[0_4px_20px_-4px_rgba(168,85,247,0.18)] dark:shadow-[0_4px_24px_-4px_rgba(168,85,247,0.22)]';
+      'card-3d card-3d-purple border-purple-500/40 dark:border-purple-500/50 hover:border-purple-400 dark:hover:border-purple-300 shadow-[0_4px_20px_-4px_rgba(168,85,247,0.18)] dark:shadow-[0_4px_24px_-4px_rgba(168,85,247,0.22)]';
     topHighlight = (
-      <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-purple-400/70 to-transparent shrink-0" />
+      <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-purple-400/80 to-transparent shrink-0" />
     );
   } else if (tierInfo.tier === 'rare') {
     containerTierClasses =
-      'border-cyan-500/35 dark:border-cyan-500/45 hover:border-cyan-400 dark:hover:border-cyan-300 shadow-[0_4px_20px_-4px_rgba(6,182,212,0.14)] dark:shadow-[0_4px_24px_-4px_rgba(6,182,212,0.18)]';
+      'card-3d card-3d-cyan border-cyan-500/35 dark:border-cyan-500/45 hover:border-cyan-400 dark:hover:border-cyan-300 shadow-[0_4px_20px_-4px_rgba(6,182,212,0.14)] dark:shadow-[0_4px_24px_-4px_rgba(6,182,212,0.18)]';
     topHighlight = (
-      <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent shrink-0" />
+      <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent shrink-0" />
     );
   } else if (tierInfo.tier === 'special') {
     containerTierClasses =
-      'border-amber-500/35 dark:border-amber-500/45 hover:border-amber-400 dark:hover:border-amber-300 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.12)] dark:shadow-[0_4px_20px_-4px_rgba(245,158,11,0.16)]';
+      'card-3d card-3d-gold border-amber-500/35 dark:border-amber-500/45 hover:border-amber-400 dark:hover:border-amber-300 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.12)] dark:shadow-[0_4px_20px_-4px_rgba(245,158,11,0.16)]';
     topHighlight = (
-      <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-400/70 to-transparent shrink-0" />
+      <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-400/80 to-transparent shrink-0" />
     );
   }
 
   return (
     <div
       onClick={() => onSelect(product)}
-      className={`group flex flex-col h-full bg-white dark:bg-[#0E1322] border rounded-xl overflow-hidden transition-all duration-150 cursor-pointer select-none ${containerTierClasses} ${
+      className={`group flex flex-col h-full bg-white dark:bg-[#0E1322] border rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${containerTierClasses} ${
         isSoldOut ? 'opacity-85 grayscale-[20%]' : ''
       }`}
     >
@@ -349,12 +348,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 onSelect(product);
               }
             }}
-            className={`py-1.5 px-2.5 min-h-[30px] text-xs font-bold rounded-lg transition-all shrink-0 ${
+            className={`py-1.5 px-3 min-h-[30px] text-xs font-black rounded-lg transition-all shrink-0 cursor-pointer ${
               isSoldOut
                 ? 'bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                : tierInfo.tier === 'mythical'
-                ? 'bg-gradient-to-r from-amber-400 to-[#FFD166] text-slate-950 hover:from-amber-300 hover:to-[#ffe082] active:scale-95 shadow-sm font-black'
-                : 'bg-amber-400 dark:bg-[#FFD166] text-slate-950 hover:bg-amber-300 dark:hover:bg-[#ffe082] active:scale-95 shadow-sm font-black'
+                : 'btn-3d-gold hover:brightness-110 active:scale-95'
             }`}
           >
             {isSoldOut ? 'Sold Out' : 'Buy Now'}

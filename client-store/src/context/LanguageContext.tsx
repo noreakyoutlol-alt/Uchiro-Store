@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { StoreAPI } from '../services/api';
 
 export type Language = 'en' | 'km';
 
@@ -124,6 +125,35 @@ const translations = {
     music_toggle: 'Background Music',
     support_tickets: 'Support Tickets',
     open_support_ticket: 'Contact Support',
+
+    // Redeem Code System (Prompt 12)
+    redeem_code_entry_title: 'Redeem Code',
+    redeem_code_entry_desc: 'Enter your promo or gift code to claim points, gacha tickets, or coupons.',
+    redeem_code_modal_title: 'Redeem Promo Code',
+    redeem_code_modal_subtitle: 'Enter your voucher or gift code to receive instant points, tickets, or discount coupons.',
+    redeem_code_input_label: 'Code',
+    redeem_code_placeholder: 'e.g. UCH-GIFT-2025',
+    redeem_code_btn_submit: 'Redeem Code',
+    redeem_code_btn_submitting: 'Redeeming...',
+    redeem_code_btn_cancel: 'Cancel',
+    redeem_code_btn_close: 'Close',
+    redeem_code_btn_copy: 'Copy',
+    redeem_code_btn_copied: 'Copied!',
+    redeem_code_success_heading: 'Code Redeemed Successfully!',
+    redeem_code_success_points: 'Reward points have been added to your account balance.',
+    redeem_code_success_tickets: 'Gacha tickets have been added to your inventory.',
+    redeem_code_success_coupon: 'A discount coupon has been added to your wallet for checkout.',
+    redeem_code_new_balance_pts: 'New Points Balance',
+    redeem_code_new_balance_tickets: 'New Tickets Balance',
+    redeem_code_coupon_ready: 'Your discount coupon is ready to use in checkout!',
+    redeem_code_err_required: 'Please enter a redeem code.',
+    redeem_code_err_invalid: 'Invalid or unrecognized redeem code. Please check and try again.',
+    redeem_code_err_expired: 'This redeem code has expired.',
+    redeem_code_err_disabled: 'This redeem code is currently inactive.',
+    redeem_code_err_exhausted: 'This code has reached its maximum total redemption limit.',
+    redeem_code_err_limit: 'You have already redeemed this code.',
+    redeem_code_err_unauthorized: 'Please authenticate with Telegram to redeem codes.',
+    redeem_code_err_system: 'Unable to redeem code. Please try again later.',
   },
   km: {
     // Navigation & Tabs
@@ -246,6 +276,35 @@ const translations = {
     music_toggle: 'តន្ត្រីផ្ទៃខាងក្រោយ',
     support_tickets: 'ជំនួយ និងសេវាកម្ម',
     open_support_ticket: 'ទាក់ទងផ្នែកជំនួយ',
+
+    // Redeem Code System (Prompt 12)
+    redeem_code_entry_title: 'ប្តូរកូដរង្វាន់ (Redeem Code)',
+    redeem_code_entry_desc: 'បញ្ចូលកូដប្រូម៉ូសិន ឬកូដកាដូរបស់អ្នក ដើម្បីទទួលបានពិន្ទុ សំបុត្រកាឆា ឬប័ណ្ណបញ្ចុះតម្លៃ។',
+    redeem_code_modal_title: 'ប្តូរកូដរង្វាន់ (Redeem Code)',
+    redeem_code_modal_subtitle: 'បញ្ចូលកូដប្រូម៉ូសិន ឬកូដកាដូរបស់អ្នក ដើម្បីទទួលបានពិន្ទុ សំបុត្រកាឆា ឬប័ណ្ណបញ្ចុះតម្លៃភ្លាមៗ។',
+    redeem_code_input_label: 'កូដរង្វាន់',
+    redeem_code_placeholder: 'ឧ. UCH-GIFT-2025',
+    redeem_code_btn_submit: 'Redeem Code',
+    redeem_code_btn_submitting: 'Redeeming...',
+    redeem_code_btn_cancel: 'Cancel',
+    redeem_code_btn_close: 'Close',
+    redeem_code_btn_copy: 'Copy',
+    redeem_code_btn_copied: 'Copied!',
+    redeem_code_success_heading: 'ប្តូរកូដបានជោគជ័យ!',
+    redeem_code_success_points: 'ពិន្ទុរង្វាន់ត្រូវបានបញ្ចូលទៅក្នុងគណនីរបស់អ្នក។',
+    redeem_code_success_tickets: 'សំបុត្រកាឆាត្រូវបានបញ្ចូលទៅក្នុងកាតាបរបស់អ្នក។',
+    redeem_code_success_coupon: 'ប័ណ្ណបញ្ចុះតម្លៃត្រូវបានរក្សាទុកក្នុងកាបូបរបស់អ្នកសម្រាប់កុម្ម៉ង់ទំនិញ។',
+    redeem_code_new_balance_pts: 'ពិន្ទុសរុបថ្មី',
+    redeem_code_new_balance_tickets: 'សំបុត្រកាឆាសរុបថ្មី',
+    redeem_code_coupon_ready: 'ប័ណ្ណបញ្ចុះតម្លៃរបស់អ្នករួចរាល់សម្រាប់ប្រើប្រាស់ក្នុងពេលទូទាត់ប្រាក់!',
+    redeem_code_err_required: 'សូមបញ្ចូលកូដដើម្បីប្តូរយករង្វាន់។',
+    redeem_code_err_invalid: 'កូដមិនត្រឹមត្រូវទេ។ សូមពិនិត្យមើលឡើងវិញ។',
+    redeem_code_err_expired: 'កូដនេះបានផុតកំណត់ហើយ។',
+    redeem_code_err_disabled: 'កូដនេះត្រូវបានបិទដំណើរការជាបណ្តោះអាសន្ន។',
+    redeem_code_err_exhausted: 'កូដនេះត្រូវបានប្រើប្រាស់អស់កំណត់ហើយ។',
+    redeem_code_err_limit: 'អ្នកបានប្តូរកូដនេះរួចរាល់ហើយ។',
+    redeem_code_err_unauthorized: 'សូមចូលគណនី Telegram ដើម្បីប្តូរកូដ។',
+    redeem_code_err_system: 'មិនអាចប្តូរកូដបានទេ។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។',
   },
 };
 
@@ -268,8 +327,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const handleSetLanguage = (lang: 'km' | 'en') => {
     setLanguage(lang);
-    localStorage.setItem('uchiro_lang', lang);
-    localStorage.setItem('uchiro_store_lang', lang);
+    try {
+      localStorage.setItem('uchiro_lang', lang);
+      localStorage.setItem('uchiro_store_lang', lang);
+    } catch {}
+    StoreAPI.setUserLanguage(lang).catch(() => {});
   };
 
   const t = (key: keyof typeof translations.en): string => {

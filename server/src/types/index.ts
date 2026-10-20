@@ -510,6 +510,7 @@ export type PointTransactionType =
   | 'gacha_ticket'
   | 'gacha_win'
   | 'coupon_redemption'
+  | 'redeem_code'
   | 'daily_reward'
   | 'streak_bonus'
   | 'refund_reversal'
@@ -575,4 +576,132 @@ export interface StoreSettings {
   low_stock_threshold: number;
   default_warranty_days: number;
 }
+
+// ================= BROADCAST CENTER TYPES =================
+export type BroadcastType = 'text_only' | 'text_shop_now' | 'text_custom_button' | 'media_caption';
+export type BroadcastMediaType = 'photo' | 'video';
+export type BroadcastAudience = 'all' | 'km' | 'en';
+export type BroadcastStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface BroadcastButtonConfig {
+  label: string;
+  url: string;
+}
+
+export interface BroadcastCampaign {
+  id: string;
+  type: BroadcastType;
+  audience: BroadcastAudience;
+  text?: string;
+  text_km?: string;
+  text_en?: string;
+  media_type?: BroadcastMediaType;
+  media_url?: string;
+  button?: BroadcastButtonConfig;
+  status: BroadcastStatus;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  created_by_admin: string | number;
+  idempotency_key?: string;
+  target_count: number;
+  sent_count: number;
+  failed_count: number;
+  blocked_count: number;
+  skipped_count: number;
+  error_message?: string;
+}
+
+export interface CreateBroadcastParams {
+  type: BroadcastType;
+  audience?: BroadcastAudience;
+  text?: string;
+  text_km?: string;
+  text_en?: string;
+  media_type?: BroadcastMediaType;
+  media_url?: string;
+  button?: BroadcastButtonConfig;
+  idempotency_key?: string;
+}
+
+export interface BroadcastPreview {
+  type: BroadcastType;
+  audience: BroadcastAudience;
+  target_count: number;
+  preview_en: {
+    text: string;
+    caption?: string;
+    media_type?: BroadcastMediaType;
+    media_url?: string;
+    button?: BroadcastButtonConfig;
+  };
+  preview_km: {
+    text: string;
+    caption?: string;
+    media_type?: BroadcastMediaType;
+    media_url?: string;
+    button?: BroadcastButtonConfig;
+  };
+  is_bilingual: boolean;
+}
+
+export type RedeemRewardType = 'points' | 'gacha_tickets' | 'discount_coupon';
+export type RedeemCodeUseMode = 'single_use' | 'one_per_member' | 'reusable';
+
+export interface CouponRewardData {
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  min_order_amount: number;
+  max_discount_amount?: number | null;
+}
+
+export interface RedeemCode {
+  id: string;
+  code: string;
+  reward_type: RedeemRewardType;
+  reward_amount: number;
+  reward_data: CouponRewardData | Record<string, any>;
+  use_mode: RedeemCodeUseMode;
+  max_uses: number | null;
+  times_used: number;
+  per_user_limit: number;
+  is_active: boolean;
+  expires_at: string | null;
+  created_by?: string | number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RedeemCodeUsage {
+  id: string;
+  code_id: string;
+  code: string;
+  telegram_id: number;
+  reward_type: RedeemRewardType;
+  reward_value: number;
+  reward_data: Record<string, any>;
+  created_at: string;
+}
+
+export interface RedeemCodeResult {
+  success: boolean;
+  code?: string;
+  reward_type?: RedeemRewardType;
+  reward_amount?: number;
+  reward_title?: string;
+  reward_description?: string;
+  points_balance?: number;
+  tickets_balance?: number;
+  coupon?: Coupon;
+  error?: string;
+  error_code?:
+    | 'INVALID_CODE'
+    | 'CODE_EXPIRED'
+    | 'CODE_DISABLED'
+    | 'CODE_EXHAUSTED'
+    | 'MEMBER_LIMIT_REACHED'
+    | 'UNAUTHORIZED'
+    | 'SYSTEM_ERROR';
+}
+
 

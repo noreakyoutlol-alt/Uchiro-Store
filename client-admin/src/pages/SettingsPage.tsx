@@ -11,6 +11,8 @@ import {
   Gift,
   Loader2,
   BellRing,
+  Gem,
+  Info,
 } from 'lucide-react';
 import { AdminAPI } from '../services/api';
 import { StoreSettings } from '../types';
@@ -39,6 +41,22 @@ export const SettingsPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Robux Shared Stock Pool State (Prompt 11: Authoritative Consistency & Validation)
+  const [robuxStock, setRobuxStock] = useState<{
+    total_balance: number;
+    reserved_balance: number;
+    available_balance: number;
+    rate_per_1000: number;
+    is_active: boolean;
+    policy_gated?: boolean;
+    tiers?: any[];
+  } | null>(null);
+  const [robuxTotalInput, setRobuxTotalInput] = useState<string>('0');
+  const [robuxRateInput, setRobuxRateInput] = useState<string>('3.50');
+  const [isSavingRobux, setIsSavingRobux] = useState(false);
+  const [robuxError, setRobuxError] = useState<string | null>(null);
+  const [robuxSuccess, setRobuxSuccess] = useState(false);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -46,14 +64,90 @@ export const SettingsPage: React.FC = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const data = await AdminAPI.getSettings();
-      if (data) {
-        setSettings((prev) => ({ ...prev, ...data }));
+      const [settingsData, robuxData] = await Promise.allSettled([
+        AdminAPI.getSettings(),
+        AdminAPI.getRobuxStock(),
+      ]);
+
+      if (settingsData.status === 'fulfilled' && settingsData.value) {
+        setSettings((prev) => ({ ...prev, ...settingsData.value }));
+      }
+      if (robuxData.status === 'fulfilled' && robuxData.value) {
+        setRobuxStock(robuxData.value);
+        setRobuxTotalInput(String(robuxData.value.total_balance));
+        setRobuxRateInput(String(robuxData.value.rate_per_1000));
       }
     } catch (err: any) {
       console.error('Failed to load store settings:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const validateRobuxStockInput = (val: string): { valid: boolean; error?: string; value?: number } => {
+    if (!val || val.trim() === '') {
+      return { valid: false, error: 'Stock quantity is required and cannot be empty.' };
+    }
+    const num = Number(val.trim());
+    if (isNaN(num) || !Number.isFinite(num)) {
+      return { valid: false, error: 'Stock quantity must be a valid numeric integer.' };
+    }
+    if (!Number.isInteger(num)) {
+      return { valid: false, error: 'Stock quantity cannot have decimal values.' };
+    }
+    if (num < 10) {
+      return { valid: false, error: 'Stock quantity cannot be less than 10 Robux.' };
+    }
+    if (num > 1000000) {
+      return { valid: false, error: 'Stock quantity cannot exceed 1,000,000 Robux.' };
+    }
+    if (robuxStock && num < robuxStock.reserved_balance) {
+      return {
+        valid: false,
+        error: `Requested stock (${num.toLocaleString()} R$) cannot be less than active reserved commitments (${robuxStock.reserved_balance.toLocaleString()} R$).`,
+      };
+    }
+    return { valid: true, value: num };
+  };
+
+  const handleSaveRobuxStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRobuxError(null);
+    setRobuxSuccess(false);
+
+    const validation = validateRobuxStockInput(robuxTotalInput);
+    if (!validation.valid || validation.value === undefined) {
+      setRobuxError(validation.error || 'Invalid stock quantity.');
+      return;
+    }
+
+    const rateNum = Number(robuxRateInput.trim());
+    if (isNaN(rateNum) || rateNum <= 0) {
+      setRobuxError('Rate per 1,000 Robux must be a positive number.');
+      return;
+    }
+
+    setIsSavingRobux(true);
+    try {
+      const updated = await AdminAPI.updateRobuxStock({
+        total: validation.value,
+        rate_per_1000: rateNum,
+        reason: 'Admin Web Portal Stock Adjustment',
+      });
+
+      if (updated) {
+        setRobuxStock(updated);
+        setRobuxTotalInput(String(updated.total_balance));
+        setRobuxRateInput(String(updated.rate_per_1000));
+        setRobuxSuccess(true);
+        setTimeout(() => setRobuxSuccess(false), 4000);
+      }
+    } catch (err: any) {
+      const serverMsg =
+        err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to update Robux stock.';
+      setRobuxError(serverMsg);
+    } finally {
+      setIsSavingRobux(false);
     }
   };
 
@@ -367,6 +461,143 @@ export const SettingsPage: React.FC = () => {
                 Triggers admin notification bot when product stock falls below or equal to this.
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Robux Shared Stock Pool & Inventory Consistency (Prompt 11 Section 1 & 2) */}
+        <div className="bg-[#111622] border border-amber-500/20 rounded-2xl p-5 space-y-4 shadow-xl relative overflow-hidden">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Gem className="w-4 h-4 text-amber-400" />
+              <div>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">
+                  Robux Shared Inventory & Policy Gate
+                </h3>
+                <span className="text-[10px] text-slate-400">
+                  Canonical shared pool authoritative source of truth (10 – 1,000,000 R$)
+                </span>
+              </div>
+            </div>
+
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              Purchases Safely Gated
+            </span>
+          </div>
+
+          {/* Compliance Banner */}
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2.5 text-slate-300 text-xs">
+            <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-bold text-amber-300 block">Roblox Terms of Use Compliance (May 19, 2026)</span>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Third-party services for selling, transferring, or purchasing Robux without official platform authorization are prohibited. Real-money purchase, QR generation, and automated fulfillment are safely disabled by default.
+              </p>
+            </div>
+          </div>
+
+          {/* Live Inventory Status Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-black/40 border border-white/10 rounded-xl p-3">
+              <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Pool Stock</span>
+              <span className="text-lg font-black text-white">
+                {robuxStock ? robuxStock.total_balance.toLocaleString() : '—'} <span className="text-xs text-amber-400 font-bold">R$</span>
+              </span>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-xl p-3">
+              <span className="text-[10px] uppercase font-bold text-slate-500 block">Reserved in Checkout</span>
+              <span className="text-lg font-black text-amber-400">
+                {robuxStock ? robuxStock.reserved_balance.toLocaleString() : '0'} <span className="text-xs text-slate-400 font-bold">R$</span>
+              </span>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-xl p-3">
+              <span className="text-[10px] uppercase font-bold text-slate-500 block">Actual Available</span>
+              <span className="text-lg font-black text-emerald-400">
+                {robuxStock ? robuxStock.available_balance.toLocaleString() : '—'} <span className="text-xs text-emerald-400 font-bold">R$</span>
+              </span>
+            </div>
+
+            <div className="bg-black/40 border border-white/10 rounded-xl p-3">
+              <span className="text-[10px] uppercase font-bold text-slate-500 block">Rate / 1k Robux</span>
+              <span className="text-lg font-black text-indigo-400">
+                ${robuxStock ? robuxStock.rate_per_1000.toFixed(2) : '3.50'}
+              </span>
+            </div>
+          </div>
+
+          {/* Update Stock Form */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                Set Total Robux Inventory (10 – 1,000,000)
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="1000000"
+                step="1"
+                value={robuxTotalInput}
+                onChange={(e) => {
+                  setRobuxTotalInput(e.target.value);
+                  setRobuxError(null);
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-500 font-mono"
+                placeholder="e.g. 100"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Must be an integer between 10 and 1,000,000. Cannot be less than active reserved stock.
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                Rate per 1,000 Robux (USD)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.10"
+                value={robuxRateInput}
+                onChange={(e) => setRobuxRateInput(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-amber-500 font-mono"
+                placeholder="3.50"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Price rate applied to derived Robux pack denominations.
+              </span>
+            </div>
+          </div>
+
+          {/* Error & Success Feedback */}
+          {robuxError && (
+            <div className="flex items-center gap-2 text-rose-400 text-xs font-bold bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{robuxError}</span>
+            </div>
+          )}
+
+          {robuxSuccess && (
+            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 animate-fadeIn">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>Authoritative Robux Stock successfully updated and synced across Store & Bot!</span>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              onClick={handleSaveRobuxStock}
+              disabled={isSavingRobux}
+              className="py-2.5 px-5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-600/30"
+            >
+              {isSavingRobux ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              <span>Update Robux Inventory Pool</span>
+            </button>
           </div>
         </div>
 

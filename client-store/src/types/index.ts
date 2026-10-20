@@ -372,6 +372,7 @@ export type PointTransactionType =
   | 'gacha_ticket'
   | 'gacha_win'
   | 'coupon_redemption'
+  | 'redeem_code'
   | 'daily_reward'
   | 'streak_bonus'
   | 'refund_reversal'
@@ -405,6 +406,19 @@ export interface DailyRewardStatus {
   reward_points: number;
   total_check_ins?: number;
   streak_days?: DailyStreakDay[];
+}
+
+export type RedeemRewardType = 'points' | 'gacha_tickets' | 'discount_coupon';
+
+export interface RedeemCodeResult {
+  code: string;
+  reward_type: RedeemRewardType;
+  reward_amount: number;
+  reward_title: string;
+  reward_description: string;
+  points_balance?: number;
+  tickets_balance?: number;
+  coupon?: Coupon;
 }
 
 declare global {

@@ -1,7 +1,8 @@
 import { DataStore } from '../database/data-store';
-import { Product, Category, InventoryItem, Coupon, Order, GachaClaim, SupportTicket } from '../types';
+import { Product, Category, InventoryItem, Coupon, Order, GachaClaim, SupportTicket, RedeemCode } from '../types';
 import { OrderService } from './order.service';
 import { NotificationService } from './notification.service';
+import { RedeemCodeService, CreateRedeemCodeInput, RedeemCodeFilter } from './redeem.service';
 import { AppError } from '../middleware/error-handler';
 
 export class AdminService {
@@ -313,6 +314,47 @@ export class AdminService {
     const deleted = DataStore.deleteCoupon(couponId);
     DataStore.logAdminAction(adminTelegramId, 'DELETE_COUPON', { couponId, deleted });
     return deleted;
+  }
+
+  // Redeem Codes
+  static listRedeemCodes(filters?: RedeemCodeFilter): RedeemCode[] {
+    return RedeemCodeService.listCodes(filters);
+  }
+
+  static getRedeemCode(codeId: string): RedeemCode {
+    return RedeemCodeService.getCodeById(codeId);
+  }
+
+  static createRedeemCode(adminTelegramId: number, input: CreateRedeemCodeInput): RedeemCode {
+    return RedeemCodeService.createCode(adminTelegramId, input);
+  }
+
+  static updateRedeemCode(
+    adminTelegramId: number,
+    codeId: string,
+    updates: Partial<Pick<RedeemCode, 'is_active' | 'expires_at' | 'max_uses' | 'per_user_limit'>>
+  ): RedeemCode {
+    return RedeemCodeService.updateCode(adminTelegramId, codeId, updates);
+  }
+
+  static toggleRedeemCodeActive(adminTelegramId: number, codeId: string): RedeemCode {
+    return RedeemCodeService.toggleActive(adminTelegramId, codeId);
+  }
+
+  static deactivateRedeemCode(adminTelegramId: number, codeId: string): RedeemCode {
+    return RedeemCodeService.deactivateCode(adminTelegramId, codeId);
+  }
+
+  static deleteRedeemCode(adminTelegramId: number, codeId: string): boolean {
+    return RedeemCodeService.deleteCode(adminTelegramId, codeId);
+  }
+
+  static getRedeemCodeUsages(codeId: string) {
+    return RedeemCodeService.getCodeUsages(codeId);
+  }
+
+  static generateUnpredictableCode(prefix?: string): string {
+    return RedeemCodeService.generateUnpredictableCode(prefix);
   }
 
   // Users

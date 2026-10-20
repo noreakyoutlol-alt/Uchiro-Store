@@ -18,6 +18,8 @@ import {
   handleProfileMenu,
   handlePointsLedger,
   handleRedeemPoints,
+  handleRedeemCodeMenu,
+  handleRedeemCommand,
 } from './handlers/profile';
 import {
   handleMainRules,
@@ -62,8 +64,11 @@ import {
   handleRobuxMenu,
   handleSelectPack,
   handleRobuxUsernameInput,
-  handleConfirmAccount,
-  handleCancelRobuxOrder,
+  handleConfirmAccountProfile,
+  handleSoldOutPack,
+  handleReenterUsername,
+  handleCancelRobux,
+  handleDisabledPayment,
   clearRobuxSession,
 } from './handlers/robux';
 import {
@@ -375,45 +380,39 @@ export class StoreBotService {
       await handleRobuxMenu(ctx);
     });
 
+    // Step 2 & 3: Profile Confirmation (Account Review occurs strictly BEFORE amount selection)
+    this.bot.action(['cb_rbx_confirm_account', 'cb_rbx_confirm'], async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleConfirmAccountProfile(ctx);
+    });
+
+    this.bot.action(['cb_rbx_reenter_username', 'cb_rbx_reenter'], async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleReenterUsername(ctx);
+    });
+
+    this.bot.action('cb_rbx_cancel', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleCancelRobux(ctx);
+    });
+
+    // Step 4: Amount Selection (Only accessible after profile confirmation)
     this.bot.action(/^cb_rbx_pack_(\d+)$/, async (ctx) => {
       try { await ctx.answerCbQuery(); } catch {}
       const denom = Number(ctx.match[1]);
       await handleSelectPack(ctx, denom);
     });
 
-    this.bot.action('cb_rbx_confirm', async (ctx) => {
+    this.bot.action(/^cb_rbx_soldout_(\d+)$/, async (ctx) => {
       try { await ctx.answerCbQuery(); } catch {}
-      await handleConfirmAccount(ctx);
+      const denom = Number(ctx.match[1]);
+      await handleSoldOutPack(ctx, denom);
     });
 
-    this.bot.action('cb_rbx_cancel', async (ctx) => {
-      try { await ctx.answerCbQuery(); } catch {}
-      if (ctx.from) clearRobuxSession(ctx.from.id);
-      await handleRobuxMenu(ctx);
-    });
-
-    this.bot.action(/^cb_rbx_cancel_order_(.+)$/, async (ctx) => {
-      const orderCode = ctx.match[1];
-      await handleCancelRobuxOrder(ctx, orderCode);
-    });
-
+    // Payment Attempt: Safely Disabled by Policy Gate
     this.bot.action(/^cb_rbx_pay_(.+)$/, async (ctx) => {
       try { await ctx.answerCbQuery(); } catch {}
-      const orderCode = ctx.match[1];
-      const webAppUrl = `${storeWebAppUrl}?tab=orders&orderId=${orderCode}`;
-      await ctx.reply(
-        formatTelegramHtml(
-          `💳 <b>Robux Order #${orderCode} Payment</b>\n\n` +
-          `Scan the KHQR code or complete your payment in the Store Mini App:`
-        ),
-        {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [createWebAppOrUrlButton('Complete Payment in Mini App', webAppUrl, 'CREDIT_CARD')],
-            [cb('Back Home', 'cb_main_menu', 'HOME')],
-          ]),
-        }
-      );
+      await handleDisabledPayment(ctx);
     });
 
     this.bot.action(/^cb_rbx_check_(.+)$/, async (ctx) => {
@@ -422,19 +421,29 @@ export class StoreBotService {
         await ctx.answerCbQuery(`Checking payment status for #${orderCode}...`);
       } catch {}
       const order = await RobuxService.getOrderByCode(orderCode);
-      const statusText = order?.status || 'pending';
+      if (!order) {
+        return ctx.reply(
+          formatTelegramHtml(`❌ <b>Order #${orderCode} not found in Robux order records.</b>`),
+          {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([[cb('Back to Main Menu', 'cb_main_menu', 'HOME')]]),
+          }
+        );
+      }
+      const statusText = order.status;
       await ctx.reply(
         formatTelegramHtml(
-          `📦 <b>Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
-          (statusText === 'paid' || statusText === 'completed'
-            ? '✅ Payment confirmed! Your Robux delivery is being processed.'
-            : '⏳ Awaiting payment confirmation. If already paid, please allow up to 1-2 minutes for bank clearance.')
+          `📦 <b>Robux Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
+          (statusText === 'completed'
+            ? '✅ Order completed via authorized fulfillment channel.'
+            : statusText === 'paid'
+            ? '⏳ Payment received. Fulfillment pending verification.'
+            : '🛡️ <b>Notice:</b> Direct third-party Robux purchase/payment is held safely disabled pending documented Roblox authorization.')
         ),
         {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([
-            [cb('Re-check Status', `cb_rbx_check_${orderCode}`, 'REFRESH')],
-            [cb('Back Home', 'cb_main_menu', 'HOME')],
+            [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
           ]),
         }
       );
@@ -544,6 +553,12 @@ export class StoreBotService {
     });
     this.bot.action(['cb_redeem_pts', 'cb_redeem_menu'], async (ctx) => {
       await handleRedeemPoints(ctx);
+    });
+    this.bot.action('cb_redeem_code', async (ctx) => {
+      await handleRedeemCodeMenu(ctx, storeWebAppUrl);
+    });
+    this.bot.command(['redeem', 'code'], async (ctx) => {
+      await handleRedeemCommand(ctx, storeWebAppUrl);
     });
 
     // MODULE 2: STORE RULES & WARRANTIES

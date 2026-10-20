@@ -2,9 +2,14 @@ import type { InlineKeyboardButton, InlineKeyboardMarkup } from 'telegraf/types'
 import { isAuthorizedAdmin } from './admin-guards';
 import { getLowStockItems, getRecentOrders, getTodayStats } from './admin-data';
 import { RobuxService } from '../../services/robux.service';
+import { DataStore } from '../../database/data-store';
 import { ADMIN_BASE_PATH } from '../../config/admin-slug';
 import { TELEGRAM_EMOJIS, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { stripLeadingEmoji } from '../store-bot/keyboards';
+import {
+  startBroadcastWizard,
+  handleBroadcastWizardCallback,
+} from './broadcast-wizard';
 
 export interface AdminView {
   text: string;
@@ -103,6 +108,7 @@ export function buildMainMenu(storeUrl: string, adminUrl: string = resolveDefaul
       row(makeAdminButton({ text: 'Open Store (customer view)', url: storeUrl, iconKey: 'SHOPPING_CART' })),
       row(makeAdminButton({ text: 'Today Stats', callbackData: 'admin:stats:today', iconKey: 'BAR_CHART' })),
       row(makeAdminButton({ text: 'Robux Stock & Pool', callbackData: 'admin:robux:pool', iconKey: 'ROBUX' })),
+      row(makeAdminButton({ text: 'Redeem Codes', callbackData: 'admin:redeem_codes', iconKey: 'TICKET' })),
       row(makeAdminButton({ text: 'Recent Orders', callbackData: 'admin:orders:recent', iconKey: 'PACKAGE' })),
       row(makeAdminButton({ text: 'Low Stock', callbackData: 'admin:stock:low', iconKey: 'ALERT' })),
     ],
@@ -360,14 +366,43 @@ export async function handleAdminCallback(
     };
   }
 
-  if (data === 'cb_admin_broadcast' || data === 'admin_broadcast') {
-    const text = `📢 <b>Store Broadcast</b>\n\nTo broadcast announcements or stock arrivals to customers, use the Admin Portal or REST API <code>/api/admin/broadcast</code>.`;
+  if (data === 'admin:redeem_codes') {
+    const codes = DataStore.getRedeemCodes();
+    const active = codes.filter((c) => c.is_active).length;
+    const usages = DataStore.getRedeemCodeUsages().length;
+
+    const listSummary =
+      codes.slice(0, 5).map((c) => {
+        const val = c.reward_type === 'discount_coupon' ? (c.reward_data as any)?.discount_value : c.reward_amount;
+        return `• <code>${c.code}</code> (${c.reward_type}: ${val}) - ${c.times_used}/${c.max_uses ?? '∞'} uses ${c.is_active ? '🟢' : '🔴'}`;
+      }).join('\n') || '<i>No redeem codes created yet.</i>';
+
+    const text =
+      `🎟️ <b>Redeem Codes Management</b>\n\n` +
+      `• Total Codes: <b>${codes.length}</b>\n` +
+      `• Active Codes: <b>${active}</b>\n` +
+      `• Total Redemptions: <b>${usages}</b>\n\n` +
+      `<b>Recent Codes:</b>\n${listSummary}\n\n` +
+      `<i>Create, generate, and manage redeem codes in the <b>Admin Portal</b>.</i>`;
+
     return {
       text,
       replyMarkup: {
-        inline_keyboard: [back],
+        inline_keyboard: [
+          row(makeAdminButton({ text: 'Open Admin Portal', webAppUrl: `${adminUrl}?tab=redeem_codes`, iconKey: 'SHIELD' })),
+          row(makeAdminButton({ text: 'Refresh', callbackData: 'admin:redeem_codes', iconKey: 'REFRESH' })),
+          back,
+        ],
       },
     };
+  }
+
+  if (data.startsWith('wiz_bc_')) {
+    return handleBroadcastWizardCallback(data, from);
+  }
+
+  if (data === 'cb_admin_broadcast' || data === 'admin_broadcast') {
+    return startBroadcastWizard(from.id);
   }
 
   if (data === 'cb_admin_settings' || data === 'admin_settings') {

@@ -95,17 +95,37 @@ export class NotificationService {
     message: string,
     replyMarkup?: any
   ): Promise<boolean> {
+    const res = await this.sendStoreBotMessageDetailed(telegramId, message, replyMarkup);
+    return res.success;
+  }
+
+  static async sendStoreBotMedia(
+    telegramId: number,
+    mediaType: 'photo' | 'video',
+    mediaUrl: string,
+    caption?: string,
+    replyMarkup?: any
+  ): Promise<boolean> {
+    const res = await this.sendStoreBotMediaDetailed(telegramId, mediaType, mediaUrl, caption, replyMarkup);
+    return res.success;
+  }
+
+  static async sendStoreBotMessageDetailed(
+    telegramId: number,
+    message: string,
+    replyMarkup?: any
+  ): Promise<{ success: boolean; blocked?: boolean; rateLimited?: boolean; retryAfter?: number; error?: string }> {
     if (this.isTestRunner()) {
-      return true;
+      return { success: true };
     }
     if (telegramId === 88990011 || telegramId === 99887766) {
-      return true;
+      return { success: true };
     }
 
     const token = this.getStoreBotToken();
     if (!token) {
       console.log(`[STORE BOT to ${telegramId}]:\n${message}`);
-      return true;
+      return { success: true };
     }
 
     try {
@@ -117,12 +137,74 @@ export class NotificationService {
           parse_mode: 'HTML',
           reply_markup: replyMarkup,
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
-      return true;
+      return { success: true };
     } catch (err: any) {
-      console.warn(`[STORE BOT] Failed to send message to ${telegramId}:`, err.message);
-      return false;
+      const status = err.response?.status;
+      const desc = String(err.response?.data?.description || err.message || '');
+      console.warn(`[STORE BOT] Failed to send message to ${telegramId}: ${desc}`);
+
+      if (status === 403 || /bot was blocked|user is deactivated|chat not found|forbidden/i.test(desc)) {
+        return { success: false, blocked: true, error: desc };
+      }
+      if (status === 429) {
+        const retryAfter = Number(err.response?.data?.parameters?.retry_after) || 1;
+        return { success: false, rateLimited: true, retryAfter, error: desc };
+      }
+      return { success: false, error: desc };
+    }
+  }
+
+  static async sendStoreBotMediaDetailed(
+    telegramId: number,
+    mediaType: 'photo' | 'video',
+    mediaUrl: string,
+    caption?: string,
+    replyMarkup?: any
+  ): Promise<{ success: boolean; blocked?: boolean; rateLimited?: boolean; retryAfter?: number; error?: string }> {
+    if (this.isTestRunner()) {
+      return { success: true };
+    }
+    if (telegramId === 88990011 || telegramId === 99887766) {
+      return { success: true };
+    }
+
+    const token = this.getStoreBotToken();
+    if (!token) {
+      console.log(`[STORE BOT MEDIA (${mediaType}) to ${telegramId}]: ${mediaUrl}\nCaption: ${caption || ''}`);
+      return { success: true };
+    }
+
+    const method = mediaType === 'video' ? 'sendVideo' : 'sendPhoto';
+    const mediaField = mediaType === 'video' ? 'video' : 'photo';
+
+    try {
+      await axios.post(
+        `https://api.telegram.org/bot${token}/${method}`,
+        {
+          chat_id: telegramId,
+          [mediaField]: mediaUrl,
+          caption: caption ? formatTelegramHtml(caption) : undefined,
+          parse_mode: 'HTML',
+          reply_markup: replyMarkup,
+        },
+        { timeout: 15000 }
+      );
+      return { success: true };
+    } catch (err: any) {
+      const status = err.response?.status;
+      const desc = String(err.response?.data?.description || err.message || '');
+      console.warn(`[STORE BOT] Failed to send ${mediaType} to ${telegramId}: ${desc}`);
+
+      if (status === 403 || /bot was blocked|user is deactivated|chat not found|forbidden/i.test(desc)) {
+        return { success: false, blocked: true, error: desc };
+      }
+      if (status === 429) {
+        const retryAfter = Number(err.response?.data?.parameters?.retry_after) || 1;
+        return { success: false, rateLimited: true, retryAfter, error: desc };
+      }
+      return { success: false, error: desc };
     }
   }
 

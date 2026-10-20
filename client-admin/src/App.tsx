@@ -13,6 +13,7 @@ import { GachaPage } from './pages/GachaPage';
 import { BackupPage } from './pages/BackupPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SecurityPage } from './pages/SecurityPage';
+import { RedeemCodesPage } from './pages/RedeemCodesPage';
 import {
   DashboardStats,
   Order,
@@ -24,7 +25,7 @@ import {
   AuditLog,
 } from './types';
 import { AdminAPI } from './services/api';
-import { getAdminSessionToken, onUnauthorized } from './services/admin-auth';
+import { getAdminSessionToken, clearAdminSessionToken, onUnauthorized } from './services/admin-auth';
 import { AdminLockScreen } from './components/AdminLockScreen';
 import { AdminSpaceBackground } from './components/background/AdminSpaceBackground';
 import { Loader2, AlertOctagon } from 'lucide-react';
@@ -178,6 +179,10 @@ export const App: React.FC = () => {
       currentTab={currentTab}
       onSelectTab={setCurrentTab}
       adminName={adminName}
+      onLock={() => {
+        clearAdminSessionToken();
+        setNeedsPin(true);
+      }}
     >
       {currentTab === 'dashboard' && (
         <DashboardPage stats={stats} orders={orders} onNavigateTab={setCurrentTab} />
@@ -211,6 +216,7 @@ export const App: React.FC = () => {
       {currentTab === 'coupons' && (
         <CouponsPage coupons={coupons} onRefreshCoupons={loadData} />
       )}
+      {currentTab === 'redeem_codes' && <RedeemCodesPage />}
       {currentTab === 'users' && <UsersPage users={users} />}
       {currentTab === 'broadcast' && <BroadcastPage />}
       {currentTab === 'security' && <SecurityPage />}
