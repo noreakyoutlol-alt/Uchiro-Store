@@ -19,6 +19,7 @@ import {
   FileText,
   Loader2,
   Gift,
+  Package,
 } from 'lucide-react';
 import { Order, CustomerDeliveryResult, CustomerTotpResult } from '../../types';
 import { StoreAPI } from '../../services/api';
@@ -28,6 +29,7 @@ interface DeliveredOrderModalProps {
   order: Order | null;
   onClose: () => void;
   onBackToHome?: () => void;
+  onBackToOrders?: () => void;
   onViewReceipt?: (order: Order) => void;
 }
 
@@ -35,6 +37,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
   order,
   onClose,
   onBackToHome,
+  onBackToOrders,
   onViewReceipt,
 }) => {
   // In-memory state only (Strict Requirement: never persisted to localStorage/sessionStorage)
@@ -759,16 +762,29 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
           <div className="flex items-center gap-2">
             {onViewReceipt && (
               <button
+                type="button"
                 onClick={() => onViewReceipt(order)}
-                className="flex-1 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98"
+                className="flex-1 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5 text-[#FFD166]" />
                 <span>View Receipt</span>
               </button>
             )}
 
+            {onBackToOrders && (
+              <button
+                type="button"
+                onClick={onBackToOrders}
+                className="flex-1 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer"
+              >
+                <Package className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Back to Order</span>
+              </button>
+            )}
+
             {/* Back to Home Button (Section H) */}
             <button
+              type="button"
               onClick={() => {
                 if (onBackToHome) {
                   onBackToHome();
@@ -776,7 +792,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                   onClose();
                 }
               }}
-              className="flex-1 py-3 px-3 rounded-xl bg-gradient-to-r from-[#E63946] to-[#D90429] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-[#E63946]/20 hover:brightness-110 active:scale-98 transition-all"
+              className="flex-1 py-3 px-3 rounded-xl bg-gradient-to-r from-[#E63946] to-[#D90429] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-[#E63946]/20 hover:brightness-110 active:scale-98 transition-all cursor-pointer"
             >
               <Home className="w-3.5 h-3.5" />
               <span>Back to Home</span>

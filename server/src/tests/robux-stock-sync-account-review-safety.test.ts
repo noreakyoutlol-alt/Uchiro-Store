@@ -387,6 +387,7 @@ describe('PROMPT 11 — Robux Stock Sync, Account Review, and Payment Safety', (
         username: 'builderman',
         displayName: 'builderman',
       };
+      session.buyerAge18Confirmed = true;
 
       await handleSelectPack(mockCtx, 100);
 

@@ -18,6 +18,9 @@ export interface RequestWithAuth extends Request {
 }
 
 export function requireTelegramAuth(req: RequestWithAuth, res: Response, next: NextFunction): void {
+  if (req.user) {
+    return next();
+  }
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 

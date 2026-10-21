@@ -69,6 +69,8 @@ import {
   handleReenterUsername,
   handleCancelRobux,
   handleDisabledPayment,
+  handleRobuxAgeConfirmed,
+  handleRobuxAgeUnder18,
   clearRobuxSession,
 } from './handlers/robux';
 import {
@@ -394,6 +396,27 @@ export class StoreBotService {
     this.bot.action('cb_rbx_cancel', async (ctx) => {
       try { await ctx.answerCbQuery(); } catch {}
       await handleCancelRobux(ctx);
+    });
+
+    // Step 3: Mandatory Buyer Age Confirmation (18+ Self-Declaration)
+    this.bot.action('cb_rbx_age_18_plus', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleRobuxAgeConfirmed(ctx);
+    });
+
+    this.bot.action('cb_rbx_age_under_18', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleRobuxAgeUnder18(ctx);
+    });
+
+    this.bot.action('cb_rbx_back_packs', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleConfirmAccountProfile(ctx);
+    });
+
+    this.bot.action('cb_rbx_back_username', async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch {}
+      await handleReenterUsername(ctx);
     });
 
     // Step 4: Amount Selection (Only accessible after profile confirmation)

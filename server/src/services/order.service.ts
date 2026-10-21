@@ -20,6 +20,8 @@ export class OrderService {
           robloxDisplayName?: string;
           robloxUserId?: string;
           idempotencyKey?: string;
+          buyerConfirmedAge18?: boolean;
+          buyerUnder18?: boolean;
         }
       | number,
     productId?: string,
@@ -28,7 +30,9 @@ export class OrderService {
     idempotencyKey?: string,
     robloxDisplayName?: string,
     robloxUserId?: string,
-    quantity?: number
+    quantity?: number,
+    buyerConfirmedAge18?: boolean,
+    buyerUnder18?: boolean
   ): Promise<{ order: Order; payment: any }> {
     let params: {
       customerId: string;
@@ -40,6 +44,8 @@ export class OrderService {
       robloxDisplayName?: string;
       robloxUserId?: string;
       idempotencyKey?: string;
+      buyerConfirmedAge18?: boolean;
+      buyerUnder18?: boolean;
     };
 
     if (typeof paramsOrTelegramId === 'number') {
@@ -54,6 +60,8 @@ export class OrderService {
         idempotencyKey,
         robloxDisplayName,
         robloxUserId,
+        buyerConfirmedAge18,
+        buyerUnder18,
       };
     } else {
       params = {

@@ -237,9 +237,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           className="w-full py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
         >
           <Package className="w-3.5 h-3.5" />
-          <span>
-            {language === 'km' ? 'ប្រវត្តិបញ្ជាទិញ' : 'Order History'} ({orders.length})
-          </span>
+          <span>Order History ({orders.length})</span>
         </button>
 
         {/* Redeem Code Button */}

@@ -181,6 +181,8 @@ export const StoreAPI = {
     robloxDisplayName?: string;
     robloxUserId?: string;
     idempotencyKey?: string;
+    buyerConfirmedAge18?: boolean;
+    buyerUnder18?: boolean;
   }): Promise<{ order: Order; payment: any }> => {
     const res = await api.post('/orders', data);
     return res.data.data;

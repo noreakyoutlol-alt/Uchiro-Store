@@ -8,8 +8,47 @@ export const orderRouter = Router();
 // Create Order (Idempotency Key supported)
 orderRouter.post('/', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
   try {
-    const { productId, quantity, couponCode, robloxUsername, robloxDisplayName, robloxUserId } = req.body;
+    const {
+      productId,
+      quantity,
+      couponCode,
+      robloxUsername,
+      robloxDisplayName,
+      robloxUserId,
+      buyerConfirmedAge18,
+      buyerUnder18,
+    } = req.body;
     const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotencyKey;
+
+    // Server-side Age Confirmation Enforcement (18+ Self-Declaration; Minors Blocked)
+    if (buyerUnder18 === true) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'UNDER_18_PURCHASE_BLOCKED',
+          message: 'Buyers under 18 years of age are not permitted to complete purchases.',
+        },
+      });
+    }
+
+    const { DataStore } = await import('../database/data-store');
+    const product = DataStore.getProductById(productId);
+    const requiresAgeConfirmation = Boolean(
+      product?.requires_roblox_username ||
+      product?.category_id === 'robux' ||
+      (product?.product_type as string) === 'robux' ||
+      robloxUsername
+    );
+
+    if (requiresAgeConfirmation && buyerConfirmedAge18 === false) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'AGE_CONFIRMATION_REQUIRED',
+          message: 'Buyer must confirm they are at least 18 years old to complete this purchase.',
+        },
+      });
+    }
 
     const result = await OrderService.createOrder({
       customerId: req.user!.user_id,
@@ -20,6 +59,8 @@ orderRouter.post('/', requireTelegramAuth, async (req: RequestWithAuth, res, nex
       robloxUsername,
       robloxDisplayName,
       robloxUserId,
+      buyerConfirmedAge18,
+      buyerUnder18,
       idempotencyKey,
     });
 

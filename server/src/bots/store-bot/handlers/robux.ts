@@ -6,9 +6,18 @@ import { DataStore } from '../../../database/data-store';
 
 // Session state storage for multi-step Robux checkout
 export interface RobuxUserSession {
-  state: 'idle' | 'awaiting_username' | 'reviewing_account' | 'account_confirmed' | 'amount_selected';
+  state:
+    | 'idle'
+    | 'awaiting_username'
+    | 'reviewing_account'
+    | 'account_confirmed'
+    | 'awaiting_age_confirm'
+    | 'age_confirmed'
+    | 'amount_selected';
   robloxInfo?: RobloxAccountInfo;
   selectedAmount?: number;
+  buyerAge18Confirmed?: boolean;
+  buyerUnder18?: boolean;
   orderCode?: string;
 }
 
@@ -71,6 +80,19 @@ const I18N = {
     paymentDisabledNotice:
       '🛡️ <b>Payment Disabled:</b> Direct third-party Robux purchase/payment is held safely disabled pending documented Roblox authorization.',
     cancelledNotice: 'Robux request cancelled.',
+    ageConfirmTitle: 'BUYER AGE CONFIRMATION (MANDATORY SELF-DECLARATION)',
+    ageConfirmDesc: (amount: number, username: string) =>
+      `👤 <b>Confirmed Recipient:</b> <code>${username}</code>\n` +
+      `💎 <b>Robux Package:</b> ${amount.toLocaleString()} R$\n\n` +
+      `🛡️ <b>Age Requirement Notice:</b>\n` +
+      `Buyers must be at least 18 years of age to purchase products on Uchiro Store.\n` +
+      `<i>Note: This is an explicit self-declaration by the buyer and does not claim independent third-party legal age verification.</i>\n\n` +
+      `Please confirm your age to proceed to final checkout:`,
+    under18BlockedTitle: 'UNDER-18 PURCHASE BLOCKED',
+    under18BlockedDesc:
+      '❌ <b>Purchase Restricted:</b>\n\n' +
+      'Buyers under 18 years of age are not permitted to complete purchases. Your transaction has been stopped.\n\n' +
+      'If you are a minor, please ask a parent or legal guardian to complete authorized purchases directly via official Roblox channels.',
   },
   km: {
     menuTitle: 'ទិញ ROBUX — ផ្ទៀងផ្ទាត់គណនីជាមុន',
@@ -114,6 +136,19 @@ const I18N = {
     paymentDisabledNotice:
       '🛡️ <b>ការទូទាត់ត្រូវបានបិទ:</b> ការទិញ Robux ត្រូវបានផ្អាកដំណើរការដោយសុវត្ថិភាព ដើម្បីអនុលោមតាមគោលការណ៍ផ្លូវការរបស់ Roblox។',
     cancelledNotice: 'បានបោះបង់ការស្នើសុំ Robux។',
+    ageConfirmTitle: 'ការបញ្ជាក់អាយុរបស់អ្នកទិញ (ការប្រកាសផ្ទាល់ខ្លួន)',
+    ageConfirmDesc: (amount: number, username: string) =>
+      `👤 <b>គណនីទទួល:</b> <code>${username}</code>\n` +
+      `💎 <b>កញ្ចប់ Robux:</b> ${amount.toLocaleString()} R$\n\n` +
+      `🛡️ <b>សេចក្តីជូនដំណឹងអំពីលក្ខខណ្ឌអាយុ:</b>\n` +
+      `អ្នកទិញត្រូវតែមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅដើម្បីធ្វើការបញ្ជាទិញនៅលើ Uchiro Store។\n` +
+      `<i>ចំណាំ៖ នេះជាការប្រកាសបញ្ជាក់ផ្ទាល់ខ្លួនរបស់អ្នកទិញ មិនមែនជាការផ្ទៀងផ្ទាត់ដោយភាគីទីបីឡើយ។</i>\n\n` +
+      `សូមបញ្ជាក់អាយុរបស់អ្នកដើម្បីបន្តទៅការទូទាត់ប្រាក់ចុងក្រោយ:`,
+    under18BlockedTitle: 'ការទិញត្រូវបានរារាំង (អាយុក្រោម ១៨ ឆ្នាំ)',
+    under18BlockedDesc:
+      '❌ <b>ការទិញត្រូវបានរារាំង:</b>\n\n' +
+      'អ្នកទិញដែលមានអាយុក្រោម ១៨ ឆ្នាំមិនត្រូវបានអនុញ្ញាតឱ្យធ្វើការបញ្ជាទិញទេ។ ប្រតិបត្តិការរបស់អ្នកត្រូវបានបញ្ឈប់។\n\n' +
+      'ប្រសិនបើអ្នកជាអនីតិជន សូមឱ្យឪពុកម្តាយ ឬអាណាព្យាបាលទិញដោយផ្ទាល់តាមរយៈបណ្តាញផ្លូវការរបស់ Roblox។',
   },
 };
 
@@ -139,6 +174,8 @@ export async function handleRobuxMenu(ctx: Context) {
   session.state = 'awaiting_username';
   delete session.robloxInfo;
   delete session.selectedAmount;
+  delete session.buyerAge18Confirmed;
+  delete session.buyerUnder18;
   delete session.orderCode;
 
   const diamond = tgEmoji('DIAMOND', '💎');
@@ -282,7 +319,12 @@ export async function handleConfirmAccountProfile(ctx: Context) {
   if (!telegramId) return;
 
   const session = getRobuxSession(telegramId);
-  if (session.state !== 'reviewing_account' || !session.robloxInfo) {
+  if (
+    (session.state !== 'reviewing_account' &&
+      session.state !== 'account_confirmed' &&
+      session.state !== 'awaiting_age_confirm') ||
+    !session.robloxInfo
+  ) {
     await ctx.answerCbQuery('Session expired. Please review your account again.', { show_alert: true });
     return handleRobuxMenu(ctx);
   }
@@ -368,6 +410,11 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
   if (!telegramId) return;
 
   const session = getRobuxSession(telegramId);
+  // Step 3: Mandatory Buyer Age Confirmation (18+ Self-Declaration; unchecked by default)
+  if (session.buyerUnder18 === true) {
+    return handleRobuxAgeUnder18(ctx);
+  }
+
   if (session.state !== 'account_confirmed' || !session.robloxInfo) {
     await ctx.answerCbQuery('Please verify your Roblox account first.', { show_alert: true });
     return handleRobuxMenu(ctx);
@@ -382,8 +429,48 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
     return;
   }
 
-  session.state = 'amount_selected';
   session.selectedAmount = denomination;
+
+  if (session.buyerAge18Confirmed !== true) {
+    session.state = 'awaiting_age_confirm';
+
+    const lang = getLang(telegramId);
+    const t = I18N[lang];
+    const shield = tgEmoji('SHIELD', '🛡️');
+
+    const text =
+      `${shield} <b>${t.ageConfirmTitle}</b>\n\n` +
+      `${t.ageConfirmDesc(denomination, session.robloxInfo.username)}`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [cb('I am 18 or older (Self-Declaration)', 'cb_rbx_age_18_plus', 'CHECK')],
+      [cb('I am under 18', 'cb_rbx_age_under_18', 'CROSS')],
+      [cb('Back to Packages', 'cb_rbx_back_packs', 'BACK')],
+      [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
+    ]);
+
+    try {
+      if (ctx.callbackQuery) {
+        await ctx.editMessageText(formatTelegramHtml(text), {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      } else {
+        await ctx.reply(formatTelegramHtml(text), {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      }
+    } catch {
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+    return;
+  }
+
+  session.state = 'amount_selected';
 
   const lang = getLang(telegramId);
   const t = I18N[lang];
@@ -396,6 +483,101 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
   const keyboard = Markup.inlineKeyboard([
     [urlBtn('Official Roblox Store', 'https://www.roblox.com/upgrades/robux', 'ROBUX')],
     [urlBtn('Official Gift Cards', 'https://www.roblox.com/giftcards', 'GIFT')],
+    [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+  ]);
+
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch {
+    await ctx.reply(formatTelegramHtml(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  }
+}
+
+/**
+ * Step 3: Age Confirmation — User declares 18+ (Explicit Self-Declaration)
+ */
+export async function handleRobuxAgeConfirmed(ctx: Context) {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const session = getRobuxSession(telegramId);
+  if (!session.robloxInfo) {
+    return handleRobuxMenu(ctx);
+  }
+
+  session.buyerAge18Confirmed = true;
+  session.buyerUnder18 = false;
+  session.state = 'amount_selected';
+
+  const denomination = session.selectedAmount || 100;
+  const lang = getLang(telegramId);
+  const t = I18N[lang];
+  const shield = tgEmoji('SHIELD', '🛡️');
+
+  const text =
+    `${shield} <b>${t.policyGateTitle}</b>\n\n` +
+    `${t.policyNoticeText(session.robloxInfo.username, denomination)}`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [urlBtn('Official Roblox Store', 'https://www.roblox.com/upgrades/robux', 'ROBUX')],
+    [urlBtn('Official Gift Cards', 'https://www.roblox.com/giftcards', 'GIFT')],
+    [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+  ]);
+
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(formatTelegramHtml(text), {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch {
+    await ctx.reply(formatTelegramHtml(text), {
+      parse_mode: 'HTML',
+      ...keyboard,
+    });
+  }
+}
+
+/**
+ * Step 3: Age Confirmation — User indicates under 18 (Purchase Blocked)
+ */
+export async function handleRobuxAgeUnder18(ctx: Context) {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const session = getRobuxSession(telegramId);
+  session.buyerUnder18 = true;
+  session.buyerAge18Confirmed = false;
+  session.state = 'idle';
+
+  const lang = getLang(telegramId);
+  const t = I18N[lang];
+  const alert = tgEmoji('ALERT', '⚠️');
+
+  const text =
+    `${alert} <b>${t.under18BlockedTitle}</b>\n\n` +
+    `${t.under18BlockedDesc}`;
+
+  const keyboard = Markup.inlineKeyboard([
     [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
   ]);
 

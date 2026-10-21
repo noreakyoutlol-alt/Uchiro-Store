@@ -9,6 +9,7 @@ import {
   CreditCard,
   ShieldCheck,
   PackageCheck,
+  Package,
   Loader2,
   FileText,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ interface OrderReceiptModalProps {
   onClose: () => void;
   onOpenDelivery: (order: Order) => void;
   onBackToHome: () => void;
+  onBackToOrders?: () => void;
 }
 
 export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
@@ -28,6 +30,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
   onClose,
   onOpenDelivery,
   onBackToHome,
+  onBackToOrders,
 }) => {
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -303,14 +306,29 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
             </button>
           </div>
 
-          {/* Back to Home Button */}
-          <button
-            onClick={onBackToHome}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#E63946] to-[#D90429] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#E63946]/20 hover:brightness-110 active:scale-98 transition-all"
-          >
-            <Home className="w-4 h-4" />
-            <span>Back to Home</span>
-          </button>
+          {/* Navigation Action Buttons: Back to Order & Back to Home */}
+          <div className="flex items-center gap-2">
+            {onBackToOrders && (
+              <button
+                type="button"
+                onClick={onBackToOrders}
+                className="flex-1 py-3 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer"
+              >
+                <Package className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Back to Order</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onBackToHome}
+              className={`${
+                onBackToOrders ? 'flex-1' : 'w-full'
+              } py-3 px-4 rounded-xl bg-gradient-to-r from-[#E63946] to-[#D90429] text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#E63946]/20 hover:brightness-110 active:scale-98 transition-all cursor-pointer`}
+            >
+              <Home className="w-4 h-4" />
+              <span>Back to Home</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

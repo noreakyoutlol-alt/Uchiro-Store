@@ -90,6 +90,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isVerifyingRoblox, setIsVerifyingRoblox] = useState(false);
   const [robloxVerifyError, setRobloxVerifyError] = useState<string | null>(null);
   const [recipientConfirmed, setRecipientConfirmed] = useState(false);
+  // Age confirmation state (Mandatory 18+ self-declaration; unchecked by default)
+  const [buyerConfirmedAge18, setBuyerConfirmedAge18] = useState(false);
+  const [buyerUnder18, setBuyerUnder18] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Coupon state
@@ -207,7 +210,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const discountAmount = couponResult?.isValid ? couponResult.discountAmount : 0;
   const finalTotal = Math.max(0.1, Number((subtotal - discountAmount).toFixed(2)));
 
-  const isFulfillmentReady = !requiresRoblox || (Boolean(verifiedProfile) && recipientConfirmed);
+  const isFulfillmentReady =
+    !requiresRoblox ||
+    (Boolean(verifiedProfile) && recipientConfirmed && buyerConfirmedAge18 && !buyerUnder18);
 
   const handleProceedToPayment = async () => {
     if (requiresRoblox) {
@@ -217,6 +222,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       }
       if (!recipientConfirmed) {
         setErrorMessage('Please confirm that this is the correct recipient account.');
+        return;
+      }
+      if (buyerUnder18) {
+        setErrorMessage(
+          language === 'km'
+            ? 'ការទិញត្រូវបានរារាំង៖ អ្នកទិញត្រូវតែមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅ។'
+            : 'Purchases are strictly restricted to buyers 18 years of age or older. Orders cannot be placed.'
+        );
+        return;
+      }
+      if (!buyerConfirmedAge18) {
+        setErrorMessage(
+          language === 'km'
+            ? 'សូមបញ្ជាក់ថាអ្នកមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅមុនពេលបន្ត។'
+            : 'Please confirm that you are at least 18 years of age before proceeding.'
+        );
         return;
       }
     }
@@ -232,6 +253,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       robloxUsername: verifiedProfile?.name || robloxUsernameInput.trim() || undefined,
       robloxDisplayName: verifiedProfile?.displayName || undefined,
       robloxUserId: verifiedProfile?.id ? String(verifiedProfile.id) : undefined,
+      buyerConfirmedAge18,
+      buyerUnder18,
       idempotencyKey,
     };
 
@@ -460,6 +483,80 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </span>
                 </label>
               )}
+
+              {/* Step 3: Confirm Buyer's Age (18+ Self-Declaration; unchecked by default) */}
+              {verifiedProfile && recipientConfirmed && (
+                <div className="p-3 rounded-2xl bg-black/40 border border-amber-500/20 space-y-2.5 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-amber-400" />
+                      {language === 'km' ? 'ការបញ្ជាក់អាយុរបស់អ្នកទិញ (១៨+ ឆ្នាំ)' : 'Buyer Age Confirmation'}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Required
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-300 leading-snug">
+                    {language === 'km'
+                      ? 'អ្នកទិញត្រូវតែមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅដើម្បីធ្វើការបញ្ជាទិញ។ នេះជាការប្រកាសបញ្ជាក់ផ្ទាល់ខ្លួនរបស់អ្នកទិញ។'
+                      : 'Buyers must be at least 18 years of age to complete a purchase. This is an explicit buyer self-declaration.'}
+                  </p>
+
+                  {/* 18+ Unchecked by default checkbox */}
+                  <label className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={buyerConfirmedAge18}
+                      onChange={(e) => {
+                        setBuyerConfirmedAge18(e.target.checked);
+                        if (e.target.checked) setBuyerUnder18(false);
+                      }}
+                      className="mt-0.5 w-4 h-4 rounded text-amber-500 focus:ring-0 focus:ring-offset-0 bg-black/40 border-white/20 cursor-pointer"
+                    />
+                    <span className="text-[11px] text-slate-200 font-medium leading-snug">
+                      {language === 'km'
+                        ? 'ខ្ញុំសូមបញ្ជាក់ថាខ្ញុំមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅ (ការប្រកាសផ្ទាល់ខ្លួន)'
+                        : 'I confirm that I am at least 18 years old (Buyer Self-Declaration)'}
+                    </span>
+                  </label>
+
+                  {/* Option to declare under 18 */}
+                  <div className="flex items-center justify-between pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBuyerUnder18(true);
+                        setBuyerConfirmedAge18(false);
+                      }}
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                        buyerUnder18
+                          ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      I am under 18
+                    </button>
+                    {buyerUnder18 && (
+                      <span className="text-[10px] font-bold text-rose-400">
+                        {language === 'km' ? 'ការទិញត្រូវបានរារាំង' : 'Purchase blocked'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Under 18 blocked message */}
+                  {buyerUnder18 && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                      <span>
+                        {language === 'km'
+                          ? 'ការទិញត្រូវបានរារាំង៖ អ្នកទិញដែលមានអាយុក្រោម ១៨ ឆ្នាំមិនត្រូវបានអនុញ្ញាតឱ្យធ្វើការបញ្ជាទិញទេ។'
+                          : 'Under-18 Purchase Blocked: Buyers under 18 years of age are not permitted to complete purchases.'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -549,6 +646,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <span>ENTER VERIFIED ROBLOX RECIPIENT</span>
             ) : requiresRoblox && !recipientConfirmed ? (
               <span>CONFIRM RECIPIENT TO PROCEED</span>
+            ) : requiresRoblox && buyerUnder18 ? (
+              <span>PURCHASE BLOCKED (UNDER 18)</span>
+            ) : requiresRoblox && !buyerConfirmedAge18 ? (
+              <span>CONFIRM AGE (18+) TO PROCEED</span>
             ) : (
               <>
                 <span>PAY ${finalTotal.toFixed(2)} WITH KHPAY</span>

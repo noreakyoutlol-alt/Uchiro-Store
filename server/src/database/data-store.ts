@@ -1592,6 +1592,8 @@ export class DataStore {
     robloxDisplayName?: string;
     robloxUserId?: string;
     idempotencyKey?: string;
+    buyerConfirmedAge18?: boolean;
+    buyerUnder18?: boolean;
   }): { success: boolean; order?: Order; error?: string } {
     // Check idempotency
     if (data.idempotencyKey) {
@@ -1620,6 +1622,17 @@ export class DataStore {
 
     if (product.requires_roblox_username && (!data.robloxUsername || data.robloxUsername.trim().length === 0)) {
       return { success: false, error: 'ROBLOX_USERNAME_REQUIRED' };
+    }
+
+    // Age confirmation check (Minors under 18 blocked; unconfirmed blocked)
+    if (data.buyerUnder18 === true) {
+      return { success: false, error: 'UNDER_18_PURCHASE_BLOCKED' };
+    }
+    if (
+      (product.requires_roblox_username || product.category_id === 'robux' || (product.product_type as string) === 'robux') &&
+      data.buyerConfirmedAge18 === false
+    ) {
+      return { success: false, error: 'AGE_CONFIRMATION_REQUIRED' };
     }
 
     const orderId = uuidv4();

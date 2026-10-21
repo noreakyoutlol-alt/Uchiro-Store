@@ -616,6 +616,10 @@ const StoreAppContent: React.FC = () => {
             setDeliveredOrderModal(null);
             setActiveTab('home');
           }}
+          onBackToOrders={() => {
+            setDeliveredOrderModal(null);
+            setActiveTab('orders');
+          }}
           onViewReceipt={(order) => {
             setDeliveredOrderModal(null);
             setReceiptOrderModal(order);
@@ -635,6 +639,10 @@ const StoreAppContent: React.FC = () => {
           onBackToHome={() => {
             setReceiptOrderModal(null);
             setActiveTab('home');
+          }}
+          onBackToOrders={() => {
+            setReceiptOrderModal(null);
+            setActiveTab('orders');
           }}
         />
       )}

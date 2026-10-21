@@ -50,22 +50,42 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   children,
   onLock,
 }) => {
-  const menuItems: { id: AdminTab; label: string; icon: any }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'orders', label: 'Orders', icon: Package },
-    { id: 'products', label: 'Products', icon: Boxes },
-    { id: 'inventory', label: 'Inventory', icon: Layers },
-    { id: 'gacha', label: 'Gacha Wheels', icon: Sparkles },
-    { id: 'claims', label: 'Gacha Claims', icon: Gift },
-    { id: 'coupons', label: 'Coupons', icon: Tag },
-    { id: 'redeem_codes', label: 'Redeem Codes', icon: Ticket },
-    { id: 'users', label: 'Customers', icon: Users },
-    { id: 'broadcast', label: 'Broadcast', icon: Megaphone },
-    { id: 'security', label: 'Security & IP', icon: ShieldAlert },
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'backup', label: 'Backup & Restore', icon: Database },
-    { id: 'logs', label: 'Audit Logs', icon: History },
+  const menuGroups: {
+    category: string;
+    items: { id: AdminTab; label: string; icon: any }[];
+  }[] = [
+    {
+      category: 'Operations',
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'orders', label: 'Orders', icon: Package },
+        { id: 'products', label: 'Categories & Products', icon: Boxes },
+        { id: 'inventory', label: 'Inventory & Delivery', icon: Layers },
+      ],
+    },
+    {
+      category: 'Marketing & Engagement',
+      items: [
+        { id: 'gacha', label: 'Gacha & Rewards', icon: Sparkles },
+        { id: 'claims', label: 'Gacha Claims', icon: Gift },
+        { id: 'coupons', label: 'Coupons', icon: Tag },
+        { id: 'redeem_codes', label: 'Redeem Codes', icon: Ticket },
+        { id: 'broadcast', label: 'Broadcast & Announcements', icon: Megaphone },
+      ],
+    },
+    {
+      category: 'Administration & System',
+      items: [
+        { id: 'users', label: 'Admin Users & Staff Roles', icon: Users },
+        { id: 'security', label: 'Security & IP', icon: ShieldAlert },
+        { id: 'settings', label: 'System & Payment Settings', icon: Settings },
+        { id: 'backup', label: 'Backup & Restore', icon: Database },
+        { id: 'logs', label: 'Audit Logs', icon: History },
+      ],
+    },
   ];
+
+  const allItems = menuGroups.flatMap((g) => g.items);
 
   return (
     <div className="min-h-screen bg-[#070A14] text-slate-100 flex flex-col md:flex-row relative">
@@ -103,16 +123,47 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <nav className="p-2 sm:p-3 flex md:flex-col gap-1 overflow-x-auto md:overflow-y-auto scrollbar-none flex-1">
-          {menuItems.map((item) => {
+        {/* Navigation Tabs - Desktop (Structured Groups) */}
+        <nav className="p-3 hidden md:flex md:flex-col gap-4 overflow-y-auto scrollbar-none flex-1">
+          {menuGroups.map((group) => (
+            <div key={group.category} className="space-y-1">
+              <div className="px-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                {group.category}
+              </div>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onSelectTab(item.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-[0.98] ${
+                        isActive
+                          ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-[0_2px_12px_rgba(99,102,241,0.35),inset_0_1px_0_rgba(255,255,255,0.2)] border border-indigo-400/40'
+                          : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Navigation Tabs - Mobile (Horizontal Scroll with distinct active states) */}
+        <nav className="p-2 flex md:hidden gap-1 overflow-x-auto scrollbar-none flex-1">
+          {allItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`flex items-center gap-2.5 px-3 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-[0.98] ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-[0.98] ${
                   isActive
                     ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-[0_2px_12px_rgba(99,102,241,0.35),inset_0_1px_0_rgba(255,255,255,0.2)] border border-indigo-400/40'
                     : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'

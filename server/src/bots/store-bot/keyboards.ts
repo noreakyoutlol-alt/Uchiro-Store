@@ -46,9 +46,10 @@ export function makeButton(
   const cleanLabel = stripLeadingEmoji(label);
   const hasCustomId = Boolean(customId && customId.trim() !== '');
 
-  // When custom emoji icon is active and label starts with that emoji's fallback,
-  // strip the leading unicode emoji to prevent duplicate emoji on Telegram clients.
-  // Otherwise, retain full label so standard clients and explicit custom labels are preserved.
+  // A leading unicode emoji is only a *duplicate* when it matches the fallback of
+  // the custom emoji icon that Telegram renders beside the label. In that case it is
+  // stripped so the client shows the custom icon exactly once. A different leading
+  // emoji is intentional and must be preserved.
   let buttonText = label;
   if (hasCustomId && fallback && label.startsWith(fallback)) {
     buttonText = cleanLabel;
