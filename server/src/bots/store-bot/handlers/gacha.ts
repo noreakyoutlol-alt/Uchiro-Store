@@ -1,6 +1,7 @@
 import { Context } from 'telegraf';
 import { DataStore, getUserSnapshot } from '../../../database/data-store';
 import { pgPool, isPostgresConfigured } from '../../../database/postgres';
+import { resolveStoreUrl } from '../../../config/app-url';
 import {
   buildGachaKeyboard,
   buildSubGachaKeyboard,
@@ -53,7 +54,7 @@ export async function fetchGachaLiveInfo(telegramId: number | string): Promise<G
  */
 export async function handleGachaMenu(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
@@ -93,7 +94,7 @@ export async function handleGachaMenu(
  */
 export async function handleGachaPrizes(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
@@ -140,7 +141,7 @@ export async function handleGachaPrizes(
  */
 export async function handleGachaOdds(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
@@ -183,7 +184,7 @@ export async function handleGachaOdds(
  */
 export async function handleBuyGachaTicket(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;

@@ -103,35 +103,42 @@ const StoreAppContent: React.FC = () => {
       try {
         const tg = (window as any).Telegram?.WebApp;
         if (tg) {
-          tg.ready();
-          tg.expand();
+          try {
+            tg.ready();
+            tg.expand();
+          } catch (e) {
+            console.warn('Telegram WebApp ready/expand warning:', e);
+          }
         }
 
         const initData = tg?.initData || '';
-        try {
-          const authData = await StoreAPI.authenticateTelegram(initData);
-          if (authData && isMounted) {
-            const mergedUser = {
-              ...authData.user,
-              photo_url: authData.user?.photo_url || tg?.initDataUnsafe?.user?.photo_url || null,
-            };
-            setUser(mergedUser);
-            setProfile(authData.profile);
+        if (initData && initData.length > 5) {
+          try {
+            const authData = await StoreAPI.authenticateTelegram(initData);
+            if (authData && isMounted) {
+              const mergedUser = {
+                ...authData.user,
+                photo_url: authData.user?.photo_url || tg?.initDataUnsafe?.user?.photo_url || null,
+              };
+              setUser(mergedUser);
+              setProfile(authData.profile);
+            }
+          } catch (authErr) {
+            console.warn('Telegram auth fallback:', authErr);
           }
-        } catch (authErr) {
-          console.warn('Telegram auth fallback:', authErr);
-          if (tg?.initDataUnsafe?.user && isMounted) {
-            const u = tg.initDataUnsafe.user;
-            setUser({
-              id: String(u.id),
-              telegram_id: u.id,
-              username: u.username || null,
-              first_name: u.first_name || '',
-              last_name: u.last_name || null,
-              photo_url: u.photo_url || null,
-              language_code: u.language_code || 'en',
-            });
-          }
+        }
+
+        if (tg?.initDataUnsafe?.user && isMounted) {
+          const u = tg.initDataUnsafe.user;
+          setUser((prev) => prev || {
+            id: String(u.id),
+            telegram_id: u.id,
+            username: u.username || null,
+            first_name: u.first_name || '',
+            last_name: u.last_name || null,
+            photo_url: u.photo_url || null,
+            language_code: u.language_code || 'en',
+          });
         }
 
         // Fetch Catalog, Categories, In-Stock Products & Gacha Pools
@@ -650,18 +657,46 @@ const StoreAppContent: React.FC = () => {
   );
 };
 
+function detectTelegram(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const w = window as any;
+  const tg = w.Telegram?.WebApp;
+  const hasInitData = Boolean(tg?.initData && tg.initData.length > 0);
+  const hasPlatform = Boolean(tg?.platform && tg.platform !== 'unknown');
+  const hasTgObject = Boolean(w.TelegramWebviewProxy || (w.Telegram && tg));
+
+  const href = window.location.href;
+  const hasTgHashOrQuery =
+    href.includes('tgWebAppData') ||
+    href.includes('tgWebAppVersion') ||
+    href.includes('tgWebAppPlatform') ||
+    href.includes('tgWebAppThemeParams');
+
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const hasTgUA = ua.includes('telegram');
+
+  const isDevOrWeb = Boolean(
+    (import.meta as any).env?.DEV ||
+    new URLSearchParams(window.location.search).get('dev') === 'true' ||
+    new URLSearchParams(window.location.search).get('web') === 'true' ||
+    new URLSearchParams(window.location.search).get('guest') === 'true'
+  );
+
+  return hasInitData || hasPlatform || hasTgObject || hasTgHashOrQuery || hasTgUA || isDevOrWeb;
+}
+
 export const App: React.FC = () => {
-  const isTelegramMiniApp =
-    (typeof window !== 'undefined' &&
-      Boolean(
-        window.Telegram?.WebApp?.initData &&
-          window.Telegram.WebApp.initData.length > 5
-      )) ||
-    Boolean(
-      (import.meta as any).env?.DEV &&
-        typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('dev') === 'true'
-    );
+  const [isTelegramMiniApp, setIsTelegramMiniApp] = useState(detectTelegram);
+
+  useEffect(() => {
+    if (!isTelegramMiniApp) {
+      const checkTimer = setTimeout(() => {
+        setIsTelegramMiniApp(detectTelegram());
+      }, 100);
+      return () => clearTimeout(checkTimer);
+    }
+  }, [isTelegramMiniApp]);
 
   if (!isTelegramMiniApp) {
     return <TelegramBrowserBlocked />;

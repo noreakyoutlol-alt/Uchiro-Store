@@ -1,4 +1,5 @@
 import { Context } from 'telegraf';
+import { resolveStoreUrl } from '../../../config/app-url';
 import {
   buildMainHelpKeyboard,
   buildSubHelpKeyboard,
@@ -126,7 +127,7 @@ export async function handleGuidePayment(ctx: Context, _supportUsername: string 
  */
 export async function handleHowToBuy(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   try {
     await ctx.answerCbQuery();

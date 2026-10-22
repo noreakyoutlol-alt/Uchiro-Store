@@ -4,6 +4,7 @@ import { getLowStockItems, getRecentOrders, getTodayStats } from './admin-data';
 import { RobuxService } from '../../services/robux.service';
 import { DataStore } from '../../database/data-store';
 import { ADMIN_BASE_PATH } from '../../config/admin-slug';
+import { resolveAdminPortalUrl } from '../../config/app-url';
 import { TELEGRAM_EMOJIS, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { stripLeadingEmoji } from '../store-bot/keyboards';
 import {
@@ -23,31 +24,7 @@ export function unauthorizedView(): AdminView {
 }
 
 export function resolveDefaultAdminUrl(): string {
-  const explicit = (process.env.ADMIN_WEBAPP_URL || process.env.ADMIN_URL || process.env.ADMIN_MINIAPP_URL || '').trim();
-  if (explicit && (explicit.startsWith('https://') || explicit.startsWith('http://'))) {
-    try {
-      const parsed = new URL(explicit);
-      if (parsed.pathname && parsed.pathname !== '/') return explicit.replace(/\/$/, '');
-      return `${parsed.origin}${ADMIN_BASE_PATH}`;
-    } catch {
-      return explicit.replace(/\/$/, '');
-    }
-  }
-  const candidate = (
-    process.env.STORE_URL ||
-    process.env.STORE_MINIAPP_URL ||
-    process.env.SERVER_URL ||
-    process.env.PUBLIC_URL ||
-    process.env.APP_URL ||
-    'https://web-production-2d8bd.up.railway.app'
-  ).trim();
-
-  try {
-    const origin = new URL(candidate).origin;
-    return `${origin}${ADMIN_BASE_PATH}`;
-  } catch {
-    return `${candidate.replace(/\/$/, '')}${ADMIN_BASE_PATH}`;
-  }
+  return resolveAdminPortalUrl();
 }
 
 function row(...buttons: InlineKeyboardButton[]): InlineKeyboardButton[] {

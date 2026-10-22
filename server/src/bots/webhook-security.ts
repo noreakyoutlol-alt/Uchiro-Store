@@ -1,7 +1,25 @@
 import { timingSafeEqual } from 'crypto';
 import type { RequestHandler } from 'express';
+import { resolveServerUrl } from '../config/app-url';
+import { env } from '../config/env';
 
 type SecretEnvName = 'STORE_WEBHOOK_SECRET' | 'ADMIN_WEBHOOK_SECRET';
+
+export function getStoreBotWebhookSecrets(): string[] {
+  return [
+    process.env.STORE_WEBHOOK_SECRET,
+    process.env.STORE_BOT_WEBHOOK_SECRET,
+    env.STORE_BOT_WEBHOOK_SECRET,
+  ].filter((s): s is string => Boolean(s && typeof s === 'string' && s.trim().length > 0));
+}
+
+export function getAdminBotWebhookSecrets(): string[] {
+  return [
+    process.env.ADMIN_WEBHOOK_SECRET,
+    process.env.ADMIN_BOT_WEBHOOK_SECRET,
+    env.ADMIN_BOT_WEBHOOK_SECRET,
+  ].filter((s): s is string => Boolean(s && typeof s === 'string' && s.trim().length > 0));
+}
 
 /** Rejects any POST that does not carry the secret Telegram sends in X-Telegram-Bot-Api-Secret-Token. */
 export function webhookSecretGuard(envName: SecretEnvName): RequestHandler {
@@ -60,21 +78,31 @@ async function registerTelegramWebhook(options: RegisterOptions): Promise<void> 
 
 /** Call once after the server is listening, production only. */
 export async function registerBotWebhooks(): Promise<void> {
-  const serverUrl = (process.env.SERVER_URL ?? '').replace(/\/+$/, '');
+  const serverUrl = resolveServerUrl();
   if (!serverUrl) {
-    console.error('[webhook] SERVER_URL is not set; webhooks not registered');
+    console.error('[webhook] Server URL is not set; webhooks not registered');
     return;
   }
+  const storeSecret =
+    process.env.STORE_WEBHOOK_SECRET ||
+    process.env.STORE_BOT_WEBHOOK_SECRET ||
+    env.STORE_BOT_WEBHOOK_SECRET;
+
+  const adminSecret =
+    process.env.ADMIN_WEBHOOK_SECRET ||
+    process.env.ADMIN_BOT_WEBHOOK_SECRET ||
+    env.ADMIN_BOT_WEBHOOK_SECRET;
+
   await registerTelegramWebhook({
     label: 'store-bot',
-    token: process.env.STORE_BOT_TOKEN,
+    token: (process.env.STORE_BOT_TOKEN || env.STORE_BOT_TOKEN || '').trim(),
     url: `${serverUrl}/api/webhook/store-bot`,
-    secret: process.env.STORE_WEBHOOK_SECRET,
+    secret: storeSecret,
   });
   await registerTelegramWebhook({
     label: 'admin-bot',
-    token: process.env.ADMIN_BOT_TOKEN,
+    token: (process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim(),
     url: `${serverUrl}/api/webhook/admin-bot`,
-    secret: process.env.ADMIN_WEBHOOK_SECRET,
+    secret: adminSecret,
   });
 }

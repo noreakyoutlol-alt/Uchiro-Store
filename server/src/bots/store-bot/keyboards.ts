@@ -2,6 +2,7 @@ import { Markup } from 'telegraf';
 import { DeliveredAccount } from '../../database/data-store';
 import { TELEGRAM_EMOJIS, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { getLocale } from './locales';
+import { resolveStoreUrl } from '../../config/app-url';
 
 // Helper to strip leading unicode emoji / symbols from button labels
 export function stripLeadingEmoji(text: string): string {
@@ -92,13 +93,22 @@ export function webBtn(text: string, url: string, iconKey?: string) {
   return makeButton('web_app', text, url, iconKey);
 }
 
-export function createWebAppOrUrlButton(text: string, targetUrl: string, iconKey?: string) {
-  const rawPublicUrl = (process.env.PUBLIC_URL || '').trim();
-  const appUrl = (rawPublicUrl.startsWith('https://') ? rawPublicUrl : 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+export function createWebAppOrUrlButton(text: string, targetUrl?: string, iconKey?: string) {
+  const appUrl = resolveStoreUrl();
 
   let resolvedUrl = targetUrl;
   if (targetUrl && targetUrl.startsWith('https://')) {
-    resolvedUrl = targetUrl;
+    if (targetUrl.includes('web-production-2d8bd') || targetUrl.includes('your-production-app')) {
+      try {
+        const parsed = new URL(targetUrl);
+        const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
+        resolvedUrl = `${appUrl}${pathAndQuery}`;
+      } catch {
+        resolvedUrl = appUrl;
+      }
+    } else {
+      resolvedUrl = targetUrl;
+    }
   } else if (targetUrl) {
     if (targetUrl.startsWith('/')) {
       resolvedUrl = `${appUrl}${targetUrl}`;
@@ -133,16 +143,24 @@ export function createWebAppOrUrlButton(text: string, targetUrl: string, iconKey
  * Row 4: 🎁 Claim Free Points (or ⏳ Cooldown (Wait 24h)) | 💬 Chat with Admin / Support
  */
 export function buildMainMenuKeyboard(
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app',
+  storeUrl?: string,
   supportUsername: string = 'uchirosupport',
   opts?: { onCooldown?: boolean }
 ) {
+  const effectiveStoreUrl =
+    storeUrl &&
+    !storeUrl.includes('web-production-2d8bd') &&
+    !storeUrl.includes('your-production-app') &&
+    (storeUrl.startsWith('https://') || storeUrl.startsWith('http://'))
+      ? storeUrl
+      : resolveStoreUrl();
+
   const cleanSupport = (supportUsername || 'uchirosupport').replace(/^@/, '');
   const supportUrl = `https://t.me/${cleanSupport}`;
   const claimText = opts?.onCooldown ? '⏳ Cooldown (Wait 24h)' : '🎁 Claim Free Points';
 
   return Markup.inlineKeyboard([
-    [createWebAppOrUrlButton('🛍️ Open Store', storeUrl, 'SHOPPING_BAGS')],
+    [createWebAppOrUrlButton('🛍️ Open Store', effectiveStoreUrl, 'SHOPPING_BAGS')],
     [
       cb('💎 Buy Robux', 'cb_buy_robux', 'ROBUX'),
       cb('🔑 Get 2FA Code', 'cb_vault_2fa', 'KEY'),
@@ -229,11 +247,18 @@ export function getLanguageSelectionKeyboard(langOrShowBackHome: string | boolea
  * Row 3: 📱 បើកក្នុង Mini App (ស្រេចចិត្ត) | 🔙 ត្រឡប់ទៅដើម
  */
 export function buildProfileKeyboard(
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app',
+  storeUrl?: string,
   lang: string = 'km'
 ) {
+  const effectiveStoreUrl =
+    storeUrl &&
+    !storeUrl.includes('web-production-2d8bd') &&
+    !storeUrl.includes('your-production-app') &&
+    (storeUrl.startsWith('https://') || storeUrl.startsWith('http://'))
+      ? storeUrl
+      : resolveStoreUrl();
   const loc = getLocale(lang);
-  const profileWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=profile` : `${storeUrl}?tab=profile`;
+  const profileWebUrl = effectiveStoreUrl.includes('?') ? `${effectiveStoreUrl}&tab=profile` : `${effectiveStoreUrl}?tab=profile`;
 
   return Markup.inlineKeyboard([
     [

@@ -1,5 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
 import { env } from '../../config/env';
+import { resolveStoreUrl } from '../../config/app-url';
 import { DataStore } from '../../database/data-store';
 import { TELEGRAM_EMOJIS, renderTgEmoji, tgEmoji, enrichWithTgEmojis, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { FulfillmentService } from '../../services/fulfillment.service';
@@ -250,15 +251,8 @@ export class StoreBotService {
   private setupHandlers(): void {
     if (!this.bot) return;
 
-    const appUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const storeWebAppUrl = resolveStoreUrl();
     const supportUsername = (process.env.SUPPORT_TELEGRAM_USERNAME || env.TELEGRAM_SUPPORT_USERNAME || 'UchiroSupport').replace(/^@/, '');
-    const storeWebAppUrl = (process.env.STORE_MINIAPP_URL && process.env.STORE_MINIAPP_URL.startsWith('https://'))
-      ? process.env.STORE_MINIAPP_URL
-      : (env.STORE_WEBAPP_URL && env.STORE_WEBAPP_URL.startsWith('https://'))
-        ? env.STORE_WEBAPP_URL
-        : (env.CLIENT_STORE_URL && env.CLIENT_STORE_URL.startsWith('https://'))
-          ? env.CLIENT_STORE_URL
-          : appUrl;
 
     // Global middleware: wrap ctx.answerCbQuery (first call wins);
     // if no handler answered within 1.5s or it ended/threw without answering, answer silently and console.warn callback_data
@@ -366,6 +360,15 @@ export class StoreBotService {
 
       const welcomeText = getWelcomeMessage(savedLang);
       const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
+
+      try {
+        ctx.setChatMenuButton?.({
+          type: 'web_app',
+          text: '🛍️ Store',
+          web_app: { url: storeWebAppUrl },
+        } as any).catch(() => {});
+      } catch {}
+
       await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
         parse_mode: 'HTML',
         ...keyboard,
@@ -861,12 +864,18 @@ export class StoreBotService {
   }
 
   public async handleWebhookUpdate(update: any): Promise<void> {
+    if (!this.bot) {
+      this.initBot();
+    }
     if (this.bot) {
       try {
+        console.log('[STORE BOT] Processing webhook update ID:', update?.update_id);
         await this.bot.handleUpdate(update);
       } catch (err: any) {
-        console.error('[STORE BOT] Error processing update:', err);
+        console.error('[STORE BOT] Error processing update:', err?.message || err);
       }
+    } else {
+      console.error('[STORE BOT] Cannot process webhook update: bot instance not initialized');
     }
   }
 

@@ -18,6 +18,7 @@ import { requireAdminSession } from './auth/admin-session';
 import { adminAuthRouter } from './routes/admin-auth.routes';
 import { webhookSecretGuard, registerBotWebhooks } from './bots/webhook-security';
 import { dailyClaimRouter } from './routes/daily-claim';
+import { vaultRouter } from './routes/vault.routes';
 import { botsRouter, webhookRouter } from './routes/bots.routes';
 import { userRouter } from './routes/user.routes';
 import { storeBot } from './bots/store-bot';
@@ -119,9 +120,11 @@ app.use('/api/admin', adminRouter);
 
 // 2. Store API (/api/*)
 app.use('/api/webhook', webhookRouter);
+app.use('/webhook', webhookRouter);
 app.use('/api/user', userRouter);
 app.use('/api/auth', authRouter);
 app.use('/api', dailyClaimRouter);
+app.use('/api/vault', vaultRouter);
 app.use('/api/store', storeRouter);
 app.use('/api', storeRouter);
 app.use('/api/orders', orderRouter);

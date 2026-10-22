@@ -1,5 +1,6 @@
 ﻿import axios from 'axios';
 import { env } from '../config/env';
+import { resolveStoreUrl } from '../config/app-url';
 import { formatTelegramHtml } from '../bots/store-bot';
 import { formatShortOrderId } from '../utils/order.util';
 
@@ -60,7 +61,7 @@ export class NotificationService {
     text: string,
     targetUrl: string
   ): { text: string; web_app?: { url: string }; url?: string } {
-    const defaultAppUrl = 'https://web-production-2d8bd.up.railway.app';
+    const defaultAppUrl = resolveStoreUrl();
     const publicUrl = (process.env.PUBLIC_URL || env.PUBLIC_URL || defaultAppUrl).trim().replace(/\/$/, '');
 
     if (targetUrl.startsWith('https://t.me/')) {
@@ -247,7 +248,7 @@ export class NotificationService {
       `<b>Warranty:</b> ${warrantyDuration}\n\n` +
       `Thank you for your purchase! Tap below to view your official receipt or open your secure delivery.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
       (env.STORE_WEBAPP_URL?.startsWith('https://') && env.STORE_WEBAPP_URL) ||
       (env.CLIENT_STORE_URL?.startsWith('https://') && env.CLIENT_STORE_URL) ||
@@ -283,7 +284,7 @@ export class NotificationService {
       `Your payment has been verified!\n` +
       `Delivery is being processed immediately.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
       (env.STORE_WEBAPP_URL?.startsWith('https://') && env.STORE_WEBAPP_URL) ||
       (env.CLIENT_STORE_URL?.startsWith('https://') && env.CLIENT_STORE_URL) ||
@@ -319,7 +320,7 @@ export class NotificationService {
       `Your purchase has been verified and securely fulfilled with full 14-day warranty protection.\n` +
       `Tap below to open your secure vault, view credentials, and generate live authenticator codes:`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
       (env.STORE_WEBAPP_URL?.startsWith('https://') && env.STORE_WEBAPP_URL) ||
       (env.CLIENT_STORE_URL?.startsWith('https://') && env.CLIENT_STORE_URL) ||
@@ -352,7 +353,7 @@ export class NotificationService {
       `Payment received! Your delivery is being prepared by our team.\n` +
       `We will notify you here as soon as it is delivered.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
       (env.STORE_WEBAPP_URL?.startsWith('https://') && env.STORE_WEBAPP_URL) ||
       (env.CLIENT_STORE_URL?.startsWith('https://') && env.CLIENT_STORE_URL) ||
@@ -440,7 +441,7 @@ export class NotificationService {
       `👤 <b>Customer TG ID:</b> <code>${customerTelegramId}</code>\n\n` +
       `Verified real transaction.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -492,7 +493,7 @@ export class NotificationService {
       (extra?.telegramId ? `📱 <b>Customer TG ID:</b> <code>${extra.telegramId}</code>\n` : '') +
       `\n⚠️ <b>Awaiting admin friending on Roblox to deliver gift!</b>`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -539,7 +540,7 @@ export class NotificationService {
       (extra?.rendezvousDetails ? `📍 <b>Rendezvous:</b> ${extra.rendezvousDetails}\n` : '') +
       `\n⚠️ <b>Customer is awaiting trade rendezvous in-game.</b>`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -613,7 +614,7 @@ export class NotificationService {
       (extraInfo?.status ? `<b>Status:</b> <code>${extraInfo.status}</code>\n` : '') +
       `\n⚠️ <b>Please log into Roblox and deliver this order to the customer!</b>`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -646,7 +647,7 @@ export class NotificationService {
       `Prize: <b>${prizeTitle}</b>\n` +
       `Status: Pending manual claim review.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -682,7 +683,7 @@ export class NotificationService {
       `<b>Verification:</b> Roblox recipient verification required.\n` +
       `Please verify user credentials in Roblox before manual service fulfillment.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -719,7 +720,7 @@ export class NotificationService {
       (tradeId ? `<b>Trade ID:</b> <code>${tradeId}</code>\n` : '') +
       `<b>Action:</b> In-game item trade required. Initiate trade dispatch to player.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -749,7 +750,7 @@ export class NotificationService {
       `<b>Remaining Stock:</b> ${remaining} items remaining!\n` +
       `Please check inventory to avoid stockouts.`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
@@ -819,7 +820,7 @@ export class NotificationService {
       `📈 A high-volume customer announcement draft has been prepared.\n` +
       `Review low stock inventory or broadcast this announcement:`;
 
-    const defaultAppUrl = (process.env.PUBLIC_URL || 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+    const defaultAppUrl = resolveStoreUrl();
     const adminWebUrl =
       (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
       (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||

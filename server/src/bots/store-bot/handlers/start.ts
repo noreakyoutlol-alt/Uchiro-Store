@@ -4,6 +4,7 @@ import { buildMainMenuKeyboard, getLanguageSelectionKeyboard } from '../keyboard
 import { getWelcomeMessage, formatTelegramHtml } from '../index';
 import { enrichWithTgEmojis } from '../utils/emoji-registry';
 import { renderTgEmoji } from '../../../config/telegram-emojis';
+import { resolveStoreUrl } from '../../../config/app-url';
 
 export async function handleStart(ctx: Context) {
   const from = ctx.from;
@@ -41,7 +42,16 @@ export async function handleStart(ctx: Context) {
   });
 
   const welcomeText = getWelcomeMessage(savedLang);
-  const keyboard = buildMainMenuKeyboard();
+  const storeUrl = resolveStoreUrl();
+  try {
+    (ctx as any).setChatMenuButton?.({
+      type: 'web_app',
+      text: '🛍️ Store',
+      web_app: { url: storeUrl },
+    }).catch(() => {});
+  } catch {}
+
+  const keyboard = buildMainMenuKeyboard(storeUrl);
   await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
     parse_mode: 'HTML',
     ...keyboard,

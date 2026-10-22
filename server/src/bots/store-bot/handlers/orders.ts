@@ -2,6 +2,7 @@ import { Context } from 'telegraf';
 import { DataStore, DeliveredAccount, listOrdersByUser } from '../../../database/data-store';
 import { supabase, isSupabaseConfigured } from '../../../database/supabase';
 import { TOTPService } from '../../../security/totp';
+import { resolveStoreUrl } from '../../../config/app-url';
 import {
   buildAccountDetailKeyboard,
   buildEmptyVaultKeyboard,
@@ -152,7 +153,7 @@ export async function getCustomerDeliveredAccountById(
  */
 export async function handleVaultMenu(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
@@ -326,7 +327,7 @@ export async function handleGen2fa(
  */
 export async function handleOrdersRecent(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
@@ -387,7 +388,7 @@ export async function handleOrdersRecent(
  */
 export async function handleOrdersMenu(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   await handleOrdersRecent(ctx, storeUrl);
 }
@@ -397,7 +398,7 @@ export async function handleOrdersMenu(
  */
 export async function handleOrdersTrack(
   ctx: Context,
-  storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app'
+  storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
   try {
     await ctx.answerCbQuery();

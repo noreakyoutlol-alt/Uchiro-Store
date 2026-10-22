@@ -28,18 +28,12 @@ export type AdminBotInstance = Omit<Telegraf, 'startPolling'> & {
 };
 
 import { ADMIN_BASE_PATH } from '../../config/admin-slug';
+import { resolveStoreUrl } from '../../config/app-url';
 
 export const adminBot: AdminBotInstance = new Telegraf(token) as unknown as AdminBotInstance;
 applyTelegramOutboundGuard(adminBot as any);
 
-export const STORE_URL =
-  (process.env.STORE_MINIAPP_URL && process.env.STORE_MINIAPP_URL.startsWith('https://'))
-    ? process.env.STORE_MINIAPP_URL
-    : (env.STORE_WEBAPP_URL && env.STORE_WEBAPP_URL.startsWith('https://'))
-      ? env.STORE_WEBAPP_URL
-      : (env.CLIENT_STORE_URL && env.CLIENT_STORE_URL.startsWith('https://'))
-        ? env.CLIENT_STORE_URL
-        : ((process.env.PUBLIC_URL || env.PUBLIC_URL || '').replace(/\/$/, '') || 'https://uchiro.store');
+export const STORE_URL = resolveStoreUrl();
 
 import { resolveDefaultAdminUrl } from './admin-actions';
 
@@ -290,9 +284,10 @@ adminBot.catch((err: any, ctx) => {
 
 (adminBot as any).handleWebhookUpdate = async (update: any): Promise<void> => {
   try {
+    console.log('[ADMIN BOT] Webhook processing update ID:', update?.update_id);
     await adminBot.handleUpdate(update);
   } catch (err: any) {
-    console.error('[ADMIN BOT] Error processing webhook update:', err);
+    console.error('[ADMIN BOT] Error processing webhook update:', err?.message || err);
   }
 };
 

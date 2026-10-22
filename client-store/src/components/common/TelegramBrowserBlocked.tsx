@@ -31,10 +31,18 @@ export const TelegramBrowserBlocked: React.FC = () => {
           href="https://t.me/UchiroStore_BOT"
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-[#2AABEE] to-[#229ED9] text-white hover:brightness-110 flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition-all active:scale-95 mb-4"
+          className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-[#2AABEE] to-[#229ED9] text-white hover:brightness-110 flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition-all active:scale-95 mb-2"
         >
           <Send className="w-4 h-4 fill-current" />
           <span>ចូលទៅកាន់ Telegram (@UchiroStore_BOT)</span>
+        </a>
+
+        {/* Guest Preview link */}
+        <a
+          href="?guest=true"
+          className="text-xs text-slate-400 hover:text-slate-200 underline py-1.5 mb-3 transition-colors"
+        >
+          View Store Catalog (Guest Mode)
         </a>
 
         {/* Footer verification chip */}

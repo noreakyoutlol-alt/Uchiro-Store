@@ -53,18 +53,24 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    // Silent re-authentication retry on 401
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Silent re-authentication retry on 401 (skip if the failed request was already /auth/telegram)
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/telegram')
+    ) {
       originalRequest._retry = true;
       try {
         const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
         const initData = tg?.initData || '';
-        const authRes = await axios.post('/api/auth/telegram', { initData });
-        const newToken = authRes.data?.data?.token;
-        if (newToken) {
-          setStoredToken(newToken);
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return api(originalRequest);
+        if (initData) {
+          const authRes = await axios.post('/api/auth/telegram', { initData });
+          const newToken = authRes.data?.data?.token;
+          if (newToken) {
+            setStoredToken(newToken);
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return api(originalRequest);
+          }
         }
       } catch (authErr) {
         // Fall through to reject
