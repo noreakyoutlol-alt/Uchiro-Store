@@ -12,6 +12,7 @@ import {
   handleOrdersMenu,
   handleOrdersRecent,
   handleOrdersTrack,
+  escapeHtml,
   isMessageNotModifiedError,
 } from './handlers/orders';
 import { applyTelegramOutboundGuard } from '../telegram-guard';
@@ -451,31 +452,46 @@ export class StoreBotService {
       } catch {}
       const order = await RobuxService.getOrderByCode(orderCode);
       if (!order) {
-        return ctx.reply(
-          formatTelegramHtml(`❌ <b>Order #${orderCode} not found in Robux order records.</b>`),
-          {
+        const notFoundHtml = formatTelegramHtml(`❌ <b>Order #${orderCode} not found in Robux order records.</b>`);
+        const backKb = Markup.inlineKeyboard([[cb('Back to Main Menu', 'cb_main_menu', 'HOME')]]);
+        try {
+          return await ctx.editMessageText(notFoundHtml, {
             parse_mode: 'HTML',
-            ...Markup.inlineKeyboard([[cb('Back to Main Menu', 'cb_main_menu', 'HOME')]]),
-          }
-        );
+            ...backKb,
+          });
+        } catch {
+          return ctx.reply(notFoundHtml, {
+            parse_mode: 'HTML',
+            ...backKb,
+          });
+        }
       }
       const statusText = order.status;
-      await ctx.reply(
-        formatTelegramHtml(
-          `📦 <b>Robux Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
-          (statusText === 'completed'
-            ? '✅ Order completed via authorized fulfillment channel.'
-            : statusText === 'paid'
-            ? '⏳ Payment received. Fulfillment pending verification.'
-            : '🛡️ <b>Notice:</b> Direct third-party Robux purchase/payment is held safely disabled pending documented Roblox authorization.')
-        ),
-        {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
-          ]),
-        }
+      const statusHtml = formatTelegramHtml(
+        `📦 <b>Robux Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
+        (statusText === 'completed'
+          ? '✅ Order completed via authorized fulfillment channel.'
+          : statusText === 'paid'
+          ? '⏳ Payment received. Fulfillment pending verification.'
+          : '🛡️ <b>Notice:</b> Direct third-party Robux purchase/payment is held safely disabled pending documented Roblox authorization.')
       );
+      const statusKb = Markup.inlineKeyboard([
+        [cb('🔄 Refresh Status', `cb_rbx_check_${orderCode}`, 'REFRESH')],
+        [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+      ]);
+      try {
+        await ctx.editMessageText(statusHtml, {
+          parse_mode: 'HTML',
+          ...statusKb,
+        });
+      } catch (err) {
+        if (!isMessageNotModifiedError(err)) {
+          await ctx.reply(statusHtml, {
+            parse_mode: 'HTML',
+            ...statusKb,
+          });
+        }
+      }
     });
 
     // Universal Back Home Navigation (cb_main_menu & aliases)
@@ -742,35 +758,138 @@ export class StoreBotService {
     });
 
     // Fulfilled Order Interactive Callbacks
+    // Fulfilled Order Interactive Callbacks with Strict Customer Ownership
+    const verifyCustomerOrderAccess = (ctx: any, orderId: string) => {
+      const fromId = ctx.from?.id;
+      if (!fromId) return { authorized: false, reason: 'Unauthorized access.' };
+      const order = DataStore.getOrderById(orderId);
+      if (!order) return { authorized: false, reason: 'Order not found.' };
+      if (order.telegram_id !== fromId && String(order.telegram_id) !== String(fromId)) {
+        return { authorized: false, reason: 'Access denied: You do not own this order.' };
+      }
+      return { authorized: true, order };
+    };
+
     this.bot.action(/^view_order:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const auth = verifyCustomerOrderAccess(ctx, orderId);
+      if (!auth.authorized) {
+        try {
+          await ctx.answerCbQuery(auth.reason, { show_alert: true });
+        } catch {}
+        return;
+      }
       try {
         await ctx.answerCbQuery();
       } catch {}
+
+      const order = auth.order!;
       const webAppUrl = `${storeWebAppUrl}?tab=orders&orderId=${orderId}`;
-      await ctx.reply(
-        formatTelegramHtml(
-          `📦 <b>Order Details #${orderId}</b>\n\n` +
-          `Tap below to view full details in the Mini App:`
-        ),
-        {
+      const productTitle = order.product_title || order.items?.[0]?.product_title || 'Gaming Product';
+      const orderDate = new Date(order.created_at).toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' });
+      const statusBadge = order.status.toUpperCase();
+      const amountStr = `$${Number(order.total_amount || 0).toFixed(2)}`;
+
+      const text =
+        `📦 <b>ORDER DETAILS #${escapeHtml(order.order_number || order.id)}</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎮 <b>Product:</b> ${escapeHtml(productTitle)}\n` +
+        `📊 <b>Status:</b> <code>${statusBadge}</code>\n` +
+        `💰 <b>Total Amount:</b> <b>${amountStr}</b>\n` +
+        `🗓️ <b>Date:</b> <i>${orderDate}</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Tap below to open full receipt and delivery in the Mini App:`;
+
+      const buttons: any[] = [
+        [createWebAppOrUrlButton('📱 Open in Mini App', webAppUrl, 'PACKAGE')],
+      ];
+      if ((order.status === 'delivered' || order.status === 'completed') && order.delivery_mode === 'auto_account') {
+        buttons.unshift([
+          cb('🎮 View Account Credentials', `sub_main:${order.id}`, 'KEY'),
+          cb('🔢 Live 2FA Code', `sub_2fa:${order.id}`, 'SHIELD'),
+        ]);
+      }
+      buttons.push([cb('🔙 Back to Orders', 'cb_orders_recent', 'BACK')]);
+
+      const formattedHtml = formatTelegramHtml(text);
+      try {
+        await ctx.editMessageText(formattedHtml, {
           parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [createWebAppOrUrlButton('📱 Open in Mini App', webAppUrl, 'PACKAGE')],
-          ]),
+          ...Markup.inlineKeyboard(buttons),
+        });
+      } catch (err) {
+        if (!isMessageNotModifiedError(err)) {
+          await ctx.reply(formattedHtml, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(buttons),
+          });
         }
-      );
+      }
+    });
+
+    this.bot.action(/^sub_2fa:(.+)$/, async (ctx) => {
+      const orderId = ctx.match[1];
+      const auth = verifyCustomerOrderAccess(ctx, orderId);
+      if (!auth.authorized) {
+        try {
+          await ctx.answerCbQuery(auth.reason, { show_alert: true });
+        } catch {}
+        return;
+      }
+      const order = auth.order!;
+      if (order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'paid') {
+        try {
+          await ctx.answerCbQuery('Order has not been delivered yet.', { show_alert: true });
+        } catch {}
+        return;
+      }
+
+      try {
+        const { text, keyboard, code } = await FulfillmentService.get2FaSubScreen(orderId);
+        try {
+          await ctx.answerCbQuery(code && code !== 'N/A' && code !== 'ERROR' ? `Live Code: ${code}` : '2FA Status Updated');
+        } catch {}
+        await ctx.editMessageText(formatTelegramHtml(text), {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        });
+      } catch (err: any) {
+        try {
+          if (!isMessageNotModifiedError(err)) {
+            await ctx.answerCbQuery('Error loading 2FA authenticator.');
+          } else {
+            await ctx.answerCbQuery('Code is up to date.');
+          }
+        } catch {}
+      }
     });
 
     this.bot.action(/^send_qr:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const auth = verifyCustomerOrderAccess(ctx, orderId);
+      if (!auth.authorized) {
+        try {
+          await ctx.answerCbQuery(auth.reason, { show_alert: true });
+        } catch {}
+        return;
+      }
+      const order = auth.order!;
+      if (order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'paid') {
+        try {
+          await ctx.answerCbQuery('Order has not been delivered yet.', { show_alert: true });
+        } catch {}
+        return;
+      }
+
       try {
+        try {
+          await ctx.answerCbQuery('Generating 2FA QR code...');
+        } catch {}
         const qrBuffer = await FulfillmentService.generate2FaQrBuffer(orderId);
         await ctx.replyWithPhoto(
           { source: qrBuffer },
           { caption: '📷 Scan with Google Authenticator or 2FAS' }
         );
-        await ctx.answerCbQuery('QR Code sent!');
       } catch {
         try {
           await ctx.answerCbQuery('Error generating 2FA QR code.');
@@ -780,6 +899,14 @@ export class StoreBotService {
 
     this.bot.action(/^sub_warranty:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const auth = verifyCustomerOrderAccess(ctx, orderId);
+      if (!auth.authorized) {
+        try {
+          await ctx.answerCbQuery(auth.reason, { show_alert: true });
+        } catch {}
+        return;
+      }
+
       try {
         const { text, keyboard } = FulfillmentService.getWarrantySubScreen(orderId);
         await ctx.editMessageText(formatTelegramHtml(text), {
@@ -796,6 +923,21 @@ export class StoreBotService {
 
     this.bot.action(/^sub_main:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const auth = verifyCustomerOrderAccess(ctx, orderId);
+      if (!auth.authorized) {
+        try {
+          await ctx.answerCbQuery(auth.reason, { show_alert: true });
+        } catch {}
+        return;
+      }
+      const order = auth.order!;
+      if (order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'paid') {
+        try {
+          await ctx.answerCbQuery('Order has not been delivered yet.', { show_alert: true });
+        } catch {}
+        return;
+      }
+
       try {
         const cardText = FulfillmentService.getMainDeliveryCardText(orderId);
         const keyboard = FulfillmentService.getMainDeliveryKeyboard(orderId);
@@ -804,9 +946,13 @@ export class StoreBotService {
           reply_markup: keyboard,
         });
         await ctx.answerCbQuery();
-      } catch {
+      } catch (err) {
         try {
-          await ctx.answerCbQuery('Error loading delivery card.');
+          if (!isMessageNotModifiedError(err)) {
+            await ctx.answerCbQuery('Error loading delivery card.');
+          } else {
+            await ctx.answerCbQuery();
+          }
         } catch {}
       }
     });

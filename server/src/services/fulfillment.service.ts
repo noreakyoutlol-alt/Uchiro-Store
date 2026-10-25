@@ -79,10 +79,10 @@ export class FulfillmentService {
     let username = 'N/A';
     let password = 'N/A';
     let twoFactorSecret: string | null = null;
-    let warrantyDays = 7;
+    let warrantyDays = 14;
     let productTitle = 'Roblox Account';
     let amount = 0;
-    let warrantyExpiresAt = new Date(Date.now() + 7 * 86400000).toISOString();
+    let warrantyExpiresAt = new Date(Date.now() + 14 * 86400000).toISOString();
 
     if (order) {
       amount = order.total_amount;
@@ -209,7 +209,28 @@ export class FulfillmentService {
       };
     }
 
-    const { code, secondsRemaining } = await this.calculateOtplibTotp(twoFactorSecret);
+    let code = 'N/A';
+    let secondsRemaining = 30;
+    try {
+      const calc = await this.calculateOtplibTotp(twoFactorSecret);
+      code = calc.code;
+      secondsRemaining = calc.secondsRemaining;
+    } catch {
+      return {
+        text:
+          `🔢 <b>LIVE 2FA AUTHENTICATOR</b>\n\n` +
+          `${userEmoji} <b>Account:</b> <code>${username}</code>\n\n` +
+          `${alertEmoji} <i>Invalid 2FA authenticator secret format for this account. Please contact support for assistance.</i>`,
+        keyboard: {
+          inline_keyboard: [
+            [makeFulfillmentButton({ text: 'Back to Delivery', callbackData: `sub_main:${orderId}`, iconKey: 'BACK' })],
+            [makeFulfillmentButton({ text: 'Contact Support', url: this.getSupportUrl(), iconKey: 'SUPPORT' })],
+          ],
+        },
+        code: 'ERROR',
+      };
+    }
+
     const otpauthUri = TOTPService.generateOtpauthUri(
       twoFactorSecret,
       username,

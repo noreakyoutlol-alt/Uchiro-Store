@@ -10,6 +10,8 @@ import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
 import { applyTelegramOutboundGuard } from '../telegram-guard';
 import { RobuxService } from '../../services/robux.service';
 import { BatchAnnouncementService } from '../../services/batch-announcement.service';
+import { DataStore } from '../../database/data-store';
+import { NotificationService } from '../../services/notification.service';
 
 export function isAuthorizedAdmin(telegramId: string | number): boolean {
   const id = String(telegramId).trim();
@@ -213,11 +215,19 @@ adminBot.command('broadcast', async (ctx) => {
   return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });
 });
 
-// /cancel command for aborting active in-chat wizards
+// In-chat admin ticket reply sessions: adminId -> ticketId
+const adminTicketReplySessions = new Map<number, string>();
+
+// /cancel command for aborting active in-chat wizards & reply sessions
 adminBot.command('cancel', async (ctx) => {
   if (ctx.chat?.type !== 'private') return;
   const senderId = ctx.from?.id;
   if (!senderId || !isAuthorizedAdmin(senderId)) return;
+
+  if (adminTicketReplySessions.has(senderId)) {
+    adminTicketReplySessions.delete(senderId);
+    return ctx.reply('Ticket reply cancelled.');
+  }
 
   if (hasActiveBroadcastWizard(senderId)) {
     const handled = await handleBroadcastWizardMessage(ctx);
@@ -286,6 +296,70 @@ adminBot.command('register_group', async (ctx) => {
 adminBot.on('callback_query', async (ctx) => {
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
   if (!data || ctx.chat?.type !== 'private') return;
+  const from = ctx.callbackQuery.from;
+  if (!from || !isAuthorizedAdmin(from.id)) {
+    try { await ctx.answerCbQuery('⛔ Access denied.'); } catch {}
+    return;
+  }
+
+  // Handle Support Ticket Reply Trigger from Admin Bot
+  if (data.startsWith('ticket_reply:')) {
+    const ticketId = data.slice('ticket_reply:'.length);
+    const ticket = DataStore.getSupportTicketById(ticketId);
+    if (!ticket) {
+      try { await ctx.answerCbQuery('Ticket not found or deleted.', { show_alert: true }); } catch {}
+      return;
+    }
+
+    adminTicketReplySessions.set(from.id, ticketId);
+    try { await ctx.answerCbQuery(); } catch {}
+    return ctx.reply(
+      `✍️ <b>REPLY TO TICKET #${ticket.ticket_number}</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `👤 <b>Customer ID:</b> <code>${ticket.telegram_id}</code>\n` +
+      `📌 <b>Subject:</b> ${ticket.subject}\n` +
+      `💬 <b>Customer Message:</b>\n<i>${ticket.message}</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `<i>Please type your reply text below and send it. Type /cancel to abort.</i>`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  // Handle Support Ticket Close from Admin Bot
+  if (data.startsWith('ticket_close:')) {
+    const ticketId = data.slice('ticket_close:'.length);
+    const ticket = DataStore.getSupportTicketById(ticketId);
+    if (!ticket) {
+      try { await ctx.answerCbQuery('Ticket not found.', { show_alert: true }); } catch {}
+      return;
+    }
+
+    if (ticket.status === 'closed') {
+      try { await ctx.answerCbQuery('Ticket is already closed.'); } catch {}
+      return;
+    }
+
+    ticket.status = 'closed';
+    ticket.resolved_at = new Date().toISOString();
+    ticket.updated_at = new Date().toISOString();
+
+    NotificationService.notifyCustomerTicketClosed(
+      ticket.telegram_id,
+      ticket.ticket_number,
+      ticket.subject
+    ).catch(console.error);
+
+    try {
+      await ctx.editMessageText(
+        `🔒 <b>TICKET #${ticket.ticket_number} CLOSED</b>\n\n` +
+        `Customer <code>${ticket.telegram_id}</code> was notified that this ticket has been closed.`,
+        { parse_mode: 'HTML' }
+      );
+    } catch {}
+    try { await ctx.answerCbQuery('Ticket marked closed.'); } catch {}
+    return;
+  }
+
   const view = await handleAdminCallback(data, ctx.callbackQuery.from, STORE_URL, adminPortalUrl);
   if (!view) return;
   try {
@@ -307,6 +381,45 @@ adminBot.on('message', async (ctx) => {
       console.warn(`⚠️ [ADMIN BOT] Reply notice:`, err.message);
     }
     return;
+  }
+
+  // Check if admin is currently in a ticket reply session
+  if (adminTicketReplySessions.has(from.id)) {
+    const ticketId = adminTicketReplySessions.get(from.id)!;
+    adminTicketReplySessions.delete(from.id);
+
+    const text = (ctx.message as any)?.text?.trim();
+    if (!text || text === '/cancel') {
+      return ctx.reply('Ticket reply cancelled.');
+    }
+
+    const ticket = DataStore.getSupportTicketById(ticketId);
+    if (!ticket) {
+      return ctx.reply('❌ Ticket not found or already closed.');
+    }
+
+    const updated = DataStore.replySupportTicket(ticketId, text, 'resolved');
+    if (!updated) {
+      return ctx.reply('❌ Failed to update ticket reply.');
+    }
+
+    // Dispatch reply directly to customer via Store Bot
+    await NotificationService.notifyCustomerTicketReply(
+      ticket.telegram_id,
+      ticket.ticket_number,
+      ticket.subject,
+      text
+    );
+
+    return ctx.reply(
+      `✅ <b>REPLY SENT TO CUSTOMER</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `<b>Ticket:</b> #${ticket.ticket_number}\n` +
+      `<b>Customer:</b> <code>${ticket.telegram_id}</code>\n` +
+      `<b>Status:</b> RESOLVED\n\n` +
+      `<b>Your Reply:</b>\n${text}`,
+      { parse_mode: 'HTML' }
+    );
   }
 
   // Check if admin is currently in a broadcast wizard session

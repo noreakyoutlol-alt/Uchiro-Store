@@ -22,7 +22,18 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { isPlaying, isMuted, volume, togglePlay, toggleMute, setVolume } = useAudio();
+  const {
+    isPlaying,
+    isMuted,
+    volume,
+    hasError,
+    errorMessage,
+    isLoading,
+    togglePlay,
+    toggleMute,
+    setVolume,
+    retryAudio,
+  } = useAudio();
   const { language, setLanguage } = useLanguage();
   const { themeMode, setThemeMode, activeSeasonalTheme } = useTheme();
 
@@ -145,6 +156,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                   {Math.round((isMuted ? 0 : volume) * 100)}%
                 </span>
               </div>
+
+              {isLoading && (
+                <div className="flex items-center gap-1.5 pt-1 text-[11px] text-amber-500 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                  <span>Loading background music...</span>
+                </div>
+              )}
+
+              {hasError && (
+                <div className="flex items-center justify-between gap-2 p-2 mt-1 rounded bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-500">
+                  <span className="truncate">{errorMessage || 'Unable to play background music'}</span>
+                  <button
+                    type="button"
+                    onClick={retryAudio}
+                    className="underline font-bold text-rose-600 dark:text-rose-400 shrink-0 hover:opacity-80"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

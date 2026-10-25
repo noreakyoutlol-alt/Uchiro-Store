@@ -75,6 +75,7 @@ describe('Uchiro Store Backend Test Suite', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         productId: product.id,
+        quantity: 1,
         couponCode: 'UCHIRO10',
       });
 

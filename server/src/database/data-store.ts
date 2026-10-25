@@ -2326,7 +2326,13 @@ export class DataStore {
 
   static getOrdersByCustomer(telegramId: number): Order[] {
     return this.orders
-      .filter((o) => o.telegram_id === telegramId)
+      .filter((o) => o.telegram_id === Number(telegramId) || String(o.telegram_id) === String(telegramId))
+      .sort((a, b) => {
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        if (timeA !== timeB) return timeB - timeA;
+        return (b.id || '').localeCompare(a.id || '');
+      })
       .map((o) => ({ ...o, total_price: o.total_price ?? o.total_amount }));
   }
 
@@ -3481,6 +3487,7 @@ export class DataStore {
     category?: any;
     orderId?: string;
   }): SupportTicket {
+    const nowIso = new Date().toISOString();
     const ticket: SupportTicket = {
       id: uuidv4(),
       ticket_number: `TICK-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -3490,11 +3497,18 @@ export class DataStore {
       category: data.category || 'general',
       subject: data.subject,
       message: data.message,
+      messages: [
+        {
+          sender: 'customer',
+          text: data.message,
+          created_at: nowIso,
+        },
+      ],
       status: 'open',
       admin_reply: null,
       resolved_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: nowIso,
+      updated_at: nowIso,
     };
     this.supportTickets.unshift(ticket);
     return ticket;
@@ -3504,11 +3518,41 @@ export class DataStore {
     return this.supportTickets;
   }
 
+  static getSupportTicketById(ticketId: string): SupportTicket | null {
+    return this.supportTickets.find((t) => t.id === ticketId || t.ticket_number === ticketId) || null;
+  }
+
+  static addCustomerMessageToTicket(ticketId: string, message: string): SupportTicket | null {
+    const t = this.getSupportTicketById(ticketId);
+    if (!t) return null;
+    if (!t.messages) {
+      t.messages = [{ sender: 'customer', text: t.message, created_at: t.created_at }];
+    }
+    t.messages.push({
+      sender: 'customer',
+      text: message,
+      created_at: new Date().toISOString(),
+    });
+    if (t.status === 'closed' || t.status === 'resolved') {
+      t.status = 'in_progress';
+    }
+    t.updated_at = new Date().toISOString();
+    return t;
+  }
+
   static replySupportTicket(ticketId: string, reply: string, status: 'resolved' | 'closed' = 'resolved'): SupportTicket | null {
-    const t = this.supportTickets.find((tick) => tick.id === ticketId);
+    const t = this.getSupportTicketById(ticketId);
     if (!t) return null;
     t.admin_reply = reply;
     t.status = status;
+    if (!t.messages) {
+      t.messages = [{ sender: 'customer', text: t.message, created_at: t.created_at }];
+    }
+    t.messages.push({
+      sender: 'admin',
+      text: reply,
+      created_at: new Date().toISOString(),
+    });
     t.resolved_at = new Date().toISOString();
     t.updated_at = new Date().toISOString();
     return t;
@@ -4698,10 +4742,23 @@ export class DataStore {
     const numericId = Number(telegramId);
     const searchIdStr = String(telegramId);
 
+    // Filter recorded accounts: must belong to customer and cannot belong to cancelled/refunded order
     const recordedMatches: DeliveredAccount[] = this.recordedDeliveredAccounts
       .filter((acc) => {
         const accTid = acc.customerTelegramId ?? acc.telegramId ?? acc.telegram_id ?? acc.customer_telegram_id;
-        return String(accTid) === searchIdStr || Number(accTid) === numericId;
+        const matchesUser = String(accTid) === searchIdStr || Number(accTid) === numericId;
+        if (!matchesUser) return false;
+
+        // If linked to an order, verify order is not cancelled, refunded, failed, or unpaid
+        if (acc.order_code) {
+          const linkedOrder = this.orders.find(
+            (o) => o.order_number === acc.order_code || o.id === acc.order_code
+          );
+          if (linkedOrder && (linkedOrder.status === 'cancelled' || linkedOrder.status === 'refunded' || linkedOrder.status === 'failed' || linkedOrder.status === 'pending_payment')) {
+            return false;
+          }
+        }
+        return true;
       })
       .map((acc) => ({
         account_id: acc.account_id,
@@ -4715,8 +4772,11 @@ export class DataStore {
         delivered_at: acc.delivered_at,
       }));
 
+    // Customer orders: MUST be strictly delivered or completed (unpaid, pending, cancelled, refunded orders EXCLUDED)
     const userOrders = this.orders.filter(
-      (o) => o.telegram_id === numericId || String(o.telegram_id) === searchIdStr
+      (o) =>
+        (o.telegram_id === numericId || String(o.telegram_id) === searchIdStr) &&
+        (o.status === 'delivered' || o.status === 'completed')
     );
     const deliveredAccounts: DeliveredAccount[] = [];
 
@@ -4735,7 +4795,7 @@ export class DataStore {
           order.product_title || order.items?.[0]?.product_title || 'Gaming Account';
         const username = cred.username || cred.login || 'N/A';
         const password = cred.password || '';
-        const twoFactorSecret = cred.two_factor || cred.authenticator_secret || undefined;
+        const twoFactorSecret = cred.two_factor || cred.authenticator_secret || cred.two_factor_secret || cred.twoFactorSecret || null;
         const backupCodes = Array.isArray(cred.backup_codes)
           ? cred.backup_codes
           : cred.backup_codes
@@ -4758,7 +4818,18 @@ export class DataStore {
       });
     }
 
-    return [...recordedMatches, ...deliveredAccounts];
+    // Deduplicate: paid and successfully assigned accounts must appear once
+    const seen = new Set<string>();
+    const deduplicated: DeliveredAccount[] = [];
+
+    for (const acc of [...recordedMatches, ...deliveredAccounts]) {
+      const key = `${acc.account_id || ''}::${acc.order_code || ''}::${(acc.username || '').toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduplicated.push(acc);
+    }
+
+    return deduplicated;
   }
 
   static getDeliveredAccountById(

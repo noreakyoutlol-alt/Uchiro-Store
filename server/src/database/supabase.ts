@@ -26,8 +26,14 @@ export async function assertDatabaseReachable(): Promise<void> {
 }
 
 export async function checkSupabaseHealth(): Promise<{ configured: boolean; reachable: boolean; connected: boolean; url: string; error?: string }> {
+  if (process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST)) {
+    return { configured: false, reachable: false, connected: false, url: url || '' };
+  }
   try {
-    await assertDatabaseReachable();
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Supabase health check timed out')), 2000)
+    );
+    await Promise.race([assertDatabaseReachable(), timeoutPromise]);
     return { configured: true, reachable: true, connected: true, url: url || '' };
   } catch (err) {
     return { configured: Boolean(url && key), reachable: false, connected: false, url: url || '', error: err instanceof Error ? err.message : String(err) };

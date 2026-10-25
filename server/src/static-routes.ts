@@ -55,6 +55,9 @@ function setNoStore(res: Response): void {
 
 function setMediaHeaders(res: ServerResponse, filePath: string): void {
   if (filePath.endsWith('.webm')) res.setHeader('Content-Type', 'video/webm');
+  if (filePath.endsWith('.mp3')) res.setHeader('Content-Type', 'audio/mpeg');
+  if (filePath.endsWith('.ogg')) res.setHeader('Content-Type', 'audio/ogg');
+  if (filePath.endsWith('.wav')) res.setHeader('Content-Type', 'audio/wav');
 }
 
 function isGetOrHead(req: Request): boolean {

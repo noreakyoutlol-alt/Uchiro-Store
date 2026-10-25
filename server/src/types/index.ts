@@ -241,6 +241,7 @@ export type OrderStatus =
   | 'delivered'
   | 'completed'
   | 'cancelled'
+  | 'refunded'
   | 'expired'
   | 'failed';
 
@@ -491,9 +492,10 @@ export interface SupportTicket {
   customer_id: string;
   telegram_id: number;
   order_id: string | null;
-  category: 'order' | 'payment' | 'delivery' | 'general';
+  category: 'order' | 'payment' | 'delivery' | 'general' | 'warranty' | 'account';
   subject: string;
   message: string;
+  messages?: Array<{ sender: 'customer' | 'admin'; text: string; created_at: string }>;
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   admin_reply: string | null;
   resolved_at: string | null;

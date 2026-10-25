@@ -69,10 +69,15 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
 }) => {
   const { language, setLanguage } = useLanguage();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   const displayName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Telegram User';
   const hasUsername = Boolean(user?.username && user.username.trim().length > 0);
   const userInitial = (user?.first_name || displayName || 'T').charAt(0).toUpperCase();
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.photo_url]);
 
   // Reactive points state subscribed to /api/store/me/stats
   const [userPoints, setUserPoints] = useState<number>(profile?.points ?? 0);
@@ -151,10 +156,11 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
           aria-label="Open User Profile"
         >
           <div className="relative shrink-0">
-            {user?.photo_url ? (
+            {user?.photo_url && !avatarError ? (
               <img
                 src={user.photo_url}
                 alt={displayName}
+                onError={() => setAvatarError(true)}
                 className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border-2 border-slate-200 dark:border-white/20 group-hover:border-amber-400 transition-colors shadow-sm"
               />
             ) : (

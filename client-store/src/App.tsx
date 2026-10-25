@@ -141,9 +141,16 @@ const StoreAppContent: React.FC = () => {
               const authData = await StoreAPI.authenticateTelegram(initData);
               if (authData && isMounted) {
                 authDone = true;
+                const resolvedPhoto = authData.user?.photo_url || tgInstance?.initDataUnsafe?.user?.photo_url || null;
+                const tgId = authData.user?.telegram_id || tgInstance?.initDataUnsafe?.user?.id;
+                if (resolvedPhoto && tgId) {
+                  try {
+                    localStorage.setItem(`tg_user_avatar_${tgId}`, resolvedPhoto);
+                  } catch {}
+                }
                 const mergedUser = {
                   ...authData.user,
-                  photo_url: authData.user?.photo_url || tgInstance?.initDataUnsafe?.user?.photo_url || null,
+                  photo_url: resolvedPhoto,
                 };
                 setUser(mergedUser);
                 setProfile(authData.profile);
@@ -179,7 +186,18 @@ const StoreAppContent: React.FC = () => {
             const meData = await StoreAPI.getMe();
             if (meData?.user && isMounted) {
               authDone = true;
-              setUser(meData.user);
+              const tgId = meData.user?.telegram_id;
+              let photo = meData.user?.photo_url;
+              if (!photo && tgId) {
+                try {
+                  photo = localStorage.getItem(`tg_user_avatar_${tgId}`);
+                } catch {}
+              }
+              const mergedUser = {
+                ...meData.user,
+                photo_url: photo || null,
+              };
+              setUser(mergedUser);
               setProfile(meData.profile || meData);
               try {
                 userOrders = await StoreAPI.getOrders();

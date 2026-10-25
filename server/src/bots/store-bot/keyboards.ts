@@ -241,9 +241,10 @@ export function getLanguageSelectionKeyboard(langOrShowBackHome: string | boolea
 
 /**
  * Profile Keyboard:
- * Row 1: 📜 ប្រវត្តិពិន្ទុ (Points Ledger) | 🎁 ប្តូរពិន្ទុយករង្វាន់
- * Row 2: 🎒 មើលកាតាបឥវ៉ាន់ & Accounts
- * Row 3: 📱 បើកក្នុង Mini App (ស្រេចចិត្ត) | 🔙 ត្រឡប់ទៅដើម
+ * Row 1: 📜 Points Ledger | 🎁 Redeem Points
+ * Row 2: 🎒 View Vault & Accounts | 🎟️ Redeem Code
+ * Row 3: 📱 Open in Mini App | 🔙 Back to Home
+ * All button labels kept in English per Prompt 11 requirement
  */
 export function buildProfileKeyboard(
   storeUrl?: string,
@@ -260,42 +261,52 @@ export function buildProfileKeyboard(
 
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_points_ledger, 'cb_points_ledger', 'RECEIPT'),
-      cb(loc.btn_redeem_pts, 'cb_redeem_pts', 'GIFT'),
+      cb('Points Ledger', 'cb_points_ledger', 'RECEIPT'),
+      cb('Redeem Points', 'cb_redeem_pts', 'GIFT'),
     ],
     [
-      cb(loc.btn_view_vault, 'cb_vault_menu', 'BACKPACK'),
+      cb('View Vault & Accounts', 'cb_vault_menu', 'BACKPACK'),
       cb('Redeem Code', 'cb_redeem_code', 'TICKET'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_profile_webapp, profileWebUrl, 'PACKAGE'),
-      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
+      createWebAppOrUrlButton('Open in Mini App', profileWebUrl, 'PACKAGE'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
 
+/**
+ * Points Ledger Keyboard:
+ * Row 1: 🎁 Redeem Points (-100 Pts)
+ * Row 2: 🔙 Back to Profile | 🔙 Back Home
+ * All button labels kept in English per Prompt 11 requirement
+ */
 export function buildPointsLedgerKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_redeem_pts, 'cb_redeem_pts', 'GIFT'),
+      cb('Redeem Points (-100 Pts)', 'cb_redeem_pts', 'GIFT'),
     ],
     [
       cb('Back to Profile', 'cb_profile_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
 
+/**
+ * Redeem Points Keyboard:
+ * Row 1: 🎟️ Exchange Gacha Ticket (-100 Pts)
+ * Row 2: 🔙 Back to Profile | 🔙 Back Home
+ * All button labels kept in English per Prompt 11 requirement
+ */
 export function buildRedeemPointsKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
   return Markup.inlineKeyboard([
     [
       cb('Exchange Gacha Ticket (-100 Pts)', 'cb_gacha_buy_ticket', 'TICKET'),
     ],
     [
       cb('Back to Profile', 'cb_profile_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
@@ -419,46 +430,48 @@ export function buildKhqrGuideKeyboard() {
 /**
  * Gacha Dashboard Keyboard
  */
+/**
+ * Gacha Dashboard Keyboard:
+ * All button labels kept in English per Prompt 11 requirement
+ */
 export function buildGachaKeyboard(
   storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app',
-  lang: string = 'km'
+  _lang: string = 'km'
 ) {
-  const loc = getLocale(lang);
   const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
 
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_buy_ticket, 'cb_gacha_buy_ticket', 'TICKET'),
-      cb(loc.btn_view_prizes, 'cb_gacha_prizes', 'CROWN'),
+      cb('Exchange Points for Ticket', 'cb_gacha_buy_ticket', 'TICKET'),
+      cb('View All Prizes', 'cb_gacha_prizes', 'CROWN'),
     ],
     [
-      cb(loc.btn_drop_rates, 'cb_gacha_odds', 'LIGHTNING'),
-      cb(loc.btn_gacha_rules, 'cb_gacha_rules', 'DOCUMENT'),
+      cb('Drop Rates', 'cb_gacha_odds', 'LIGHTNING'),
+      cb('Gacha Rules', 'cb_gacha_rules', 'DOCUMENT'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_gacha_webapp, gachaWebUrl, 'PACKAGE'),
-      cb(loc.btn_back_home, 'cb_main_menu', 'HOME'),
+      createWebAppOrUrlButton('Open Gacha in Mini App', gachaWebUrl, 'PACKAGE'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
 
 export function buildSubGachaKeyboard(
   storeUrl: string = process.env.STORE_URL || 'https://web-production-2d8bd.up.railway.app',
-  lang: string = 'km'
+  _lang: string = 'km'
 ) {
-  const loc = getLocale(lang);
   const gachaWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=gacha` : `${storeUrl}?tab=gacha`;
 
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_buy_ticket, 'cb_gacha_buy_ticket', 'TICKET'),
+      cb('Exchange Points for Ticket', 'cb_gacha_buy_ticket', 'TICKET'),
     ],
     [
-      createWebAppOrUrlButton(loc.btn_open_gacha_webapp, gachaWebUrl, 'PACKAGE'),
+      createWebAppOrUrlButton('Open Gacha in Mini App', gachaWebUrl, 'PACKAGE'),
     ],
     [
-      cb(loc.btn_back_to_gacha, 'cb_gacha_menu', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
+      cb('Back to Gacha', 'cb_gacha_menu', 'BACK'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }

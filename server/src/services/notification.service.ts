@@ -3,6 +3,7 @@ import { env } from '../config/env';
 import { resolveStoreUrl } from '../config/app-url';
 import { formatTelegramHtml } from '../bots/store-bot';
 import { formatShortOrderId } from '../utils/order.util';
+import { DataStore } from '../database/data-store';
 
 export class NotificationService {
   private static getStoreBotToken(): string {
@@ -239,14 +240,23 @@ export class NotificationService {
       return;
     }
 
+    const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
     const text =
-      `✅ <b>PAYMENT CONFIRMED — UCHIRO STORE</b>\n\n` +
-      `<b>Order ID:</b> #${orderNumber}\n` +
-      `<b>Product:</b> ${productTitle}\n` +
-      `<b>Amount:</b> $${amount.toFixed(2)} USD\n` +
-      `<b>Delivery Status:</b> ${deliveryStatus.toUpperCase()}\n` +
-      `<b>Warranty:</b> ${warrantyDuration}\n\n` +
-      `Thank you for your purchase! Tap below to view your official receipt or open your secure delivery.`;
+      lang === 'km'
+        ? `✅ <b>ការទូទាត់ត្រូវបានបញ្ជាក់ — UCHIRO STORE</b>\n\n` +
+          `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n` +
+          `<b>ផលិតផល:</b> ${productTitle}\n` +
+          `<b>ចំនួនទឹកប្រាក់:</b> $${amount.toFixed(2)} USD\n` +
+          `<b>ស្ថានភាពបញ្ជូន:</b> ${deliveryStatus.toUpperCase()}\n` +
+          `<b>ការធានា:</b> ${warrantyDuration}\n\n` +
+          `សូមអរគុណសម្រាប់ការទិញទំនិញ! ចុចប៊ូតុងខាងក្រោមដើម្បីមើលវិក្កយបត្រ ឬបើកការបញ្ជូនទំនិញរបស់អ្នក។`
+        : `✅ <b>PAYMENT CONFIRMED — UCHIRO STORE</b>\n\n` +
+          `<b>Order ID:</b> #${orderNumber}\n` +
+          `<b>Product:</b> ${productTitle}\n` +
+          `<b>Amount:</b> $${amount.toFixed(2)} USD\n` +
+          `<b>Delivery Status:</b> ${deliveryStatus.toUpperCase()}\n` +
+          `<b>Warranty:</b> ${warrantyDuration}\n\n` +
+          `Thank you for your purchase! Tap below to view your official receipt or open your secure delivery.`;
 
     const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
@@ -277,12 +287,19 @@ export class NotificationService {
       return;
     }
 
+    const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
     const text =
-      `✅ <b>PAYMENT SUCCESS</b>\n\n` +
-      `<b>Order:</b> #${orderNumber}\n` +
-      `<b>Amount:</b> $${amount.toFixed(2)}\n\n` +
-      `Your payment has been verified!\n` +
-      `Delivery is being processed immediately.`;
+      lang === 'km'
+        ? `✅ <b>ការទូទាត់ជោគជ័យ</b>\n\n` +
+          `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n` +
+          `<b>ចំនួនទឹកប្រាក់:</b> $${amount.toFixed(2)}\n\n` +
+          `ការទូទាត់របស់អ្នកត្រូវបានផ្ទៀងផ្ទាត់ជោគជ័យ!\n` +
+          `ទំនិញរបស់អ្នកកំពុងត្រូវបានបញ្ជូនភ្លាមៗ។`
+        : `✅ <b>PAYMENT SUCCESS</b>\n\n` +
+          `<b>Order:</b> #${orderNumber}\n` +
+          `<b>Amount:</b> $${amount.toFixed(2)}\n\n` +
+          `Your payment has been verified!\n` +
+          `Delivery is being processed immediately.`;
 
     const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
@@ -313,12 +330,19 @@ export class NotificationService {
       return;
     }
 
+    const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
     const text =
-      `🎉 <b>ORDER DELIVERED — UCHIRO STORE</b>\n\n` +
-      `<b>Product:</b> ${productTitle}\n` +
-      `<b>Order:</b> #${orderNumber}\n\n` +
-      `Your purchase has been verified and securely fulfilled with full 14-day warranty protection.\n` +
-      `Tap below to open your secure vault, view credentials, and generate live authenticator codes:`;
+      lang === 'km'
+        ? `🎉 <b>ការបញ្ជូនទំនិញជោគជ័យ — UCHIRO STORE</b>\n\n` +
+          `<b>ផលិតផល:</b> ${productTitle}\n` +
+          `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n\n` +
+          `ការទិញរបស់អ្នកត្រូវបានផ្ទៀងផ្ទាត់ និងបញ្ជូនដោយជោគជ័យ ព្រមទាំងមានការធានាការពាររយៈពេល 14 ថ្ងៃពេញលេញ។\n` +
+          `ចុចប៊ូតុងខាងក្រោមដើម្បីបើកកាតាបសុវត្ថិភាព មើលគណនី និងបង្កើតកូដ 2FA Live:`
+        : `🎉 <b>ORDER DELIVERED — UCHIRO STORE</b>\n\n` +
+          `<b>Product:</b> ${productTitle}\n` +
+          `<b>Order:</b> #${orderNumber}\n\n` +
+          `Your purchase has been verified and securely fulfilled with full 14-day warranty protection.\n` +
+          `Tap below to open your secure vault, view credentials, and generate live authenticator codes:`;
 
     const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
@@ -347,11 +371,17 @@ export class NotificationService {
       return;
     }
 
+    const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
     const text =
-      `🔧 <b>ORDER PROCESSING</b>\n\n` +
-      `<b>Order:</b> #${orderNumber}\n\n` +
-      `Payment received! Your delivery is being prepared by our team.\n` +
-      `We will notify you here as soon as it is delivered.`;
+      lang === 'km'
+        ? `🔧 <b>កំពុងរៀបចំការបញ្ជូនទំនិញ</b>\n\n` +
+          `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n\n` +
+          `យើងខ្ញុំទទួលបានការទូទាត់ហើយ! ក្រុមការងារកំពុងរៀបចំការបញ្ជូនទំនិញជូនអ្នក។\n` +
+          `យើងខ្ញុំនឹងជូនដំណឹងនៅទីនេះភ្លាមៗនៅពេលបញ្ជូនរួចរាល់។`
+        : `🔧 <b>ORDER PROCESSING</b>\n\n` +
+          `<b>Order:</b> #${orderNumber}\n\n` +
+          `Payment received! Your delivery is being prepared by our team.\n` +
+          `We will notify you here as soon as it is delivered.`;
 
     const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
@@ -696,6 +726,93 @@ export class NotificationService {
         ],
       ],
     });
+  }
+
+  static async notifyAdminNewTicket(ticket: {
+    id: string;
+    ticket_number: string;
+    telegram_id: number;
+    category?: string;
+    order_id?: string | null;
+    subject: string;
+    message: string;
+    created_at?: string;
+  }): Promise<void> {
+    const isTest = this.isTestRunner();
+    if (isTest && !(this.sendAdminBotAlert as any)?.mock && !(this.sendAdminBotAlert as any)?._isMockFunction) {
+      return;
+    }
+
+    const categoryText = (ticket.category || 'general').toUpperCase();
+    const orderRef = ticket.order_id ? `\n<b>Order Ref:</b> <code>${ticket.order_id}</code>` : '';
+
+    const text =
+      `🎫 <b>NEW SUPPORT TICKET #${ticket.ticket_number}</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `👤 <b>Customer ID:</b> <code>${ticket.telegram_id}</code>\n` +
+      `🏷️ <b>Category:</b> <code>${categoryText}</code>${orderRef}\n` +
+      `📌 <b>Subject:</b> ${ticket.subject}\n\n` +
+      `💬 <b>Message:</b>\n<i>${ticket.message}</i>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `Tap below to reply or close this ticket:`;
+
+    const replyMarkup = {
+      inline_keyboard: [
+        [
+          { text: '✍️ Reply to Customer', callback_data: `ticket_reply:${ticket.id}` },
+          { text: '🔒 Close Ticket', callback_data: `ticket_close:${ticket.id}` },
+        ],
+      ],
+    };
+
+    await this.sendAdminBotAlert(text, replyMarkup);
+  }
+
+  static async notifyCustomerTicketReply(
+    telegramId: number,
+    ticketNumber: string,
+    subject: string,
+    replyText: string
+  ): Promise<void> {
+    const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+    const text =
+      lang === 'km'
+        ? `📩 <b>ការឆ្លើយតបពីក្រុមការងារ — សំបុត្រ #${ticketNumber}</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📌 <b>ប្រធានបទ:</b> ${subject}\n\n` +
+          `💬 <b>ក្រុមការងារជំនួយ:</b>\n${replyText}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `<i>អ្នកអាចមើល និងឆ្លើយតបសំបុត្រនេះនៅក្នុង Store Mini App ត្រង់ផ្នែក Support។</i>`
+        : `📩 <b>SUPPORT TEAM REPLY — TICKET #${ticketNumber}</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📌 <b>Subject:</b> ${subject}\n\n` +
+          `💬 <b>Support Agent:</b>\n${replyText}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `<i>You can view and reply to this ticket in the Store Mini App under Support.</i>`;
+
+    await this.sendStoreBotMessage(telegramId, text);
+  }
+
+  static async notifyCustomerTicketClosed(
+    telegramId: number,
+    ticketNumber: string,
+    subject: string
+  ): Promise<void> {
+    const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+    const text =
+      lang === 'km'
+        ? `🔒 <b>សំបុត្រត្រូវបានបិទ — #${ticketNumber}</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📌 <b>ប្រធានបទ:</b> ${subject}\n\n` +
+          `សំបុត្រស្នើសុំជំនួយរបស់អ្នកត្រូវបានដោះស្រាយ និងបិទបញ្ចប់ដោយក្រុមការងារ។\n` +
+          `សូមអរគុណសម្រាប់ការទាក់ទងមកកាន់ Uchiro Store Support!`
+        : `🔒 <b>TICKET CLOSED — #${ticketNumber}</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📌 <b>Subject:</b> ${subject}\n\n` +
+          `Your support ticket has been marked as resolved and closed by our team.\n` +
+          `Thank you for contacting Uchiro Store Support!`;
+
+    await this.sendStoreBotMessage(telegramId, text);
   }
 
   static async alertAdminTradeItemGachaWin(

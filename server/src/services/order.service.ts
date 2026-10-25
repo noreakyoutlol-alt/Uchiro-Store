@@ -79,7 +79,11 @@ export class OrderService {
       ...(params.items?.map((i) => i.productId) || []),
     ].filter((k): k is string => Boolean(k && typeof k === 'string'));
 
-    const lockKeys = productKeys.length > 0 ? Array.from(new Set(productKeys)).sort() : ['global_checkout'];
+    const couponKey = params.couponCode ? `coupon_${params.couponCode.trim().toUpperCase()}` : null;
+    const lockKeys = [
+      ...(productKeys.length > 0 ? Array.from(new Set(productKeys)) : ['global_checkout']),
+      ...(couponKey ? [couponKey] : []),
+    ].sort();
     const result = await CheckoutLock.runExclusiveMulti(lockKeys, () => DataStore.createOrder(params));
     if (!result.success || !result.order) {
       throw new AppError(result.error || 'Failed to create order', 400, result.error || 'ORDER_CREATION_FAILED');
@@ -213,10 +217,21 @@ export class OrderService {
     const productTitle = order.items?.[0]?.product_title || 'Gaming Product';
     const productId = order.items?.[0]?.product_id || '';
 
-    // Trigger Customer Payment Success Notification
-    NotificationService.notifyPaymentSuccess(order.telegram_id, order.order_number, order.total_amount).catch(
-      console.error
-    );
+    // Trigger Customer Payment Receipt Notification (Only for manual/trade/codes; auto_account receives official PDF receipt)
+    if (order.delivery_mode !== 'auto_account' && !order.receipt_notified && !(order as any).payment_receipt_sent) {
+      order.receipt_notified = true;
+      (order as any).payment_receipt_sent = true;
+      DataStore.saveOrder(order);
+      const warrantyDuration = `${order.warranty_days || 14} Days Replacement Warranty`;
+      NotificationService.notifyPaymentReceipt(
+        order.telegram_id,
+        order.order_number,
+        productTitle,
+        order.total_amount,
+        order.status,
+        warrantyDuration
+      ).catch(console.error);
+    }
 
     // 🚨 ADMIN ALERT DEDUP SYSTEM: Trigger ONCE and persist admin_notified: true
     const orderQty = Math.max(1, order.quantity || order.items?.[0]?.quantity || 1);
@@ -293,14 +308,23 @@ export class OrderService {
         DataStore.updateOrderStatus(order.id, 'delivered');
         order.status = 'delivered';
 
-        // Dispatch full Telegram fulfillment workflow (luxury PDF receipt + Main Delivery Card with live 2FA/warranty/QR)
-        FulfillmentService.fulfillTelegramAccountOrder(order.telegram_id, order.id).catch(console.error);
-
-        NotificationService.notifyOrderDelivered(
-          order.telegram_id,
-          order.order_number,
-          productTitle
-        ).catch(console.error);
+        // Dispatch full Telegram fulfillment workflow ONCE:
+        // 1. Luxury PDF receipt (Payment confirmation)
+        // 2. Interactive Main Delivery Card with live 2FA/warranty/QR (Order delivery notification)
+        if (!(order as any).delivery_notified) {
+          FulfillmentService.fulfillTelegramAccountOrder(order.telegram_id, order.id)
+            .then((res) => {
+              if (res && (res.pdfSent || res.messageSent)) {
+                (order as any).delivery_notified = true;
+                (order as any).receipt_notified = true;
+                (order as any).payment_receipt_sent = true;
+                DataStore.saveOrder(order);
+              }
+            })
+            .catch((err) => {
+              console.error('[FULFILLMENT] Delivery dispatch error, permitting safe retry:', err);
+            });
+        }
       } else {
         // Fallback to manual if stock ran out
         DataStore.updateOrderStatus(order.id, 'fulfillment');
@@ -412,21 +436,6 @@ export class OrderService {
     const product = DataStore.getProductById(productId);
     if (product && DataStore.shouldAlertLowStock(productId, product.stock)) {
       NotificationService.alertAdminLowStock(product.title, product.stock).catch(console.error);
-    }
-
-    // Section C: Telegram Automatic Receipt Notification (Idempotent)
-    if (!order.receipt_notified) {
-      order.receipt_notified = true;
-      DataStore.saveOrder(order);
-      const warrantyDuration = `${order.warranty_days || 14} Days Replacement Warranty`;
-      NotificationService.notifyPaymentReceipt(
-        order.telegram_id,
-        order.order_number,
-        productTitle,
-        order.total_amount,
-        order.status,
-        warrantyDuration
-      ).catch(console.error);
     }
 
     DataStore.saveOrder(order);

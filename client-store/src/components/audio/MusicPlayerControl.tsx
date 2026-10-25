@@ -3,22 +3,34 @@ import { Volume2, VolumeX, Play, Pause, Music } from 'lucide-react';
 import { useAudio } from '../../context/AudioPlayerContext';
 
 export const MusicPlayerControl: React.FC = () => {
-  const { isPlaying, isMuted, volume, togglePlay, toggleMute, setVolume } = useAudio();
+  const {
+    isPlaying,
+    isMuted,
+    volume,
+    hasError,
+    errorMessage,
+    isLoading,
+    togglePlay,
+    toggleMute,
+    setVolume,
+  } = useAudio();
   const [showVolumePopup, setShowVolumePopup] = useState(false);
 
   return (
     <div className="relative flex items-center">
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 dark:bg-white/5 border border-white/15 dark:border-white/10 backdrop-blur-sm shadow-sm">
+      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 dark:bg-white/5 border ${hasError ? 'border-rose-500/40' : 'border-white/15 dark:border-white/10'} backdrop-blur-sm shadow-sm`}>
         {/* Play/Pause Button */}
         <button
           onClick={togglePlay}
-          className="p-1 rounded-full text-slate-300 hover:text-[#FFD166] transition-colors flex items-center justify-center"
-          title={isPlaying ? 'Pause Music' : 'Play Music'}
+          className="p-1 rounded-full text-slate-300 hover:text-[#FFD166] transition-colors flex items-center justify-center relative"
+          title={hasError ? (errorMessage || 'Audio playback error') : isPlaying ? 'Pause Music' : 'Play Music'}
         >
-          {isPlaying ? (
+          {isLoading ? (
+            <span className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+          ) : isPlaying ? (
             <Pause className="w-3.5 h-3.5 text-[#FFD166] animate-pulse" />
           ) : (
-            <Play className="w-3.5 h-3.5" />
+            <Play className={`w-3.5 h-3.5 ${hasError ? 'text-rose-400' : ''}`} />
           )}
         </button>
 
