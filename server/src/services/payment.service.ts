@@ -135,14 +135,15 @@ export class PaymentService {
   ): Promise<{ success: boolean; duplicate?: boolean }> {
     const paymentTarget =
       payload.md5_hash ||
-      payload.transaction_id ||
-      payload.trx_id ||
       payload.id ||
       payload.order_id ||
+      payload.transaction_id ||
+      payload.trx_id ||
       payload.data?.md5_hash ||
+      payload.data?.id ||
+      payload.data?.order_id ||
       payload.data?.transaction_id ||
-      payload.data?.trx_id ||
-      payload.data?.id;
+      payload.data?.trx_id;
 
     if (!paymentTarget) {
       throw new AppError('Invalid webhook payload: missing payment identifier', 400, 'BAD_PAYLOAD');
@@ -163,29 +164,76 @@ export class PaymentService {
     }
 
     const isProduction = env.NODE_ENV === 'production';
-    const isTestMode = !isProduction && env.KHPAY_TEST_MODE;
+    const isTestMode = !isProduction && Boolean(env.KHPAY_TEST_MODE);
+    const webhookSecret = (env.KHPAY_WEBHOOK_SECRET || '').trim();
 
-    // Signature verification (if webhook secret provided)
-    if (env.KHPAY_WEBHOOK_SECRET && (signatureHeader || isProduction)) {
-      if (!signatureHeader) {
+    // Signature verification: fail closed in production, require signature when configured/required
+    const requireSignature = isProduction || (!isTestMode && webhookSecret.length > 0) || Boolean(signatureHeader);
+
+    if (requireSignature) {
+      if (!webhookSecret) {
+        throw new AppError('Payment webhook secret is not configured on server', 500, 'WEBHOOK_SECRET_NOT_CONFIGURED');
+      }
+      if (!signatureHeader || typeof signatureHeader !== 'string') {
         throw new AppError('Missing required webhook signature header', 401, 'MISSING_SIGNATURE');
       }
       const calculatedSig = crypto
-        .createHmac('sha256', env.KHPAY_WEBHOOK_SECRET)
+        .createHmac('sha256', webhookSecret)
         .update(typeof payload === 'string' ? payload : JSON.stringify(payload))
         .digest('hex');
 
-      if (calculatedSig !== signatureHeader && !isTestMode) {
+      const calcBuf = Buffer.from(calculatedSig, 'utf8');
+      const sigBuf = Buffer.from(signatureHeader.trim(), 'utf8');
+      const isMatch = calcBuf.length === sigBuf.length && crypto.timingSafeEqual(calcBuf, sigBuf);
+
+      if (!isMatch) {
         throw new AppError('Invalid webhook signature', 401, 'INVALID_SIGNATURE');
       }
     }
 
-    this.processedWebhooks.add(eventKey);
-
-    const payment = DataStore.getPaymentById(paymentTarget);
+    let payment = DataStore.getPaymentById(paymentTarget);
+    if (!payment && (payload.order_id || payload.orderId || payload.data?.order_id || payload.data?.orderId)) {
+      const orderRef = payload.order_id || payload.orderId || payload.data?.order_id || payload.data?.orderId;
+      payment = DataStore.getPaymentByOrderId(orderRef);
+    }
     if (!payment) {
       throw new AppError('Associated payment not found', 404, 'PAYMENT_NOT_FOUND');
     }
+
+    // Step 4 Integrity: Verify payment amount, currency, and order reference consistency
+    const payloadAmount = payload.amount !== undefined ? payload.amount : payload.data?.amount;
+    if (payloadAmount !== undefined && payloadAmount !== null) {
+      const numAmount = Number(payloadAmount);
+      if (isNaN(numAmount) || Math.abs(numAmount - payment.amount) > 0.01) {
+        throw new AppError('Payment amount mismatch with order', 400, 'PAYMENT_AMOUNT_MISMATCH');
+      }
+    }
+
+    const payloadCurrency = payload.currency || payload.data?.currency;
+    if (payloadCurrency && String(payloadCurrency).toUpperCase() !== payment.currency.toUpperCase()) {
+      throw new AppError('Payment currency mismatch with order', 400, 'PAYMENT_CURRENCY_MISMATCH');
+    }
+
+    const payloadOrderId = payload.order_id || payload.orderId || payload.data?.order_id || payload.data?.orderId;
+    if (payloadOrderId) {
+      const order = DataStore.getOrderById(payment.order_id);
+      if (payloadOrderId !== payment.order_id && payloadOrderId !== order?.order_number && payloadOrderId !== order?.id) {
+        throw new AppError('Payment order reference mismatch', 400, 'ORDER_ID_MISMATCH');
+      }
+    }
+
+    const order = DataStore.getOrderById(payment.order_id);
+    if (order && (order.status === 'paid' || order.status === 'delivered' || order.status === 'completed')) {
+      return { success: true, duplicate: true };
+    }
+
+    if (this.processedWebhooks.size >= 2000) {
+      const oldest = this.processedWebhooks.values().next().value;
+      if (oldest) {
+        this.processedWebhooks.delete(oldest);
+      }
+    }
+    this.processedWebhooks.add(eventKey);
 
     const transactionRef =
       payload.transaction_ref ||

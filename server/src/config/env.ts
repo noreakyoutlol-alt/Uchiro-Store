@@ -56,7 +56,16 @@ const envCandidatePaths = [
 
 for (const candidate of envCandidatePaths) {
   if (fs.existsSync(candidate)) {
-    dotenv.config({ path: candidate });
+    try {
+      const parsed = dotenv.parse(fs.readFileSync(candidate, 'utf8'));
+      for (const [key, value] of Object.entries(parsed)) {
+        if (value && (!process.env[key] || process.env[key].trim() === '')) {
+          process.env[key] = value;
+        }
+      }
+    } catch {
+      dotenv.config({ path: candidate });
+    }
   }
 }
 dotenv.config();
@@ -164,6 +173,7 @@ const adminIds =
   '';
 
 const publicUrl =
+  process.env.SERVER_URL ||
   process.env.PUBLIC_URL ||
   process.env.WEBHOOK_URL ||
   process.env.APP_URL ||
@@ -172,6 +182,7 @@ const publicUrl =
 
 const webhookUrl =
   process.env.WEBHOOK_URL ||
+  process.env.SERVER_URL ||
   process.env.PUBLIC_URL ||
   process.env.APP_URL ||
   process.env.API_URL ||
@@ -182,18 +193,20 @@ const khpayBaseUrl =
   process.env.KHPAY_API_URL ||
   'https://khpay.site/api/v1';
 
-// Automatically prefer process.env.PUBLIC_URL when configured with HTTPS for Telegram WebApp compatibility
-const rawPublicUrl = (process.env.PUBLIC_URL || publicUrl || '').trim().replace(/\/+$/, '');
-const isPublicHttps = (process.env.PUBLIC_URL || '').trim().startsWith('https://') || rawPublicUrl.startsWith('https://');
+// Automatically prefer process.env.PUBLIC_URL or process.env.SERVER_URL when configured with HTTPS for Telegram WebApp compatibility
+const rawPublicUrl = (process.env.SERVER_URL || process.env.PUBLIC_URL || publicUrl || '').trim().replace(/\/+$/, '');
+const isPublicHttps = (process.env.SERVER_URL || process.env.PUBLIC_URL || '').trim().startsWith('https://') || rawPublicUrl.startsWith('https://');
 
 const resolvedStoreWebappUrl =
-  (process.env.STORE_WEBAPP_URL && process.env.STORE_WEBAPP_URL.trim().startsWith('https://'))
-    ? process.env.STORE_WEBAPP_URL.trim()
-    : (process.env.CLIENT_STORE_URL && process.env.CLIENT_STORE_URL.trim().startsWith('https://'))
-      ? process.env.CLIENT_STORE_URL.trim()
-      : (isPublicHttps
-          ? rawPublicUrl
-          : (process.env.STORE_WEBAPP_URL || process.env.CLIENT_STORE_URL || 'http://localhost:3000'));
+  (process.env.STORE_URL && process.env.STORE_URL.trim().startsWith('https://'))
+    ? process.env.STORE_URL.trim()
+    : (process.env.STORE_WEBAPP_URL && process.env.STORE_WEBAPP_URL.trim().startsWith('https://'))
+      ? process.env.STORE_WEBAPP_URL.trim()
+      : (process.env.CLIENT_STORE_URL && process.env.CLIENT_STORE_URL.trim().startsWith('https://'))
+        ? process.env.CLIENT_STORE_URL.trim()
+        : (isPublicHttps
+            ? rawPublicUrl
+            : (process.env.STORE_URL || process.env.STORE_WEBAPP_URL || process.env.CLIENT_STORE_URL || 'http://localhost:3000'));
 
 const resolvedAdminWebappUrl =
   (process.env.ADMIN_WEBAPP_URL && process.env.ADMIN_WEBAPP_URL.trim().startsWith('https://'))
@@ -215,6 +228,8 @@ const parsed = envSchema.safeParse({
   ADMIN_TELEGRAM_USER_IDS: adminIds,
   STORE_BOT_TOKEN: process.env.STORE_BOT_TOKEN || process.env.TELEGRAM_STORE_BOT_TOKEN || '',
   ADMIN_BOT_TOKEN: process.env.ADMIN_BOT_TOKEN || process.env.TELEGRAM_ADMIN_BOT_TOKEN || '',
+  STORE_BOT_WEBHOOK_SECRET: process.env.STORE_BOT_WEBHOOK_SECRET || process.env.STORE_WEBHOOK_SECRET || 'uchiro_store_webhook_secret_key_v3',
+  ADMIN_BOT_WEBHOOK_SECRET: process.env.ADMIN_BOT_WEBHOOK_SECRET || process.env.ADMIN_WEBHOOK_SECRET || 'uchiro_admin_webhook_secret_key_v3',
   PUBLIC_URL: publicUrl,
   WEBHOOK_URL: webhookUrl,
   APP_URL: publicUrl,

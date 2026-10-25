@@ -38,12 +38,12 @@ describe('Telegram Bot WebApp HTTPS Requirement (Error 400 Fix)', () => {
       expect((btn as any).url).toBeUndefined();
     });
 
-    it('falls back to public HTTPS production app URL when neither target nor PUBLIC_URL is https://', () => {
+    it('safely falls back to URL button or sanitizes dead domain when no HTTPS is configured', () => {
       process.env.PUBLIC_URL = 'http://localhost:5000';
       const btn = storeButtonHelper('🛒 OPEN STORE', 'http://localhost:3000');
-      expect((btn as any).web_app).toBeDefined();
-      expect((btn as any).web_app.url).toBe('https://web-production-2d8bd.up.railway.app');
-      expect((btn as any).url).toBeUndefined();
+      // When no HTTPS is configured, returns standard URL button without hardcoding dead domains
+      expect((btn as any).url).toBeDefined();
+      expect((btn as any).url).not.toContain('web-production-2d8bd');
     });
   });
 
@@ -71,12 +71,11 @@ describe('Telegram Bot WebApp HTTPS Requirement (Error 400 Fix)', () => {
       expect((btn as any).url).toBeUndefined();
     });
 
-    it('falls back to public HTTPS production app URL when neither target nor PUBLIC_URL is https://', () => {
+    it('safely falls back to URL button or sanitizes dead domain when no HTTPS is configured', () => {
       process.env.PUBLIC_URL = 'http://localhost:5000';
       const btn = adminButtonHelper('🛡️ OPEN ADMIN APP', 'http://localhost:3001');
-      expect((btn as any).web_app).toBeDefined();
-      expect((btn as any).web_app.url).toBe('https://web-production-2d8bd.up.railway.app');
-      expect((btn as any).url).toBeUndefined();
+      expect((btn as any).url).toBeDefined();
+      expect((btn as any).url).not.toContain('web-production-2d8bd');
     });
   });
 

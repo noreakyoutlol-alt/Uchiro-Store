@@ -9,6 +9,7 @@ import { RobuxService } from '../services/robux.service';
 
 import { handleVerifyPin } from './admin-auth.routes';
 import { IpSecurityService } from '../security/ip-security.service';
+import { BatchAnnouncementController } from '../controllers/batch-announcement.controller';
 
 export const adminRouter = Router();
 
@@ -137,6 +138,43 @@ adminRouter.post('/orders/:id/redeliver', async (req: RequestWithAuth, res, next
 });
 
 const VALID_DELIVERY_MODES = ['auto_account', 'manual_service', 'trade_item', 'digital_code'];
+const MAX_PRODUCT_IMAGES = 5;
+
+/** Validate the media array in a product payload: max 5, URLs only (no data:), no duplicates */
+function validateMediaPayload(media: unknown): void {
+  if (!media) return;
+  if (!Array.isArray(media)) {
+    throw new AppError('media must be an array', 400, 'INVALID_MEDIA');
+  }
+  if (media.length > MAX_PRODUCT_IMAGES) {
+    throw new AppError(
+      `A product may have at most ${MAX_PRODUCT_IMAGES} images. Received ${media.length}.`,
+      400,
+      'TOO_MANY_IMAGES'
+    );
+  }
+  const seenUrls = new Set<string>();
+  for (const item of media) {
+    if (!item || typeof item !== 'object') {
+      throw new AppError('Each media item must be an object', 400, 'INVALID_MEDIA_ITEM');
+    }
+    const url = (item as any).url;
+    if (!url || typeof url !== 'string') {
+      throw new AppError('Each media item must have a url string', 400, 'INVALID_MEDIA_ITEM');
+    }
+    if (url.startsWith('data:')) {
+      throw new AppError(
+        'Base64 data URLs are not allowed as media URLs. Upload images to storage first.',
+        400,
+        'INVALID_MEDIA_DATA_URL'
+      );
+    }
+    if (seenUrls.has(url)) {
+      throw new AppError('Duplicate image URLs are not allowed in a product gallery.', 400, 'DUPLICATE_MEDIA_URL');
+    }
+    seenUrls.add(url);
+  }
+}
 
 // 3. Products Management
 adminRouter.get('/products', (_req, res) => {
@@ -149,7 +187,7 @@ adminRouter.get('/products', (_req, res) => {
 
 adminRouter.post('/products', (req: RequestWithAuth, res, next) => {
   try {
-    const { delivery_mode } = req.body;
+    const { delivery_mode, media } = req.body;
     if (delivery_mode !== undefined && !VALID_DELIVERY_MODES.includes(delivery_mode)) {
       throw new AppError(
         `Invalid delivery_mode. Must be one of: ${VALID_DELIVERY_MODES.join(', ')}`,
@@ -157,6 +195,7 @@ adminRouter.post('/products', (req: RequestWithAuth, res, next) => {
         'INVALID_DELIVERY_MODE'
       );
     }
+    validateMediaPayload(media);
 
     const payload = { ...req.body };
     if (payload.delivery_mode === 'manual_service') {
@@ -180,7 +219,7 @@ adminRouter.post('/products', (req: RequestWithAuth, res, next) => {
 
 adminRouter.put('/products/:id', (req: RequestWithAuth, res, next) => {
   try {
-    const { delivery_mode } = req.body;
+    const { delivery_mode, media } = req.body;
     if (delivery_mode !== undefined && !VALID_DELIVERY_MODES.includes(delivery_mode)) {
       throw new AppError(
         `Invalid delivery_mode. Must be one of: ${VALID_DELIVERY_MODES.join(', ')}`,
@@ -188,6 +227,7 @@ adminRouter.put('/products/:id', (req: RequestWithAuth, res, next) => {
         'INVALID_DELIVERY_MODE'
       );
     }
+    validateMediaPayload(media);
 
     const payload = { ...req.body };
     if (payload.delivery_mode === 'manual_service') {
@@ -211,7 +251,7 @@ adminRouter.put('/products/:id', (req: RequestWithAuth, res, next) => {
 
 adminRouter.patch('/products/:id', (req: RequestWithAuth, res, next) => {
   try {
-    const { delivery_mode } = req.body;
+    const { delivery_mode, media } = req.body;
     if (delivery_mode !== undefined && !VALID_DELIVERY_MODES.includes(delivery_mode)) {
       throw new AppError(
         `Invalid delivery_mode. Must be one of: ${VALID_DELIVERY_MODES.join(', ')}`,
@@ -219,6 +259,7 @@ adminRouter.patch('/products/:id', (req: RequestWithAuth, res, next) => {
         'INVALID_DELIVERY_MODE'
       );
     }
+    if (media !== undefined) validateMediaPayload(media);
 
     const payload = { ...req.body };
     if (payload.delivery_mode === 'manual_service') {
@@ -725,12 +766,71 @@ adminRouter.get('/settings', (_req, res) => {
   });
 });
 
-adminRouter.put('/settings', (req: RequestWithAuth, res) => {
-  const updated = AdminService.updateStoreSettings(req.admin!.telegram_id, req.body);
+adminRouter.put('/settings', (req: RequestWithAuth, res, next) => {
+  try {
+    const adminTgId = req.admin?.telegram_id ?? 0;
+    if (req.body?.seasonal_theme !== undefined) {
+      AdminService.updateSeasonalTheme(adminTgId, req.body.seasonal_theme);
+    }
+    const updated = AdminService.updateStoreSettings(adminTgId, req.body);
+    res.json({
+      success: true,
+      data: updated,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 12.1. Seasonal Theme Management (Prompt 6)
+adminRouter.get('/theme', (_req, res) => {
+  const themeConfig = AdminService.getSeasonalTheme();
   res.json({
     success: true,
-    data: updated,
+    data: themeConfig,
   });
+});
+
+adminRouter.put('/theme', (req: RequestWithAuth, res, next) => {
+  try {
+    const adminTgId = req.admin?.telegram_id ?? 0;
+    const theme = req.body?.theme ?? req.body?.active_theme;
+    if (!theme) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'THEME_REQUIRED', message: 'Theme ID is required in request body.' },
+      });
+      return;
+    }
+    const updated = AdminService.updateSeasonalTheme(adminTgId, theme);
+    res.json({
+      success: true,
+      data: updated,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.post('/theme', (req: RequestWithAuth, res, next) => {
+  try {
+    const adminTgId = req.admin?.telegram_id ?? 0;
+    const theme = req.body?.theme ?? req.body?.active_theme;
+    if (!theme) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'THEME_REQUIRED', message: 'Theme ID is required in request body.' },
+      });
+      return;
+    }
+    const updated = AdminService.updateSeasonalTheme(adminTgId, theme);
+    res.json({
+      success: true,
+      data: updated,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // 13. System Backup & Restore
@@ -962,4 +1062,34 @@ adminRouter.put('/robux/stock', async (req: RequestWithAuth, res, next) => {
     next(err);
   }
 });
+
+// ==============================================================================
+// 15. BATCH STOCK ANNOUNCEMENTS (PROMPT 5)
+// ==============================================================================
+// GET /api/admin/stock-batch/preview — Preview pending stock batch (side-effect free)
+adminRouter.get('/stock-batch/preview', BatchAnnouncementController.preview);
+
+// POST /api/admin/stock-batch/publish — Publish all new stock to authorized registered groups
+adminRouter.post('/stock-batch/publish', BatchAnnouncementController.publish);
+
+// POST /api/admin/stock-batch/retry/:batchId — Retry only failed groups/chunks for a batch
+adminRouter.post('/stock-batch/retry/:batchId', BatchAnnouncementController.retryFailed);
+
+// GET /api/admin/stock-batch/history — List past announcement batches
+adminRouter.get('/stock-batch/history', BatchAnnouncementController.getHistory);
+
+// GET /api/admin/stock-batch/batches/:batchId — Get single batch detail with per-group delivery status
+adminRouter.get('/stock-batch/batches/:batchId', BatchAnnouncementController.getBatchDetail);
+
+// POST /api/admin/stock-batch/pending/:productId — Explicitly add product to next stock batch
+adminRouter.post('/stock-batch/pending/:productId', BatchAnnouncementController.markProduct);
+
+// DELETE /api/admin/stock-batch/pending/:productId — Remove product from pending stock batch
+adminRouter.delete('/stock-batch/pending/:productId', BatchAnnouncementController.unmarkProduct);
+
+// Registered Groups CRUD
+adminRouter.get('/stock-batch/groups', BatchAnnouncementController.listGroups);
+adminRouter.post('/stock-batch/groups', BatchAnnouncementController.registerGroup);
+adminRouter.patch('/stock-batch/groups/:id', BatchAnnouncementController.updateGroup);
+adminRouter.delete('/stock-batch/groups/:id', BatchAnnouncementController.deleteGroup);
 

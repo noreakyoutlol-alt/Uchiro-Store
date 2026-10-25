@@ -11,6 +11,7 @@ import {
   GachaStatus,
   RecentGachaWinner,
   RedeemCodeResult,
+  SeasonalThemeId,
 } from '../types';
 
 const api = axios.create({
@@ -53,21 +54,32 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest) return Promise.reject(error);
+
+    const isAuthRequest =
+      typeof originalRequest.url === 'string' &&
+      (originalRequest.url.includes('/auth/telegram') || originalRequest.url.includes('auth/telegram'));
+
     // Silent re-authentication retry on 401 (skip if the failed request was already /auth/telegram)
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/telegram')
+      !isAuthRequest
     ) {
       originalRequest._retry = true;
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+      if (originalRequest._retryCount > 1) {
+        return Promise.reject(error);
+      }
       try {
         const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
         const initData = tg?.initData || '';
-        if (initData) {
+        if (initData && initData.length > 5) {
           const authRes = await axios.post('/api/auth/telegram', { initData });
           const newToken = authRes.data?.data?.token;
           if (newToken) {
             setStoredToken(newToken);
+            originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             return api(originalRequest);
           }
@@ -190,7 +202,8 @@ export const StoreAPI = {
     buyerConfirmedAge18?: boolean;
     buyerUnder18?: boolean;
   }): Promise<{ order: Order; payment: any }> => {
-    const res = await api.post('/orders', data);
+    const headers = data.idempotencyKey ? { 'Idempotency-Key': data.idempotencyKey } : undefined;
+    const res = await api.post('/orders', data, { headers });
     return res.data.data;
   },
 
@@ -473,5 +486,18 @@ export const StoreAPI = {
   submitSupportTicket: async (data: { subject: string; message: string }) => {
     const res = await api.post('/support/ticket', data);
     return res.data.data;
+  },
+
+  // Seasonal Theme (Prompt 6)
+  getSeasonalTheme: async (): Promise<{ active_theme: SeasonalThemeId; updated_at?: string }> => {
+    try {
+      const res = await api.get('/theme');
+      if (res.data?.data?.active_theme) {
+        return res.data.data;
+      }
+    } catch {
+      // Graceful fallback to default gaming theme
+    }
+    return { active_theme: 'gaming' };
   },
 };

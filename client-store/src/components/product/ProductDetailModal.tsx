@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   X,
   ShieldCheck,
@@ -8,6 +8,8 @@ import {
   Video,
   Sparkles,
   Zap,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Product, RobloxProfile } from '../../types';
 import { StoreAPI } from '../../services/api';
@@ -59,9 +61,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [modalImgSrc, setModalImgSrc] = useState('');
 
+  const legacyImageUrl = (product as any)?.image_url || (product as any)?.imageUrl || (product as any)?.image;
   const images = product?.media && product.media.length > 0
     ? product.media.map((m) => m.url)
+    : legacyImageUrl
+    ? [legacyImageUrl]
     : ['/placeholder.svg'];
+
+  const hasMultipleImages = images.length > 1;
+
+  const handlePrevImage = useCallback(() => {
+    setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+  }, [images.length]);
+
+  const handleNextImage = useCallback(() => {
+    setSelectedImageIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+  }, [images.length]);
 
   useEffect(() => {
     if (images.length > 0) {
@@ -269,9 +284,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <img
                 src={modalImgSrc || images[0]}
                 alt={product.title}
-                onError={() =>
-                  setModalImgSrc('/placeholder.svg')
-                }
+                onError={() => {
+                  if (modalImgSrc !== '/placeholder.svg') {
+                    setModalImgSrc('/placeholder.svg');
+                  }
+                }}
                 className="w-full h-full object-cover"
                 loading="lazy"
                 decoding="async"
@@ -313,6 +330,43 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </span>
                   )}
                 </div>
+              )}
+
+              {/* Image counter badge for multi-image products */}
+              {hasMultipleImages && (
+                <div className="absolute bottom-2.5 right-2.5 z-10">
+                  <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10px] font-mono border border-white/20">
+                    {selectedImageIndex + 1} / {images.length}
+                  </span>
+                </div>
+              )}
+
+              {/* Prev / Next navigation arrows */}
+              {hasMultipleImages && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevImage();
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextImage();
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/50 hover:bg-black/75 text-white flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
               )}
             </div>
 

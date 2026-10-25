@@ -160,6 +160,7 @@ describe('Delivery & Authenticator RFC 6238 Security Test Suite', () => {
         .set('Authorization', `Bearer ${customerToken1}`)
         .send({
           productId: accountProduct.id,
+          quantity: 1,
           idempotencyKey: `DELIV-TEST-${Date.now()}`,
         });
 

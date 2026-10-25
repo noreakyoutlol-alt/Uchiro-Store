@@ -43,6 +43,15 @@ export interface ProductMedia {
   sort_order: number;
 }
 
+export interface ProductGame {
+  id?: string;
+  name: string;
+  platform?: string | null;
+  description?: string | null;
+  image_url?: string | null;
+  sort_order?: number;
+}
+
 export interface Product {
   id: string;
   category_id: string;
@@ -69,6 +78,13 @@ export interface Product {
   video_url?: string;
   product_type?: 'account' | 'gift' | 'trade' | 'digital_code';
   media?: ProductMedia[];
+  games?: ProductGame[];
+  policy_blocked?: boolean;
+  compliance_notice?: {
+    policy: string;
+    official_url: string;
+    reason: string;
+  } | null;
   category?: Category;
 }
 
@@ -438,3 +454,11 @@ declare global {
   }
 }
 
+export type SeasonalThemeId = 'gaming' | 'halloween' | 'christmas' | 'angkor-khmer';
+
+export interface SeasonalThemeConfig {
+  active_theme: SeasonalThemeId;
+  updated_at?: string;
+  updated_by?: string | number;
+  available_themes?: SeasonalThemeId[];
+}

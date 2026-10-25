@@ -11,6 +11,7 @@ import {
   startBroadcastWizard,
   handleBroadcastWizardCallback,
 } from './broadcast-wizard';
+import { BatchAnnouncementService } from '../../services/batch-announcement.service';
 
 export interface AdminView {
   text: string;
@@ -83,8 +84,10 @@ export function buildMainMenu(storeUrl: string, adminUrl: string = resolveDefaul
     inline_keyboard: [
       row(makeAdminButton({ text: 'OPEN ADMIN PORTAL', webAppUrl: adminUrl, iconKey: 'SHIELD' })),
       row(makeAdminButton({ text: 'Open Store (customer view)', url: storeUrl, iconKey: 'SHOPPING_CART' })),
+      row(makeAdminButton({ text: 'Seasonal Themes', callbackData: 'admin:theme:menu', iconKey: 'SPARKLES' })),
       row(makeAdminButton({ text: 'Today Stats', callbackData: 'admin:stats:today', iconKey: 'BAR_CHART' })),
       row(makeAdminButton({ text: 'Robux Stock & Pool', callbackData: 'admin:robux:pool', iconKey: 'ROBUX' })),
+      row(makeAdminButton({ text: 'Stock Announcements', callbackData: 'admin:stock_batch', iconKey: 'ROCKET' })),
       row(makeAdminButton({ text: 'Redeem Codes', callbackData: 'admin:redeem_codes', iconKey: 'TICKET' })),
       row(makeAdminButton({ text: 'Recent Orders', callbackData: 'admin:orders:recent', iconKey: 'PACKAGE' })),
       row(makeAdminButton({ text: 'Low Stock', callbackData: 'admin:stock:low', iconKey: 'ALERT' })),
@@ -390,6 +393,253 @@ export async function handleAdminCallback(
         inline_keyboard: [back],
       },
     };
+  }
+
+  // ================= BATCH STOCK ANNOUNCEMENTS (PROMPT 5) =================
+  if (data === 'admin:stock_batch') {
+    const preview = await BatchAnnouncementService.previewBatch();
+    const grpSummary = preview.grouped_preview.length > 0
+      ? preview.grouped_preview.map((g) => `• <b>${g.group_label}</b>: ${g.products.length} product(s)`).join('\n')
+      : '<i>No pending products</i>';
+
+    const text =
+      `📢 <b>Stock Announcement Batch</b>\n\n` +
+      `• Eligible Products: <b>${preview.eligible_count}</b>\n` +
+      `• Excluded (0 stock / draft): <b>${preview.excluded_count}</b>\n` +
+      `• Authorized Groups: <b>${preview.groups_count}</b>\n\n` +
+      `<b>Pending Categories:</b>\n${grpSummary}\n\n` +
+      `<i>Click <b>Preview Message</b> to review or <b>Publish All New Stock</b> to dispatch 1 consolidated message per group.</i>`;
+
+    const buttons = [];
+    if (preview.eligible_count > 0 && preview.groups_count > 0) {
+      buttons.push(row(makeAdminButton({ text: 'Preview Message', callbackData: 'admin:stock_batch:preview', iconKey: 'EYE' })));
+      buttons.push(row(makeAdminButton({ text: 'Publish All New Stock', callbackData: 'admin:stock_batch:publish', iconKey: 'ROCKET' })));
+    }
+    buttons.push(row(makeAdminButton({ text: 'Refresh', callbackData: 'admin:stock_batch', iconKey: 'REFRESH' })));
+    buttons.push(back);
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: buttons },
+    };
+  }
+
+  if (data === 'admin:stock_batch:preview') {
+    const preview = await BatchAnnouncementService.previewBatch();
+    const previewText = preview.preview_text.length > 3200
+      ? preview.preview_text.slice(0, 3200) + '\n\n<i>[Truncated for Telegram inline preview — full message will send cleanly in parts]</i>'
+      : preview.preview_text;
+
+    const text =
+      `👁️ <b>Consolidated Announcement Preview</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `${previewText}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `Ready to publish to <b>${preview.groups_count}</b> authorized group(s)?`;
+
+    const buttons = [
+      row(makeAdminButton({ text: 'Publish All New Stock', callbackData: 'admin:stock_batch:publish', iconKey: 'ROCKET' })),
+      row(makeAdminButton({ text: 'Back to Batch', callbackData: 'admin:stock_batch', iconKey: 'BACK' })),
+    ];
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: buttons },
+    };
+  }
+
+  if (data === 'admin:stock_batch:publish') {
+    const result = await BatchAnnouncementService.publishBatch(from.id);
+    const statusEmoji = result.status === 'succeeded' ? '✅' : result.status === 'partial' ? '⚠️' : '❌';
+
+    const text =
+      `${statusEmoji} <b>Stock Announcement Result</b>\n\n` +
+      `• Status: <b>${(result.status || 'FAILED').toUpperCase()}</b>\n` +
+      `• Groups Succeeded: <b>${result.succeeded_groups || 0}/${result.total_groups || 0}</b>\n` +
+      `• Products Announced: <b>${result.published_products_count || 0}</b>\n` +
+      `• Skipped Products: <b>${result.skipped_products_count || 0}</b>\n` +
+      (result.message ? `\n<i>${result.message}</i>` : '');
+
+    const buttons = [];
+    if (result.batch_id && (result.failed_groups || 0) > 0) {
+      buttons.push(row(makeAdminButton({ text: 'Retry Failed Groups', callbackData: `admin:stock_batch:retry:${result.batch_id}`, iconKey: 'REFRESH' })));
+    }
+    buttons.push(row(makeAdminButton({ text: 'Back to Batch', callbackData: 'admin:stock_batch', iconKey: 'BACK' })));
+    buttons.push(back);
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: buttons },
+    };
+  }
+
+  if (data.startsWith('admin:stock_batch:retry:')) {
+    const batchId = data.replace('admin:stock_batch:retry:', '');
+    const result = await BatchAnnouncementService.retryFailedGroups(from.id, batchId);
+    const statusEmoji = result.status === 'succeeded' ? '✅' : result.status === 'partial' ? '⚠️' : '❌';
+
+    const text =
+      `${statusEmoji} <b>Retry Delivery Result</b>\n\n` +
+      `• Status: <b>${(result.status || 'FAILED').toUpperCase()}</b>\n` +
+      `• Groups Succeeded: <b>${result.succeeded_groups || 0}/${result.total_groups || 0}</b>\n` +
+      (result.message ? `\n<i>${result.message}</i>` : '');
+
+    const buttons = [];
+    if (result.batch_id && (result.failed_groups || 0) > 0) {
+      buttons.push(row(makeAdminButton({ text: 'Retry Failed Groups', callbackData: `admin:stock_batch:retry:${result.batch_id}`, iconKey: 'REFRESH' })));
+    }
+    buttons.push(row(makeAdminButton({ text: 'Back to Batch', callbackData: 'admin:stock_batch', iconKey: 'BACK' })));
+    buttons.push(back);
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: buttons },
+    };
+  }
+
+  // ================= SEASONAL THEMES (PROMPT 6) =================
+  const THEME_INFO: Record<string, { label: string; emoji: string; desc: string }> = {
+    gaming: {
+      label: 'Default Gaming',
+      emoji: '🎮',
+      desc: 'Existing Uchiro space-gaming pattern & celestial glow (Default fallback).',
+    },
+    halloween: {
+      label: 'Halloween',
+      emoji: '🎃',
+      desc: 'Spooky web decorations, animated spiders, and atmospheric audio.',
+    },
+    christmas: {
+      label: 'Christmas',
+      emoji: '🎄',
+      desc: 'Lightweight falling snow, festive lights, and holiday chimes.',
+    },
+    'angkor-khmer': {
+      label: 'Angkor / Khmer',
+      emoji: '🏛️',
+      desc: 'Angkor Wat silhouette, Khmer motifs, and royal gold accents.',
+    },
+  };
+
+  if (data === 'admin:theme:menu') {
+    const currentTheme = DataStore.getSeasonalTheme();
+    const activeInfo = THEME_INFO[currentTheme.active_theme] || THEME_INFO.gaming;
+
+    const text =
+      `🎨 <b>Seasonal Store Themes</b>\n\n` +
+      `• Active Theme: <b>${activeInfo.emoji} ${activeInfo.label}</b>\n` +
+      `• Last Updated: <b>${new Date(currentTheme.updated_at).toUTCString()}</b>\n\n` +
+      `<b>Available Themes:</b>\n` +
+      `1. 🎮 <b>Default Gaming</b> — Original space-doodle aesthetic\n` +
+      `2. 🎃 <b>Halloween</b> — Spooky web accents & spiders\n` +
+      `3. 🎄 <b>Christmas</b> — Falling snow & festive lights\n` +
+      `4. 🏛️ <b>Angkor / Khmer</b> — Angkor Wat silhouette & gold accents\n\n` +
+      `<i>Tap a theme below to preview or activate globally:</i>`;
+
+    const themeButtons = [
+      [
+        makeAdminButton({ text: `${currentTheme.active_theme === 'gaming' ? '✅ ' : ''}🎮 Gaming`, callbackData: 'admin:theme:select:gaming' }),
+        makeAdminButton({ text: `${currentTheme.active_theme === 'halloween' ? '✅ ' : ''}🎃 Halloween`, callbackData: 'admin:theme:select:halloween' }),
+      ],
+      [
+        makeAdminButton({ text: `${currentTheme.active_theme === 'christmas' ? '✅ ' : ''}🎄 Christmas`, callbackData: 'admin:theme:select:christmas' }),
+        makeAdminButton({ text: `${currentTheme.active_theme === 'angkor-khmer' ? '✅ ' : ''}🏛️ Angkor Khmer`, callbackData: 'admin:theme:select:angkor-khmer' }),
+      ],
+      back,
+    ];
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: themeButtons },
+    };
+  }
+
+  if (data.startsWith('admin:theme:select:')) {
+    const themeId = data.replace('admin:theme:select:', '');
+    const info = THEME_INFO[themeId] || { label: themeId, emoji: '🎨', desc: 'Custom Theme' };
+    const currentTheme = DataStore.getSeasonalTheme();
+    const isActive = currentTheme.active_theme === themeId;
+
+    const previewUrl = `${storeUrl}${storeUrl.includes('?') ? '&' : '?'}theme=${encodeURIComponent(themeId)}`;
+
+    const text =
+      `${info.emoji} <b>Theme: ${info.label}</b>\n\n` +
+      `• Status: <b>${isActive ? '🟢 CURRENTLY ACTIVE' : '⚪ Inactive'}</b>\n` +
+      `• Details: ${info.desc}\n\n` +
+      (isActive
+        ? `✅ <i>This theme is currently active for all customers.</i>`
+        : `⚡ <i>Tap <b>Activate Globally</b> below to switch the store theme.</i>`);
+
+    const buttons = [];
+    buttons.push(row(makeAdminButton({ text: 'Preview in Store', url: previewUrl, iconKey: 'EYE' })));
+    if (!isActive) {
+      buttons.push(row(makeAdminButton({ text: '⚡ Activate Globally', callbackData: `admin:theme:confirm:${themeId}`, iconKey: 'CHECK' })));
+    }
+    buttons.push(row(makeAdminButton({ text: 'Back to Themes', callbackData: 'admin:theme:menu', iconKey: 'BACK' })));
+    buttons.push(back);
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: buttons },
+    };
+  }
+
+  if (data.startsWith('admin:theme:confirm:')) {
+    const themeId = data.replace('admin:theme:confirm:', '');
+    const info = THEME_INFO[themeId] || { label: themeId, emoji: '🎨', desc: '' };
+
+    const text =
+      `⚠️ <b>CONFIRM GLOBAL THEME ACTIVATION</b>\n\n` +
+      `You are about to activate <b>${info.emoji} ${info.label}</b> globally for ALL customers across the store.\n\n` +
+      `• Theme: <b>${info.label}</b>\n` +
+      `• Target: Customer Mini App / Web Store\n` +
+      `• Effect: Immediate across all customer sessions\n\n` +
+      `Are you sure you want to proceed?`;
+
+    const buttons = [
+      row(makeAdminButton({ text: '✅ Yes, Activate Globally', callbackData: `admin:theme:do_activate:${themeId}`, iconKey: 'CHECK' })),
+      row(makeAdminButton({ text: '❌ Cancel', callbackData: `admin:theme:select:${themeId}`, iconKey: 'BACK' })),
+    ];
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: buttons },
+    };
+  }
+
+  if (data.startsWith('admin:theme:do_activate:')) {
+    const themeId = data.replace('admin:theme:do_activate:', '');
+    try {
+      const updated = DataStore.setSeasonalTheme(from.id, themeId);
+      const info = THEME_INFO[updated.active_theme] || { label: updated.active_theme, emoji: '🎨' };
+
+      const text =
+        `🎉 <b>Theme Activated Successfully!</b>\n\n` +
+        `• Active Theme: <b>${info.emoji} ${info.label}</b>\n` +
+        `• Activated By: Admin <code>${from.id}</code>\n` +
+        `• Timestamp: <b>${new Date(updated.updated_at).toUTCString()}</b>\n\n` +
+        `<i>Customers opening or refreshing the store will now see this theme.</i>`;
+
+      const buttons = [
+        row(makeAdminButton({ text: 'Open Customer Store', url: storeUrl, iconKey: 'SHOPPING_CART' })),
+        row(makeAdminButton({ text: 'Back to Themes', callbackData: 'admin:theme:menu', iconKey: 'BACK' })),
+      ];
+
+      return {
+        text,
+        replyMarkup: { inline_keyboard: buttons },
+      };
+    } catch (err: any) {
+      const text = `❌ <b>Activation Failed:</b> ${err?.message || 'Unknown error'}`;
+      return {
+        text,
+        replyMarkup: {
+          inline_keyboard: [
+            row(makeAdminButton({ text: 'Back to Themes', callbackData: 'admin:theme:menu', iconKey: 'BACK' })),
+          ],
+        },
+      };
+    }
   }
 
   return null;

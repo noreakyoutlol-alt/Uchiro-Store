@@ -2,7 +2,7 @@ import { Markup } from 'telegraf';
 import { DeliveredAccount } from '../../database/data-store';
 import { TELEGRAM_EMOJIS, TelegramEmojiKey } from '../../config/telegram-emojis';
 import { getLocale } from './locales';
-import { resolveStoreUrl } from '../../config/app-url';
+import { resolveStoreUrl, isValidUrl } from '../../config/app-url';
 
 // Helper to strip leading unicode emoji / symbols from button labels
 export function stripLeadingEmoji(text: string): string {
@@ -96,43 +96,42 @@ export function webBtn(text: string, url: string, iconKey?: string) {
 export function createWebAppOrUrlButton(text: string, targetUrl?: string, iconKey?: string) {
   const appUrl = resolveStoreUrl();
 
-  let resolvedUrl = targetUrl;
+  let resolvedUrl: string;
   if (targetUrl && targetUrl.startsWith('https://')) {
-    if (targetUrl.includes('web-production-2d8bd') || targetUrl.includes('your-production-app')) {
+    if ((targetUrl.includes('your-production-app') || targetUrl.includes('web-production-2d8bd')) && isValidUrl(appUrl)) {
       try {
         const parsed = new URL(targetUrl);
         const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
-        resolvedUrl = `${appUrl}${pathAndQuery}`;
+        resolvedUrl = appUrl ? `${appUrl}${pathAndQuery}` : targetUrl;
       } catch {
-        resolvedUrl = appUrl;
+        resolvedUrl = appUrl || targetUrl;
       }
     } else {
       resolvedUrl = targetUrl;
     }
   } else if (targetUrl) {
     if (targetUrl.startsWith('/')) {
-      resolvedUrl = `${appUrl}${targetUrl}`;
+      resolvedUrl = appUrl ? `${appUrl}${targetUrl}` : targetUrl;
     } else {
       try {
         const parsed = new URL(targetUrl);
         const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
-        resolvedUrl = `${appUrl}${pathAndQuery}`;
+        resolvedUrl = appUrl ? `${appUrl}${pathAndQuery}` : targetUrl;
       } catch {
-        resolvedUrl = appUrl;
+        resolvedUrl = appUrl || targetUrl;
       }
     }
   } else {
     resolvedUrl = appUrl;
   }
 
-  if (!resolvedUrl.startsWith('https://')) {
-    resolvedUrl = 'https://web-production-2d8bd.up.railway.app';
-  }
-
   if (resolvedUrl.startsWith('https://t.me/')) {
     return urlBtn(text, resolvedUrl, iconKey);
   }
-  return webBtn(text, resolvedUrl, iconKey);
+  if (resolvedUrl.startsWith('https://')) {
+    return webBtn(text, resolvedUrl, iconKey);
+  }
+  return urlBtn(text, resolvedUrl, iconKey);
 }
 
 /**
@@ -149,8 +148,8 @@ export function buildMainMenuKeyboard(
 ) {
   const effectiveStoreUrl =
     storeUrl &&
-    !storeUrl.includes('web-production-2d8bd') &&
     !storeUrl.includes('your-production-app') &&
+    !storeUrl.includes('web-production-2d8bd') &&
     (storeUrl.startsWith('https://') || storeUrl.startsWith('http://'))
       ? storeUrl
       : resolveStoreUrl();
@@ -252,7 +251,6 @@ export function buildProfileKeyboard(
 ) {
   const effectiveStoreUrl =
     storeUrl &&
-    !storeUrl.includes('web-production-2d8bd') &&
     !storeUrl.includes('your-production-app') &&
     (storeUrl.startsWith('https://') || storeUrl.startsWith('http://'))
       ? storeUrl

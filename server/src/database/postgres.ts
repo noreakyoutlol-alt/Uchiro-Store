@@ -73,6 +73,9 @@ export async function initDatabase(): Promise<void> {
           created_at TIMESTAMPTZ DEFAULT NOW()
         );
 
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS media JSONB DEFAULT '[]'::jsonb;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
+
         -- Additive column migrations for existing core tables
         ALTER TABLE users ADD COLUMN IF NOT EXISTS gacha_tickets INT DEFAULT 0 NOT NULL;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false NOT NULL;
@@ -105,6 +108,8 @@ export async function initDatabase(): Promise<void> {
         ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price NUMERIC(10, 2);
         ALTER TABLE products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT false;
         ALTER TABLE products ADD COLUMN IF NOT EXISTS badge TEXT;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS media JSONB DEFAULT '[]'::jsonb;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS games JSONB DEFAULT '[]'::jsonb;
         ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
         CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 
@@ -309,6 +314,94 @@ export async function initDatabase(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_redeem_code_usages_code_id ON redeem_code_usages(code_id);
         CREATE INDEX IF NOT EXISTS idx_redeem_code_usages_telegram_id ON redeem_code_usages(telegram_id);
         CREATE INDEX IF NOT EXISTS idx_redeem_code_usages_code_user ON redeem_code_usages(code_id, telegram_id);
+
+        -- 7. Batch Stock Announcements Tables
+        CREATE TABLE IF NOT EXISTS registered_groups (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          chat_id TEXT NOT NULL UNIQUE,
+          title TEXT NOT NULL,
+          chat_type VARCHAR(32) NOT NULL DEFAULT 'supergroup' CHECK (chat_type IN ('group', 'supergroup', 'channel')),
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          bot_can_post BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_registered_groups_active ON registered_groups(is_active);
+
+        CREATE TABLE IF NOT EXISTS stock_announcement_events (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          product_id TEXT NOT NULL,
+          event_type VARCHAR(32) NOT NULL DEFAULT 'restock' CHECK (event_type IN ('new_product', 'restock', 'manual')),
+          stock_at_event INTEGER NOT NULL DEFAULT 1 CHECK (stock_at_event >= 0),
+          status VARCHAR(32) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'batched', 'published', 'cancelled')),
+          batch_id UUID,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          published_at TIMESTAMPTZ
+        );
+        CREATE INDEX IF NOT EXISTS idx_stock_announcement_events_status ON stock_announcement_events(status);
+        CREATE INDEX IF NOT EXISTS idx_stock_announcement_events_product ON stock_announcement_events(product_id);
+
+        CREATE TABLE IF NOT EXISTS stock_announcement_batches (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          status VARCHAR(32) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'preview', 'publishing', 'succeeded', 'partial', 'failed', 'cancelled')),
+          created_by_admin TEXT NOT NULL,
+          idempotency_key TEXT UNIQUE,
+          total_groups INTEGER NOT NULL DEFAULT 0,
+          succeeded_groups INTEGER NOT NULL DEFAULT 0,
+          failed_groups INTEGER NOT NULL DEFAULT 0,
+          total_products INTEGER NOT NULL DEFAULT 0,
+          published_products INTEGER NOT NULL DEFAULT 0,
+          skipped_products INTEGER NOT NULL DEFAULT 0,
+          snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          completed_at TIMESTAMPTZ
+        );
+        CREATE INDEX IF NOT EXISTS idx_stock_announcement_batches_status ON stock_announcement_batches(status);
+        CREATE INDEX IF NOT EXISTS idx_stock_announcement_batches_idempotency ON stock_announcement_batches(idempotency_key);
+
+        CREATE TABLE IF NOT EXISTS stock_batch_deliveries (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          batch_id UUID NOT NULL REFERENCES stock_announcement_batches(id) ON DELETE CASCADE,
+          chat_id TEXT NOT NULL,
+          group_title TEXT NOT NULL,
+          chunk_index INTEGER NOT NULL DEFAULT 0,
+          total_chunks INTEGER NOT NULL DEFAULT 1,
+          status VARCHAR(32) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'succeeded', 'failed', 'skipped')),
+          attempt_count INTEGER NOT NULL DEFAULT 0,
+          telegram_message_id BIGINT,
+          error_code VARCHAR(64),
+          error_message TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          delivered_at TIMESTAMPTZ,
+          CONSTRAINT uq_stock_batch_deliveries_chunk UNIQUE (batch_id, chat_id, chunk_index)
+        );
+        CREATE INDEX IF NOT EXISTS idx_stock_batch_deliveries_batch ON stock_batch_deliveries(batch_id);
+        CREATE INDEX IF NOT EXISTS idx_stock_batch_deliveries_status ON stock_batch_deliveries(status);
+        CREATE INDEX IF NOT EXISTS idx_stock_batch_deliveries_chat ON stock_batch_deliveries(chat_id);
+
+        -- 8. Durable App Settings & Seasonal Theme
+        CREATE TABLE IF NOT EXISTS app_settings (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          key VARCHAR(64) UNIQUE NOT NULL,
+          value JSONB NOT NULL,
+          description TEXT,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(key);
+
+        INSERT INTO app_settings (key, value, description)
+        VALUES (
+          'active_seasonal_theme',
+          jsonb_build_object(
+            'active_theme', 'gaming',
+            'updated_at', NOW(),
+            'updated_by', 'system'
+          ),
+          'Active global seasonal theme for customer Store Mini App: gaming, halloween, christmas, angkor-khmer'
+        )
+        ON CONFLICT (key) DO NOTHING;
       `);
       console.log('[Postgres] Schema verified and initialized successfully');
     } finally {

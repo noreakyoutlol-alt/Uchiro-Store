@@ -47,7 +47,7 @@ export class ProductController {
           stock,
           stock_count: stock,
           is_available: stock > 0,
-          status: stock === 0 ? 'delivered' : 'available',
+          status: (p as any).status || (stock === 0 ? 'delivered' : 'available'),
         };
       });
 

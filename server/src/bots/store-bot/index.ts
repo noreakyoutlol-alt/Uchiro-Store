@@ -358,15 +358,18 @@ export class StoreBotService {
         language_preference: savedLang,
       });
 
+      const currentStoreUrl = resolveStoreUrl();
       const welcomeText = getWelcomeMessage(savedLang);
-      const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
+      const keyboard = buildMainMenuKeyboard(currentStoreUrl, supportUsername);
 
       try {
-        ctx.setChatMenuButton?.({
-          type: 'web_app',
-          text: '🛍️ Store',
-          web_app: { url: storeWebAppUrl },
-        } as any).catch(() => {});
+        if (currentStoreUrl.startsWith('https://')) {
+          ctx.setChatMenuButton?.({
+            type: 'web_app',
+            text: '🛍️ Store',
+            web_app: { url: currentStoreUrl },
+          } as any).catch(() => {});
+        }
       } catch {}
 
       await ctx.reply(enrichWithTgEmojis(formatTelegramHtml(welcomeText)), {
@@ -863,19 +866,30 @@ export class StoreBotService {
     }
   }
 
-  public async handleWebhookUpdate(update: any): Promise<void> {
+  public async handleWebhookUpdate(update: any): Promise<boolean> {
     if (!this.bot) {
       this.initBot();
     }
     if (this.bot) {
       try {
+        if (!this.bot.telegram.token) {
+          const activeToken = (process.env.STORE_BOT_TOKEN || env.STORE_BOT_TOKEN || '').trim();
+          if (activeToken) (this.bot.telegram as any).token = activeToken;
+        }
+        if (!this.bot.telegram.token) {
+          console.error('[STORE BOT] Cannot process webhook update: bot token missing');
+          return false;
+        }
         console.log('[STORE BOT] Processing webhook update ID:', update?.update_id);
         await this.bot.handleUpdate(update);
+        return true;
       } catch (err: any) {
         console.error('[STORE BOT] Error processing update:', err?.message || err);
+        return false;
       }
     } else {
       console.error('[STORE BOT] Cannot process webhook update: bot instance not initialized');
+      return false;
     }
   }
 

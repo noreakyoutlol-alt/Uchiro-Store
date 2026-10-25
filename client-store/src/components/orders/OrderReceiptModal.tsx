@@ -16,6 +16,7 @@ import {
 import { Order, OrderReceipt } from '../../types';
 import { StoreAPI } from '../../services/api';
 import { downloadReceiptFile } from '../../services/receipt-pdf';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface OrderReceiptModalProps {
   order: Order | null;
@@ -32,6 +33,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
   onBackToHome,
   onBackToOrders,
 }) => {
+  const { language } = useLanguage();
   const [receipt, setReceipt] = useState<OrderReceipt | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
@@ -130,7 +132,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-black text-white tracking-wide uppercase flex items-center gap-1.5">
-                <span>Official Receipt</span>
+                <span>{language === 'km' ? 'បង្កាន់ដៃទូទាត់ផ្លូវការ' : 'Official Receipt'}</span>
               </h2>
               <span className="text-[10px] text-slate-400 font-mono">
                 #{order.order_number}
@@ -151,7 +153,9 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
           {isLoading && (
             <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
               <Loader2 className="w-6 h-6 animate-spin text-[#FFD166]" />
-              <span className="text-xs font-semibold">Generating Official Receipt...</span>
+              <span className="text-xs font-semibold">
+                {language === 'km' ? 'កំពុងបង្កើតបង្កាន់ដៃផ្លូវការ...' : 'Generating Official Receipt...'}
+              </span>
             </div>
           )}
 
@@ -171,7 +175,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
                       {receipt.store_name}
                     </span>
                     <p className="text-[10px] text-slate-400 font-medium">
-                      Verified Purchase Confirmation
+                      {language === 'km' ? 'ការបញ្ជាក់ការបញ្ជាទិញដែលបានផ្ទៀងផ្ទាត់' : 'Verified Purchase Confirmation'}
                     </p>
                   </div>
                   <div className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-black text-[10px] tracking-wider uppercase flex items-center gap-1">
@@ -183,7 +187,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
                 <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">
-                      Order ID
+                      {language === 'km' ? 'លេខសម្គាល់ការបញ្ជាទិញ' : 'Order ID'}
                     </span>
                     <span className="font-mono font-bold text-white select-all">
                       #{receipt.order_number}
@@ -191,7 +195,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">
-                      Date & Time
+                      {language === 'km' ? 'កាលបរិច្ឆេទ & ពេលវេលា' : 'Date & Time'}
                     </span>
                     <span className="text-slate-300 font-medium">
                       {formattedDate}
@@ -199,7 +203,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">
-                      Payment Method
+                      {language === 'km' ? 'វិធីសាស្ត្រទូទាត់' : 'Payment Method'}
                     </span>
                     <span className="text-slate-300 font-medium">
                       {receipt.payment_method}
@@ -207,7 +211,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">
-                      Delivery Status
+                      {language === 'km' ? 'ស្ថានភាពដឹកជញ្ជូន' : 'Delivery Status'}
                     </span>
                     <span className="text-emerald-400 font-bold uppercase">
                       {receipt.delivery_status}
@@ -220,7 +224,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-black/50 border border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    Purchased Item
+                    {language === 'km' ? 'ទំនិញដែលបានទិញ' : 'Purchased Item'}
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-semibold">
                     {receipt.product_type}
@@ -232,7 +236,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
                       {receipt.product_name}
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      Standard Digital Gaming Product
+                      {language === 'km' ? 'ផលិតផលហ្គេមឌីជីថលស្តង់ដារ' : 'Standard Digital Gaming Product'}
                     </p>
                   </div>
                   <div className="text-right">
@@ -250,30 +254,34 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
                 <div className="flex items-center gap-1.5 text-emerald-400 font-black text-xs">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Warranty Protection</span>
+                  <span>{language === 'km' ? 'ការធានាការពារ' : 'Warranty Protection'}</span>
                 </div>
                 <div className="text-[11px] text-slate-300 space-y-0.5">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Duration:</span>
+                    <span className="text-slate-400">{language === 'km' ? 'រយៈពេល៖' : 'Duration:'}</span>
                     <span className="font-bold text-white">{receipt.warranty_duration}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Active Since:</span>
+                    <span className="text-slate-400">{language === 'km' ? 'សកម្មចាប់តាំងពី៖' : 'Active Since:'}</span>
                     <span className="text-slate-200">{warrantyStartDate}</span>
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-400 pt-1 leading-normal">
-                  Full 14-day replacement guarantee provided recovery credentials remain intact.
+                  {language === 'km'
+                    ? 'ការធានាប្តូរជូនវិញពេញលេញរយៈពេល ១៤ ថ្ងៃ ប្រសិនបើព័ត៌មានគណនីនៅតែត្រឹមត្រូវ។'
+                    : 'Full 14-day replacement guarantee provided recovery credentials remain intact.'}
                 </p>
               </div>
 
               {/* Security Compliance Note */}
               <div className="p-3 rounded-xl bg-black/40 border border-white/5 text-[10px] text-slate-400 space-y-1">
                 <span className="font-bold text-slate-300 uppercase tracking-wider block">
-                  Security Compliance
+                  {language === 'km' ? 'ការអនុលោមតាមសុវត្ថិភាព' : 'Security Compliance'}
                 </span>
                 <p>
-                  Account passwords, authenticator setup keys, and live TOTP codes are NEVER printed on receipts for your security. Open your secure delivery vault below to access credentials.
+                  {language === 'km'
+                    ? 'ពាក្យសម្ងាត់គណនី កូដរៀបចំ និងកូដ TOTP មិនត្រូវបានបោះពុម្ពលើបង្កាន់ដៃឡើយដើម្បីសុវត្ថិភាពរបស់អ្នក។ សូមបើកឃ្លាំងដឹកជញ្ជូនខាងក្រោមដើម្បីមើលព័ត៌មានសម្ងាត់។'
+                    : 'Account passwords, authenticator setup keys, and live TOTP codes are NEVER printed on receipts for your security. Open your secure delivery vault below to access credentials.'}
                 </p>
               </div>
             </>

@@ -55,6 +55,15 @@ export interface Category {
 export type DeliveryMode = 'auto_account' | 'manual_service' | 'trade_item' | 'digital_code';
 export type ProductType = 'account' | 'gift' | 'trade' | 'digital_code';
 
+export interface ProductGame {
+  id?: string;
+  name: string;
+  platform?: string | null;
+  description?: string | null;
+  image_url?: string | null;
+  sort_order?: number;
+}
+
 export interface Product {
   id: string;
   category_id: string;
@@ -87,6 +96,14 @@ export interface Product {
   created_at: string;
   updated_at: string;
   media?: ProductMedia[];
+  games?: ProductGame[];
+  policy_blocked?: boolean;
+  compliance_notice?: {
+    policy: string;
+    official_url: string;
+    reason: string;
+  } | null;
+  image_url?: string | null;
   category?: Category;
 }
 
@@ -97,7 +114,7 @@ export interface ProductMedia {
   alt_text: string | null;
   is_primary: boolean;
   sort_order: number;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface ProductVariant {
@@ -557,6 +574,16 @@ export interface OrderNotificationDraft {
   broadcasted_at?: string | null;
 }
 
+export type SeasonalThemeId = 'gaming' | 'halloween' | 'christmas' | 'angkor-khmer';
+
+export interface SeasonalThemeConfig {
+  active_theme: SeasonalThemeId;
+  updated_at: string;
+  updated_by?: string | number;
+  available_themes?: SeasonalThemeId[];
+  description?: string;
+}
+
 export interface StoreSettings {
   points_per_dollar: number;
   gacha_spin_cost: number;
@@ -575,6 +602,9 @@ export interface StoreSettings {
   coupon_tier_200_min_order: number;
   low_stock_threshold: number;
   default_warranty_days: number;
+  seasonal_theme?: SeasonalThemeId;
+  seasonal_theme_updated_at?: string;
+  seasonal_theme_updated_by?: string | number;
 }
 
 // ================= BROADCAST CENTER TYPES =================
@@ -704,4 +734,143 @@ export interface RedeemCodeResult {
     | 'SYSTEM_ERROR';
 }
 
+// ================= BATCH STOCK ANNOUNCEMENT TYPES (PROMPT 5) =================
+export interface RegisteredGroup {
+  id: string;
+  chat_id: string;
+  title: string;
+  chat_type: 'group' | 'supergroup' | 'channel';
+  is_active: boolean;
+  bot_can_post: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StockAnnouncementEvent {
+  id: string;
+  product_id: string;
+  event_type: 'new_product' | 'restock' | 'manual';
+  stock_at_event: number;
+  status: 'pending' | 'batched' | 'published' | 'cancelled';
+  batch_id?: string | null;
+  created_at: string;
+  published_at?: string | null;
+}
+
+export type BatchStatus = 'draft' | 'preview' | 'publishing' | 'succeeded' | 'partial' | 'failed' | 'cancelled';
+export type GroupDeliveryStatus = 'pending' | 'sending' | 'succeeded' | 'failed' | 'skipped';
+
+export interface BatchProductSnapshot {
+  product_id: string;
+  title: string;
+  product_type: string;
+  category_id: string;
+  category_name: string;
+  price: number;
+  stock_at_preview: number;
+  buy_url: string;
+  is_eligible: boolean;
+  exclusion_reason?: string;
+}
+
+export interface StockAnnouncementBatch {
+  id: string;
+  status: BatchStatus;
+  created_by_admin: string | number;
+  idempotency_key?: string;
+  total_groups: number;
+  succeeded_groups: number;
+  failed_groups: number;
+  total_products: number;
+  published_products: number;
+  skipped_products: number;
+  snapshot: BatchProductSnapshot[];
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+}
+
+export interface StockBatchDelivery {
+  id: string;
+  batch_id: string;
+  chat_id: string;
+  group_title: string;
+  chunk_index: number;
+  total_chunks: number;
+  status: GroupDeliveryStatus;
+  attempt_count: number;
+  telegram_message_id?: number | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  delivered_at?: string | null;
+}
+
+export interface BatchPreviewProductItem {
+  id: string;
+  title: string;
+  product_type: string;
+  category_id: string;
+  category_name: string;
+  price: number;
+  stock: number;
+  quantity_label: string;
+  buy_url: string;
+}
+
+export interface BatchPreviewCategoryGroup {
+  category_id: string;
+  category_name: string;
+  product_type: string;
+  group_label: string;
+  products: BatchPreviewProductItem[];
+}
+
+export interface BatchPreviewExcludedItem {
+  id: string;
+  title: string;
+  reason: 'OUT_OF_STOCK' | 'INACTIVE_PRODUCT' | 'DRAFT_PRODUCT' | 'PRODUCT_NOT_FOUND' | 'INVALID_PRICE';
+  current_stock: number;
+}
+
+export interface BatchPreviewResponse {
+  total_pending: number;
+  eligible_count: number;
+  excluded_count: number;
+  groups_count: number;
+  grouped_preview: BatchPreviewCategoryGroup[];
+  excluded_products: BatchPreviewExcludedItem[];
+  authorized_groups: {
+    id: string;
+    title: string;
+    chat_type: string;
+    is_active: boolean;
+  }[];
+  preview_text: string;
+  chunks_count: number;
+}
+
+export interface BatchPublishResult {
+  success: boolean;
+  batch_id?: string;
+  status?: BatchStatus;
+  total_groups?: number;
+  succeeded_groups?: number;
+  failed_groups?: number;
+  deliveries?: {
+    id: string;
+    group_title: string;
+    chunk_index: number;
+    total_chunks: number;
+    status: GroupDeliveryStatus;
+    error_message?: string | null;
+    error_code?: string | null;
+    delivered_at?: string | null;
+  }[];
+  published_products_count?: number;
+  skipped_products_count?: number;
+  error?: string;
+  message?: string;
+}
 

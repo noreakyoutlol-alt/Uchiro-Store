@@ -9,6 +9,7 @@ import {
 import { TELEGRAM_EMOJIS } from '../../config/telegram-emojis';
 import { applyTelegramOutboundGuard } from '../telegram-guard';
 import { RobuxService } from '../../services/robux.service';
+import { BatchAnnouncementService } from '../../services/batch-announcement.service';
 
 export function isAuthorizedAdmin(telegramId: string | number): boolean {
   const id = String(telegramId).trim();
@@ -21,14 +22,14 @@ const token = (process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim();
 export type AdminBotInstance = Omit<Telegraf, 'startPolling'> & {
   startPolling: () => Promise<void>;
   getBot: () => Telegraf;
-  handleWebhookUpdate: (update: any) => Promise<void>;
+  handleWebhookUpdate: (update: any) => Promise<boolean>;
   getWebhookInfo: () => Promise<any>;
   setWebhook: (url: string, secret?: string) => Promise<{ success: boolean; message?: string }>;
   deleteWebhook: () => Promise<{ success: boolean; message?: string }>;
 };
 
 import { ADMIN_BASE_PATH } from '../../config/admin-slug';
-import { resolveStoreUrl } from '../../config/app-url';
+import { resolveStoreUrl, isValidUrl } from '../../config/app-url';
 
 export const adminBot: AdminBotInstance = new Telegraf(token) as unknown as AdminBotInstance;
 applyTelegramOutboundGuard(adminBot as any);
@@ -225,6 +226,62 @@ adminBot.command('cancel', async (ctx) => {
   return ctx.reply('No active operation to cancel.');
 });
 
+// /stockbatch command for authorized admins
+adminBot.command('stockbatch', async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = ctx.from?.id;
+  if (!senderId || !isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  const view = await handleAdminCallback('admin:stock_batch', ctx.from, STORE_URL, adminPortalUrl);
+  if (view) {
+    return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });
+  }
+});
+
+// /theme command for authorized admins (Prompt 6: Seasonal Theme Management)
+adminBot.command('theme', async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = ctx.from?.id;
+  if (!senderId || !isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  const view = await handleAdminCallback('admin:theme:menu', ctx.from, STORE_URL, adminPortalUrl);
+  if (view) {
+    return ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.replyMarkup });
+  }
+});
+
+// /register_group command (in a group/channel from an authorized admin)
+adminBot.command('register_group', async (ctx) => {
+  const from = ctx.from;
+  if (!from || !isAuthorizedAdmin(from.id)) {
+    return ctx.reply('⛔ Access denied. Only authorized store administrators can register announcement groups.');
+  }
+  const chat = ctx.chat;
+  if (chat.type === 'private') {
+    return ctx.reply('❌ This command must be sent inside a Telegram group, supergroup, or channel.');
+  }
+
+  const title = (chat as any).title || 'Registered Telegram Group';
+  const group = BatchAnnouncementService.registerGroup({
+    chat_id: String(chat.id),
+    title,
+    chat_type: chat.type as any,
+  });
+
+  return ctx.reply(
+    `✅ <b>Telegram Group Registered for Stock Announcements!</b>\n\n` +
+    `• Title: <b>${group.title}</b>\n` +
+    `• Chat ID: <code>${group.chat_id}</code>\n` +
+    `• Type: <i>${group.chat_type}</i>\n` +
+    `• Status: <b>Active & Authorized</b>`,
+    { parse_mode: 'HTML' }
+  );
+});
+
 // Handle callback queries
 adminBot.on('callback_query', async (ctx) => {
   const data = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
@@ -282,18 +339,30 @@ adminBot.catch((err: any, ctx) => {
 
 (adminBot as any).getBot = () => adminBot;
 
-(adminBot as any).handleWebhookUpdate = async (update: any): Promise<void> => {
+(adminBot as any).handleWebhookUpdate = async (update: any): Promise<boolean> => {
   try {
+    const activeToken = (adminBot.telegram.token || process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim();
+    if (activeToken && !adminBot.telegram.token) {
+      (adminBot.telegram as any).token = activeToken;
+    }
+    if (!adminBot.telegram.token) {
+      console.error('[ADMIN BOT] Cannot process webhook update: no bot token configured');
+      return false;
+    }
     console.log('[ADMIN BOT] Webhook processing update ID:', update?.update_id);
     await adminBot.handleUpdate(update);
+    return true;
   } catch (err: any) {
     console.error('[ADMIN BOT] Error processing webhook update:', err?.message || err);
+    return false;
   }
 };
 
 (adminBot as any).getWebhookInfo = async (): Promise<any> => {
-  if (!token) return { configured: false, error: 'No token' };
+  const activeToken = (adminBot.telegram.token || process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim();
+  if (!activeToken) return { configured: false, error: 'No token' };
   try {
+    if (!adminBot.telegram.token) (adminBot.telegram as any).token = activeToken;
     return await adminBot.telegram.getWebhookInfo();
   } catch (err: any) {
     return { configured: true, error: err.message };
@@ -301,8 +370,10 @@ adminBot.catch((err: any, ctx) => {
 };
 
 (adminBot as any).setWebhook = async (url: string, secret?: string): Promise<{ success: boolean; message?: string }> => {
-  if (!token) return { success: false, message: 'No bot token' };
+  const activeToken = (adminBot.telegram.token || process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim();
+  if (!activeToken) return { success: false, message: 'No bot token' };
   try {
+    if (!adminBot.telegram.token) (adminBot.telegram as any).token = activeToken;
     await adminBot.telegram.setWebhook(url, secret ? { secret_token: secret } : undefined);
     return { success: true };
   } catch (err: any) {
@@ -311,8 +382,10 @@ adminBot.catch((err: any, ctx) => {
 };
 
 (adminBot as any).deleteWebhook = async (): Promise<{ success: boolean; message?: string }> => {
-  if (!token) return { success: false, message: 'No bot token' };
+  const activeToken = (adminBot.telegram.token || process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim();
+  if (!activeToken) return { success: false, message: 'No bot token' };
   try {
+    if (!adminBot.telegram.token) (adminBot.telegram as any).token = activeToken;
     await adminBot.telegram.deleteWebhook();
     return { success: true };
   } catch (err: any) {
@@ -326,38 +399,52 @@ export function getAdminBotUsername(): string {
 }
 
 export function createWebAppOrUrlButton(text: string, targetUrl: string) {
-  const rawPublicUrl = (process.env.PUBLIC_URL || '').trim();
-  const appUrl = (rawPublicUrl.startsWith('https://') ? rawPublicUrl : 'https://web-production-2d8bd.up.railway.app').replace(/\/$/, '');
+  const appUrl = resolveStoreUrl();
 
   if (targetUrl && targetUrl.startsWith('https://')) {
     if (targetUrl.startsWith('https://t.me/')) {
       return Markup.button.url(text, targetUrl);
     }
-    return Markup.button.webApp(text, targetUrl);
+    if ((targetUrl.includes('your-production-app') || targetUrl.includes('web-production-2d8bd')) && isValidUrl(appUrl)) {
+      try {
+        const parsed = new URL(targetUrl);
+        const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
+        const finalUrl = appUrl ? `${appUrl}${pathAndQuery}` : targetUrl;
+        return finalUrl.startsWith('https://')
+          ? Markup.button.webApp(text, finalUrl)
+          : Markup.button.url(text, finalUrl);
+      } catch {
+        return appUrl.startsWith('https://')
+          ? Markup.button.webApp(text, appUrl)
+          : Markup.button.url(text, appUrl);
+      }
+    }
+    return targetUrl.startsWith('https://')
+      ? Markup.button.webApp(text, targetUrl)
+      : Markup.button.url(text, targetUrl);
   }
 
   let resolvedUrl = appUrl;
   if (targetUrl) {
     if (targetUrl.startsWith('/')) {
-      resolvedUrl = `${appUrl}${targetUrl}`;
+      resolvedUrl = appUrl ? `${appUrl}${targetUrl}` : targetUrl;
     } else {
       try {
         const parsed = new URL(targetUrl);
         const pathAndQuery = (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search + parsed.hash;
         if (pathAndQuery) {
-          resolvedUrl = `${appUrl}${pathAndQuery}`;
+          resolvedUrl = appUrl ? `${appUrl}${pathAndQuery}` : targetUrl;
         }
       } catch {
-        resolvedUrl = appUrl;
+        resolvedUrl = appUrl || targetUrl;
       }
     }
   }
 
-  if (!resolvedUrl.startsWith('https://')) {
-    resolvedUrl = 'https://web-production-2d8bd.up.railway.app';
+  if (resolvedUrl.startsWith('https://')) {
+    return Markup.button.webApp(text, resolvedUrl);
   }
-
-  return Markup.button.webApp(text, resolvedUrl);
+  return Markup.button.url(text, resolvedUrl);
 }
 
 export function getAdminKeyboard(adminUrl: string) {

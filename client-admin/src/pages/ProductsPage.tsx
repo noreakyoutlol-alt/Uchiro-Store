@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Boxes,
   Plus,
@@ -26,11 +26,13 @@ import {
   Layers,
   ArrowRight,
   Filter,
+  Send,
 } from 'lucide-react';
 import { Product, ProductType, DeliveryMode, Category, ProductMedia } from '../types';
 import { AdminAPI } from '../services/api';
 import { MediaManager } from '../components/products/MediaManager';
 import { AccountInventoryDepositModal } from '../components/products/AccountInventoryDepositModal';
+import { StockBatchAnnouncement } from '../components/StockBatchAnnouncement';
 
 interface ProductsPageProps {
   products: Product[];
@@ -73,8 +75,15 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Stable product-id for the upload endpoint during the create flow.
+  // Generated once per "open create modal" so uploads have a stable path before the record exists server-side.
+  const pendingNewProductIdRef = useRef<string>(crypto.randomUUID());
+
   // Quick Deposit Modal state for Account products
   const [depositModalProduct, setDepositModalProduct] = useState<{ id: string; title: string } | null>(null);
+
+  // View Mode: Catalog vs Stock Batch Announcements
+  const [viewMode, setViewMode] = useState<'catalog' | 'announcements'>('catalog');
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +116,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingProductId(null);
+    // Generate a fresh pending product-id for this creation session
+    pendingNewProductIdRef.current = crypto.randomUUID();
     setSelectedCategorySlug('blox-fruits');
     setSelectedProductType('account');
     setTitle('');
@@ -266,7 +277,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       });
 
       const payload: Partial<Product> = {
-        id: editingProductId || undefined,
+        // For a new product, carry the pending ID so images already uploaded match the product record
+        id: editingProductId || pendingNewProductIdRef.current,
         category_id: matchedCat?.id || DEFAULT_CATEGORY_IDS[selectedCategorySlug] || '11111111-1111-1111-1111-111111111103',
         title: title.trim(),
         slug: title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
@@ -297,6 +309,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         await AdminAPI.updateProduct(editingProductId, payload);
       } else {
         await AdminAPI.saveProduct(payload);
+        // Reset the pending id so the next create session gets a fresh one
+        pendingNewProductIdRef.current = crypto.randomUUID();
       }
       setIsModalOpen(false);
       onRefreshProducts();
@@ -379,16 +393,52 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          className="h-8 sm:h-9 px-3 rounded-lg bg-gradient-to-r from-[#E63946] to-[#D90429] hover:brightness-110 active:scale-95 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-[#E63946]/30 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add New Product</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-[#111622] p-1 rounded-xl border border-white/10">
+            <button
+              type="button"
+              onClick={() => setViewMode('catalog')}
+              className={`h-7 sm:h-8 px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'catalog'
+                  ? 'bg-white/15 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>Catalog</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('announcements')}
+              className={`h-7 sm:h-8 px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'announcements'
+                  ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-amber-300'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5 text-amber-400" />
+              <span>Stock Announcements</span>
+            </button>
+          </div>
+
+          {viewMode === 'catalog' && (
+            <button
+              onClick={handleOpenCreate}
+              className="h-8 sm:h-9 px-3 rounded-lg bg-gradient-to-r from-[#E63946] to-[#D90429] hover:brightness-110 active:scale-95 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-[#E63946]/30 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add New Product</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* FILTER & SEARCH TOOLBAR */}
+      {viewMode === 'announcements' ? (
+        <StockBatchAnnouncement />
+      ) : (
+        <>
+          {/* FILTER & SEARCH TOOLBAR */}
       <div className="p-2.5 sm:p-3 rounded-xl bg-[#111622] border border-white/5 space-y-2">
         {/* Top search & type filters */}
         <div className="flex flex-col sm:flex-row gap-2.5">
@@ -480,6 +530,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             const isTrade = p.delivery_mode === 'trade_item' || p.product_type === 'trade';
             const isKey = p.delivery_mode === 'digital_code' || p.product_type === 'digital_code';
             const primaryImage = p.media?.find((m) => m.is_primary)?.url || p.media?.[0]?.url || '/placeholder.svg';
+            const stockValue = Math.max(0, typeof p.stock === 'number' ? p.stock : Number(p.stock) || 0);
+            const isAvailable = stockValue > 0;
 
             return (
               <div
@@ -532,23 +584,23 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                       {isAccount ? (
                         <span
                           className={`px-2 py-0.5 rounded-md text-[10px] font-black backdrop-blur-sm flex items-center gap-1 ${
-                            p.stock > 0
+                            isAvailable
                               ? 'bg-emerald-950/90 border border-emerald-600/60 text-emerald-300'
                               : 'bg-rose-950/90 border border-rose-700/60 text-rose-300'
                           }`}
                         >
                           <Zap className="w-3 h-3 text-[#FFD166]" />
-                          <span>{p.stock > 0 ? `Vault: ${p.stock} Available` : 'Vault: SOLD OUT'}</span>
+                          <span>{isAvailable ? `Vault: ${stockValue} Available` : 'Vault: SOLD OUT'}</span>
                         </span>
                       ) : (
                         <span
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold backdrop-blur-sm ${
-                            p.stock > 0
+                            isAvailable
                               ? 'bg-black/70 border border-emerald-500/40 text-emerald-400'
                               : 'bg-rose-950/90 border border-rose-700/60 text-rose-300 font-black'
                           }`}
                         >
-                          {p.stock > 0 ? `${p.stock} in stock` : 'SOLD OUT'}
+                          {isAvailable ? `${stockValue} in stock` : 'SOLD OUT'}
                         </span>
                       )}
                     </div>
@@ -626,6 +678,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {/* DYNAMIC CREATE / EDIT PRODUCT MODAL (Requirements 1, 2, 4, 5, 6) */}
@@ -995,9 +1049,10 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 )}
               </div>
 
-              {/* MEDIA MANAGER: Image 1, Image 2, Image 3, Video (Requirement 6) */}
+              {/* MEDIA MANAGER: Up to 5 images + Video */}
               <div className="p-4 rounded-xl bg-black/40 border border-white/10">
                 <MediaManager
+                  productId={editingProductId || pendingNewProductIdRef.current}
                   media={media}
                   videoUrl={videoUrl}
                   onChangeMedia={setMedia}

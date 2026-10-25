@@ -76,10 +76,17 @@ export async function handleGachaMenu(
     `⚠️ <b>Mythical Drop Rate:</b> ${liveInfo.mythical_drop_rate}%\n`;
 
   try {
-    await ctx.reply(enrichWithTgEmojis(text), {
-      parse_mode: 'HTML',
-      ...buildSubGachaKeyboard(),
-    });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...buildSubGachaKeyboard(),
+      });
+    } else {
+      await ctx.reply(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        ...buildSubGachaKeyboard(),
+      });
+    }
   } catch (err: any) {
     if (isMessageNotModifiedError(err)) {
       await ctx.answerCbQuery('Already up to date');
@@ -123,10 +130,17 @@ export async function handleGachaPrizes(
     `💰 <b>Odds:</b> Common 70% | Legendary 25% | Mythical 5%\n`;
 
   try {
-    await ctx.reply(enrichWithTgEmojis(text), {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
-    });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
+      });
+    } else {
+      await ctx.reply(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
+      });
+    }
   } catch (err: any) {
     if (isMessageNotModifiedError(err)) {
       await ctx.answerCbQuery('Already up to date');
@@ -166,10 +180,17 @@ export async function handleGachaOdds(
     `💡 <b>Tip:</b> Save tickets for rate-up events!\n`;
 
   try {
-    await ctx.reply(enrichWithTgEmojis(text), {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
-    });
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
+      });
+    } else {
+      await ctx.reply(enrichWithTgEmojis(text), {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'cb_gacha_menu' }]] },
+      });
+    }
   } catch (err: any) {
     if (isMessageNotModifiedError(err)) {
       await ctx.answerCbQuery('Already up to date');

@@ -19,6 +19,15 @@ export interface ProductMedia {
   sort_order: number;
 }
 
+export interface ProductGame {
+  id?: string;
+  name: string;
+  platform?: string | null;
+  description?: string | null;
+  image_url?: string | null;
+  sort_order?: number;
+}
+
 export interface Product {
   id: string;
   category_id: string;
@@ -44,6 +53,13 @@ export interface Product {
   views_count: number;
   sales_count: number;
   media?: ProductMedia[];
+  games?: ProductGame[];
+  policy_blocked?: boolean;
+  compliance_notice?: {
+    policy: string;
+    official_url: string;
+    reason: string;
+  } | null;
   category?: Category;
 }
 
@@ -227,6 +243,16 @@ export interface GachaPrize {
   created_at: string;
 }
 
+export type SeasonalThemeId = 'gaming' | 'halloween' | 'christmas' | 'angkor-khmer';
+
+export interface SeasonalThemeConfig {
+  active_theme: SeasonalThemeId;
+  updated_at: string;
+  updated_by?: string | number;
+  available_themes?: SeasonalThemeId[];
+  description?: string;
+}
+
 export interface StoreSettings {
   points_per_dollar: number;
   gacha_spin_cost: number;
@@ -245,6 +271,9 @@ export interface StoreSettings {
   coupon_tier_200_min_order: number;
   low_stock_threshold: number;
   default_warranty_days: number;
+  seasonal_theme?: SeasonalThemeId;
+  seasonal_theme_updated_at?: string;
+  seasonal_theme_updated_by?: string | number;
 }
 
 export interface BackupBundle {
@@ -382,5 +411,104 @@ export interface CreateRedeemCodeDTO {
   expires_at?: string | null;
   is_active?: boolean;
   notes?: string;
+}
+
+// ================= BATCH STOCK ANNOUNCEMENT TYPES (PROMPT 5) =================
+export interface RegisteredGroup {
+  id: string;
+  chat_id: string;
+  title: string;
+  chat_type: 'group' | 'supergroup' | 'channel';
+  is_active: boolean;
+  bot_can_post: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type BatchStatus = 'draft' | 'preview' | 'publishing' | 'succeeded' | 'partial' | 'failed' | 'cancelled';
+export type GroupDeliveryStatus = 'pending' | 'sending' | 'succeeded' | 'failed' | 'skipped';
+
+export interface BatchPreviewProductItem {
+  id: string;
+  title: string;
+  product_type: string;
+  category_id: string;
+  category_name: string;
+  price: number;
+  stock: number;
+  quantity_label: string;
+  buy_url: string;
+}
+
+export interface BatchPreviewCategoryGroup {
+  category_id: string;
+  category_name: string;
+  product_type: string;
+  group_label: string;
+  products: BatchPreviewProductItem[];
+}
+
+export interface BatchPreviewExcludedItem {
+  id: string;
+  title: string;
+  reason: 'OUT_OF_STOCK' | 'INACTIVE_PRODUCT' | 'DRAFT_PRODUCT' | 'PRODUCT_NOT_FOUND' | 'INVALID_PRICE';
+  current_stock: number;
+}
+
+export interface BatchPreviewResponse {
+  total_pending: number;
+  eligible_count: number;
+  excluded_count: number;
+  groups_count: number;
+  grouped_preview: BatchPreviewCategoryGroup[];
+  excluded_products: BatchPreviewExcludedItem[];
+  authorized_groups: {
+    id: string;
+    title: string;
+    chat_type: string;
+    is_active: boolean;
+  }[];
+  preview_text: string;
+  chunks_count: number;
+}
+
+export interface StockBatchDeliveryClient {
+  id: string;
+  group_title: string;
+  chunk_index: number;
+  total_chunks: number;
+  status: GroupDeliveryStatus;
+  error_message?: string | null;
+  error_code?: string | null;
+  delivered_at?: string | null;
+}
+
+export interface StockAnnouncementBatchSummary {
+  id: string;
+  status: BatchStatus;
+  created_by_admin: string | number;
+  total_groups: number;
+  succeeded_groups: number;
+  failed_groups: number;
+  total_products: number;
+  published_products: number;
+  skipped_products: number;
+  deliveries?: StockBatchDeliveryClient[];
+  created_at: string;
+  completed_at?: string | null;
+}
+
+export interface BatchPublishResult {
+  success: boolean;
+  batch_id?: string;
+  status?: BatchStatus;
+  total_groups?: number;
+  succeeded_groups?: number;
+  failed_groups?: number;
+  deliveries?: StockBatchDeliveryClient[];
+  published_products_count?: number;
+  skipped_products_count?: number;
+  error?: string;
+  message?: string;
 }
 

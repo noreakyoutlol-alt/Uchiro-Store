@@ -107,16 +107,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     product.delivery_mode === 'trade_item' || product.product_type === 'trade';
 
   // Real-time stock status check
+  // A product with positive available stock is never sold out; sold out only when stock <= 0.
+  // Legacy records without a numeric stock field fall back to status/is_delivered flags.
   const isConsumedOrDelivered =
     (product as any).is_delivered === true ||
     (product as any).status === 'consumed' ||
     (product as any).status === 'sold';
 
-  const isSoldOut = product.stock <= 0 || isConsumedOrDelivered;
+  const isSoldOut =
+    typeof product.stock === 'number'
+      ? product.stock <= 0
+      : isConsumedOrDelivered;
 
+  // Resolve cover image with backwards-compatibility for older single-image records
+  const legacyImageUrl = (product as any).image_url || (product as any).imageUrl || (product as any).image;
   const primaryImage =
     product.media?.find((m) => m.is_primary)?.url ||
     product.media?.[0]?.url ||
+    legacyImageUrl ||
     FALLBACK_IMAGE;
 
   const [imgSrc, setImgSrc] = useState(primaryImage);
@@ -124,6 +132,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   useEffect(() => {
     setImgSrc(primaryImage);
   }, [primaryImage]);
+
+  // Safe fallback handler that avoids infinite retry loops if the fallback itself errors
+  const handleImageError = () => {
+    if (imgSrc !== FALLBACK_IMAGE) {
+      setImgSrc(FALLBACK_IMAGE);
+    }
+  };
 
   // Discount calculation
   const hasDiscount = Boolean(
@@ -237,7 +252,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <img
           src={imgSrc}
           alt={product.title}
-          onError={() => setImgSrc(FALLBACK_IMAGE)}
+          onError={handleImageError}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
           decoding="async"

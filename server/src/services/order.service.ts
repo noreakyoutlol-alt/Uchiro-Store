@@ -6,6 +6,7 @@ import { TOTPService } from '../security/totp';
 import { NotificationService } from './notification.service';
 import { KHPayService } from './khpay.service';
 import { FulfillmentService } from './fulfillment.service';
+import { CheckoutLock } from '../utils/checkout-lock';
 
 export class OrderService {
   static async createOrder(
@@ -15,6 +16,7 @@ export class OrderService {
           telegramId: number;
           productId: string;
           quantity?: number;
+          items?: Array<{ productId: string; quantity: number }>;
           couponCode?: string;
           robloxUsername?: string;
           robloxDisplayName?: string;
@@ -39,6 +41,7 @@ export class OrderService {
       telegramId: number;
       productId: string;
       quantity?: number;
+      items?: Array<{ productId: string; quantity: number }>;
       couponCode?: string;
       robloxUsername?: string;
       robloxDisplayName?: string;
@@ -65,49 +68,68 @@ export class OrderService {
       };
     } else {
       params = {
+        ...paramsOrTelegramId,
         customerId: paramsOrTelegramId.customerId || `cust-${paramsOrTelegramId.telegramId}`,
         quantity: paramsOrTelegramId.quantity || 1,
-        ...paramsOrTelegramId,
       };
     }
 
-    const result = DataStore.createOrder(params);
+    const productKeys = [
+      params.productId,
+      ...(params.items?.map((i) => i.productId) || []),
+    ].filter((k): k is string => Boolean(k && typeof k === 'string'));
+
+    const lockKeys = productKeys.length > 0 ? Array.from(new Set(productKeys)).sort() : ['global_checkout'];
+    const result = await CheckoutLock.runExclusiveMulti(lockKeys, () => DataStore.createOrder(params));
     if (!result.success || !result.order) {
-      throw new AppError(result.error || 'Failed to create order', 400, 'ORDER_CREATION_FAILED');
+      throw new AppError(result.error || 'Failed to create order', 400, result.error || 'ORDER_CREATION_FAILED');
     }
 
     const order = result.order;
 
-    // Generate KHQR Payment
-    const khqr = await KHPayService.generateKHQRPayment({
-      orderId: order.id,
-      orderNumber: order.order_number,
-      amount: order.total_amount,
-      currency: 'USD',
-      validityMinutes: 10,
-    });
+    // Check if order already has an existing payment (Idempotency key hit)
+    const existingPayment = DataStore.getPaymentByOrderId(order.id);
+    if (existingPayment) {
+      order.payment = existingPayment;
+      return { order, payment: existingPayment };
+    }
 
-    const payment = DataStore.savePayment({
-      id: khqr.transaction_id || khqr.md5_hash,
-      order_id: order.id,
-      customer_id: order.customer_id,
-      provider: 'KHQR / Bakong',
-      currency: 'USD',
-      amount: order.total_amount,
-      qr_payload: khqr.qr_payload,
-      qr_image_url: khqr.qr_image_url,
-      md5_hash: khqr.md5_hash,
-      bakong_deep_link: khqr.bakong_deep_link,
-      aba_deep_link: khqr.aba_deep_link,
-      status: 'pending',
-      transaction_reference: khqr.transaction_id || null,
-      expires_at: khqr.expires_at,
-      expires_in: khqr.expires_in,
-      provider_expires_in: khqr.expires_in,
-      paid_at: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    // Generate KHQR Payment
+    let payment: any;
+    try {
+      const khqr = await KHPayService.generateKHQRPayment({
+        orderId: order.id,
+        orderNumber: order.order_number,
+        amount: order.total_amount,
+        currency: 'USD',
+        validityMinutes: 10,
+      });
+
+      payment = DataStore.savePayment({
+        id: khqr.transaction_id || khqr.md5_hash,
+        order_id: order.id,
+        customer_id: order.customer_id,
+        provider: 'KHQR / Bakong',
+        currency: 'USD',
+        amount: order.total_amount,
+        qr_payload: khqr.qr_payload,
+        qr_image_url: khqr.qr_image_url,
+        md5_hash: khqr.md5_hash,
+        bakong_deep_link: khqr.bakong_deep_link,
+        aba_deep_link: khqr.aba_deep_link,
+        status: 'pending',
+        transaction_reference: khqr.transaction_id || null,
+        expires_at: khqr.expires_at,
+        expires_in: khqr.expires_in,
+        provider_expires_in: khqr.expires_in,
+        paid_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (paymentErr) {
+      DataStore.releaseReservation(order.id);
+      throw paymentErr;
+    }
 
     order.payment = payment;
 
@@ -186,6 +208,7 @@ export class OrderService {
 
     order.status = 'paid';
     order.updated_at = new Date().toISOString();
+    DataStore.handleOrderInventoryDeduction(order);
 
     const productTitle = order.items?.[0]?.product_title || 'Gaming Product';
     const productId = order.items?.[0]?.product_id || '';

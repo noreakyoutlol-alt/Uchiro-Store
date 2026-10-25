@@ -48,6 +48,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   );
   const showQuantityControls = Boolean(isMultiQtyEligible && product.stock >= 2);
   const maxStock = Math.max(1, product.stock || 1);
+  const idempotencyKeyRef = useRef<string>(`idemp-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`);
 
   const [quantity, setQuantity] = useState<number>(() => {
     if (isAccount) return 1;
@@ -245,7 +246,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const idempotencyKey = `idemp-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    // Reuse session idempotency key across automatic retries to prevent duplicate orders
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = `idemp-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    }
+    const idempotencyKey = idempotencyKeyRef.current;
     const orderPayload = {
       productId: product.id,
       quantity: effectiveQuantity,
@@ -279,9 +284,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }
       }
 
-      setErrorMessage(
-        err.response?.data?.error?.message || 'Failed to initialize payment order.'
-      );
+      const errorCode = err.response?.data?.error?.code;
+      const errorMsg = err.response?.data?.error?.message;
+
+      if (errorCode === 'INSUFFICIENT_STOCK' || errorCode === 'PRODUCT_OUT_OF_STOCK') {
+        // Reset key for next user attempt
+        idempotencyKeyRef.current = `idemp-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+        setErrorMessage(
+          language === 'km'
+            ? 'ចំនួនទំនិញក្នុងស្តុកបានផ្លាស់ប្តូរមុនពេលការទូទាត់ត្រូវបានបញ្ចប់។ សូមកែប្រែចំនួន ឬជ្រើសរើសទំនិញផ្សេង។'
+            : 'Available stock changed before checkout could be completed. Please adjust your quantity or choose another item.'
+        );
+      } else {
+        setErrorMessage(
+          errorMsg || 'Failed to initialize payment order.'
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }

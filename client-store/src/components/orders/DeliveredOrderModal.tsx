@@ -24,6 +24,7 @@ import {
 import { Order, CustomerDeliveryResult, CustomerTotpResult } from '../../types';
 import { StoreAPI } from '../../services/api';
 import { formatShortOrderId } from '../../utils/order.util';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface DeliveredOrderModalProps {
   order: Order | null;
@@ -40,6 +41,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
   onBackToOrders,
   onViewReceipt,
 }) => {
+  const { language } = useLanguage();
   // In-memory state only (Strict Requirement: never persisted to localStorage/sessionStorage)
   const [delivery, setDelivery] = useState<CustomerDeliveryResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -264,13 +266,21 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-black text-white tracking-wide uppercase flex items-center gap-1.5">
-                {order.delivery_mode === 'manual_service'
-                  ? 'Roblox Gift Delivery'
-                  : order.delivery_mode === 'trade_item'
-                  ? 'In-Game Trade'
-                  : order.delivery_mode === 'digital_code'
-                  ? 'Instant Digital Key'
-                  : 'Secure Delivery Vault'}
+                {language === 'km'
+                  ? (order.delivery_mode === 'manual_service'
+                      ? 'ការដឹកជញ្ជូនកាដូ Roblox'
+                      : order.delivery_mode === 'trade_item'
+                      ? 'ការដោះដូរក្នុងហ្គេម'
+                      : order.delivery_mode === 'digital_code'
+                      ? 'កូដឌីជីថលភ្លាមៗ'
+                      : 'ឃ្លាំងដឹកជញ្ជូនសុវត្ថិភាព')
+                  : (order.delivery_mode === 'manual_service'
+                      ? 'Roblox Gift Delivery'
+                      : order.delivery_mode === 'trade_item'
+                      ? 'In-Game Trade'
+                      : order.delivery_mode === 'digital_code'
+                      ? 'Instant Digital Key'
+                      : 'Secure Delivery Vault')}
               </h2>
               <span className="text-[10px] text-slate-400 font-mono">
                 {formatShortOrderId(order.order_number || order.id)}
@@ -291,14 +301,18 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
           {isLoading && (
             <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
               <Loader2 className="w-6 h-6 animate-spin text-[#FFD166]" />
-              <span className="text-xs font-semibold">Opening Secure Delivery Vault...</span>
+              <span className="text-xs font-semibold">
+                {language === 'km' ? 'កំពុងបើកឃ្លាំងដឹកជញ្ជូនសុវត្ថិភាព...' : 'Opening Secure Delivery Vault...'}
+              </span>
             </div>
           )}
 
           {errorState && (
             <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center space-y-2">
               <AlertCircle className="w-8 h-8 text-rose-400 mx-auto" />
-              <h3 className="font-bold text-white text-sm">Delivery Unavailable</h3>
+              <h3 className="font-bold text-white text-sm">
+                {language === 'km' ? 'មិនអាចទាញយកការដឹកជញ្ជូនបានទេ' : 'Delivery Unavailable'}
+              </h3>
               <p className="text-xs text-rose-300">{errorState}</p>
             </div>
           )}
@@ -310,10 +324,10 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase tracking-wider">
                     <KeyRound className="w-4 h-4" />
-                    <span>Instant Digital Key</span>
+                    <span>{language === 'km' ? 'កូដឌីជីថលភ្លាមៗ' : 'Instant Digital Key'}</span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
-                    Active & Ready to Redeem
+                    {language === 'km' ? 'សកម្ម & រួចរាល់សម្រាប់បញ្ចូល' : 'Active & Ready to Redeem'}
                   </span>
                 </div>
 
@@ -321,7 +335,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                      Activation Key / Voucher
+                      {language === 'km' ? 'កូដសកម្មភាព / ប័ណ្ណ' : 'Activation Key / Voucher'}
                     </span>
                     <span className="text-sm sm:text-base font-mono font-black text-[#FFD166] select-all truncate block">
                       {delivery.digital_code || 'CODE-PENDING'}
@@ -349,16 +363,16 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 {/* Step-by-Step Redemption Instructions */}
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
                   <span className="text-[11px] font-bold text-white block">
-                    How to Redeem Your Digital Key:
+                    {language === 'km' ? 'របៀបបញ្ចូលកូដឌីជីថលរបស់អ្នក៖' : 'How to Redeem Your Digital Key:'}
                   </span>
                   <ol className="text-[11px] text-slate-300 space-y-1.5 list-decimal pl-4 leading-relaxed">
                     <li>
-                      Visit the official redemption portal:{' '}
+                      {language === 'km' ? 'ចូលទៅកាន់ទំព័រផ្លូវការ៖ ' : 'Visit the official redemption portal: '}
                       <span className="text-cyan-300 font-mono">roblox.com/redeem</span>
                     </li>
-                    <li>Sign in to your Roblox account if prompted.</li>
-                    <li>Paste your copied key into the code input field.</li>
-                    <li>Click <strong>Redeem</strong> to credit the virtual item or Robux to your account.</li>
+                    <li>{language === 'km' ? 'ចូលគណនី Roblox របស់អ្នកប្រសិនបើទាមទារ។' : 'Sign in to your Roblox account if prompted.'}</li>
+                    <li>{language === 'km' ? 'បិទភ្ជាប់កូដដែលបានចម្លងទៅក្នុងប្រអប់បញ្ចូលកូដ។' : 'Paste your copied key into the code input field.'}</li>
+                    <li>{language === 'km' ? 'ចុច Redeem ដើម្បីបញ្ចូលទំនិញ ឬ Robux ទៅក្នុងគណនីរបស់អ្នក។' : 'Click Redeem to credit the virtual item or Robux to your account.'}</li>
                   </ol>
                 </div>
 
@@ -383,15 +397,15 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
                     <User className="w-4 h-4" />
-                    <span>In-Game Trade</span>
+                    <span>{language === 'km' ? 'ការដោះដូរក្នុងហ្គេម' : 'In-Game Trade'}</span>
                   </div>
                   {order.status === 'delivered' || order.status === 'completed' ? (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
-                      Trade Completed / Fulfilled
+                      {language === 'km' ? 'ការដោះដូរបានសម្រេច' : 'Trade Completed / Fulfilled'}
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold">
-                      Awaiting Admin Fulfillment
+                      {language === 'km' ? 'រង់ចាំការដោះដូរក្នុងហ្គេម' : 'Awaiting Admin Fulfillment'}
                     </span>
                   )}
                 </div>
@@ -399,7 +413,9 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 {/* 1-Click Copy Order ID */}
                 <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Your Order ID</span>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                      {language === 'km' ? 'លេខសម្គាល់ការបញ្ជាទិញរបស់អ្នក' : 'Your Order ID'}
+                    </span>
                     <p className="font-mono text-sm font-black text-white">{formatShortOrderId(order.order_number || order.id)}</p>
                   </div>
                   <button
@@ -421,9 +437,13 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1.5">
-                  <p className="text-xs font-bold text-white">Arrange In-Game Meeting:</p>
+                  <p className="text-xs font-bold text-white">
+                    {language === 'km' ? 'រៀបចំការជួបគ្នាក្នុងហ្គេម៖' : 'Arrange In-Game Meeting:'}
+                  </p>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Your payment is confirmed! Contact our trade admin on Telegram with your Order ID to coordinate meeting on our private server and receive your items.
+                    {language === 'km'
+                      ? 'ការទូទាត់របស់អ្នកត្រូវបានបញ្ជាក់! សូមទាក់ទងផ្នែករដ្ឋបាលពាណិជ្ជកម្មរបស់យើងតាម Telegram ជាមួយលេខសម្គាល់ការបញ្ជាទិញរបស់អ្នក ដើម្បីណាត់ជួបគ្នាក្នុង server ឯកជន និងទទួលទំនិញរបស់អ្នក។'
+                      : 'Your payment is confirmed! Contact our trade admin on Telegram with your Order ID to coordinate meeting on our private server and receive your items.'}
                   </p>
                 </div>
 
@@ -447,15 +467,15 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
                     <Gift className="w-4 h-4" />
-                    <span>Roblox Gift Delivery</span>
+                    <span>{language === 'km' ? 'ការដឹកជញ្ជូនកាដូ Roblox' : 'Roblox Gift Delivery'}</span>
                   </div>
                   {order.status === 'delivered' || order.status === 'completed' ? (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
-                      Gift Delivered / Fulfilled
+                      {language === 'km' ? 'កាដូត្រូវបានដឹកជញ្ជូនរួចរាល់' : 'Gift Delivered / Fulfilled'}
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold">
-                      Awaiting Admin Gift Delivery
+                      {language === 'km' ? 'កំពុងដំណើរការដឹកជញ្ជូនកាដូ' : 'Awaiting Admin Gift Delivery'}
                     </span>
                   )}
                 </div>
@@ -463,7 +483,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 {/* Recipient Account Badge */}
                 {order.roblox_username && (
                   <div className="p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-800/40 flex items-center justify-between text-xs text-cyan-300">
-                    <span>Delivering to Verified Account:</span>
+                    <span>{language === 'km' ? 'គណនី Roblox ទទួលទំនិញ៖' : 'Delivering to Verified Account:'}</span>
                     <span className="font-bold">@{order.roblox_username}</span>
                   </div>
                 )}
@@ -471,7 +491,9 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 {/* 1-Click Copy Order ID */}
                 <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Your Order ID</span>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                      {language === 'km' ? 'លេខសម្គាល់ការបញ្ជាទិញរបស់អ្នក' : 'Your Order ID'}
+                    </span>
                     <p className="font-mono text-sm font-black text-white">{formatShortOrderId(order.order_number || order.id)}</p>
                   </div>
                   <button
@@ -493,9 +515,13 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1.5">
-                  <p className="text-xs font-bold text-white">Gift Fulfillment in Progress:</p>
+                  <p className="text-xs font-bold text-white">
+                    {language === 'km' ? 'ការដឹកជញ្ជូនកាដូក្នុងហ្គេម Roblox៖' : 'Gift Fulfillment in Progress:'}
+                  </p>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Payment verified! Our admin is sending this gift item directly to your verified Roblox account in-game. Once sent, this order status will update to "Gift Delivered / Fulfilled".
+                    {language === 'km'
+                      ? 'ការទូទាត់ត្រូវបានផ្ទៀងផ្ទាត់! រដ្ឋបាលរបស់យើងកំពុងផ្ញើកាដូនេះទៅកាន់គណនី Roblox ដែលបានផ្ទៀងផ្ទាត់របស់អ្នកក្នុងហ្គេម។ នៅពេលផ្ញើរួច ស្ថានភាពនឹងប្តូរទៅជា "កាដូត្រូវបានដឹកជញ្ជូនរួចរាល់"។'
+                      : 'Payment verified! Our admin is sending this gift item directly to your verified Roblox account in-game. Once sent, this order status will update to "Gift Delivered / Fulfilled".'}
                   </p>
                 </div>
 
@@ -519,13 +545,13 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-300 uppercase tracking-wider">
                   <User className="w-4 h-4 text-indigo-400" />
-                  <span>Account Credentials</span>
+                  <span>{language === 'km' ? 'ព័ត៌មានគណនី' : 'Account Credentials'}</span>
                 </div>
 
                 {/* Username */}
                 <div className="p-3.5 rounded-2xl bg-black/50 border border-white/10 space-y-1">
                   <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                    Username
+                    {language === 'km' ? 'ឈ្មោះគណនី' : 'Username'}
                   </span>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-mono font-bold text-white select-all">
@@ -548,7 +574,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 {/* Password */}
                 <div className="p-3.5 rounded-2xl bg-black/50 border border-white/10 space-y-1">
                   <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                    Password
+                    {language === 'km' ? 'ពាក្យសម្ងាត់' : 'Password'}
                   </span>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-mono font-bold text-white select-all">
@@ -587,17 +613,17 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                 <div className="space-y-3.5 pt-1 border-t border-white/5">
                   <div className="flex items-center gap-1.5 text-xs font-black text-slate-300 uppercase tracking-wider">
                     <KeyRound className="w-4 h-4 text-[#FFD166]" />
-                    <span>Authenticator Setup & Live Code</span>
+                    <span>{language === 'km' ? 'ការផ្ទៀងផ្ទាត់ 2FA & កូដផ្ទាល់' : 'Authenticator Setup & Live Code'}</span>
                   </div>
 
                   {/* 1. Authenticator App Setup Key (Full Manual Setup Key) */}
                   <div className="p-3.5 rounded-2xl bg-black/50 border border-white/10 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                        Authenticator App Setup Key
+                        {language === 'km' ? 'កូដដំឡើង Authenticator App' : 'Authenticator App Setup Key'}
                       </span>
                       <span className="text-[10px] text-[#FFD166] font-medium">
-                        Manual Key
+                        {language === 'km' ? 'កូដដោយដៃ' : 'Manual Key'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
@@ -617,7 +643,9 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                       </button>
                     </div>
                     <p className="text-[10px] text-slate-400">
-                      Enter this key manually into Google Authenticator or Microsoft Authenticator if you cannot scan the QR code.
+                      {language === 'km'
+                        ? 'បញ្ចូលកូដនេះដោយផ្ទាល់ក្នុងកម្មវិធី Google Authenticator ឬ 2FAS ប្រសិនបើអ្នកមិនអាចស្កេន QR កូដបានទេ។'
+                        : 'Enter this key manually into Google Authenticator or Microsoft Authenticator if you cannot scan the QR code.'}
                     </p>
                   </div>
 
@@ -634,7 +662,9 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                         />
                       </div>
                       <span className="text-[10px] text-slate-400 font-medium">
-                        Scan with Google Authenticator, Microsoft Authenticator, or 1Password
+                        {language === 'km'
+                          ? 'ស្កេនជាមួយ Google Authenticator, 2FAS ឬ Microsoft Authenticator'
+                          : 'Scan with Google Authenticator, Microsoft Authenticator, or 1Password'}
                       </span>
                     </div>
                   )}
@@ -655,7 +685,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                   <div className="p-4 rounded-2xl bg-gradient-to-br from-[#121828] via-[#161F33] to-[#111624] border border-[#FFD166]/30 shadow-xl space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider">
-                        Live Authenticator Code
+                        {language === 'km' ? 'កូដផ្ទៀងផ្ទាត់ផ្ទាល់ (Live 2FA)' : 'Live Authenticator Code'}
                       </span>
                       <span className="text-[10px] text-[#FFD166] font-medium">
                         RFC 6238 Source of Truth
@@ -673,10 +703,10 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
                         <span>
-                          Refreshes in <b className="text-white">{secondsRemaining}s</b>
+                          {language === 'km' ? 'ប្តូរកូដថ្មីក្នុងរយៈពេល' : 'Refreshes in'} <b className="text-white">{secondsRemaining}s</b>
                         </span>
                         <span className="text-[10px] text-slate-500">
-                          Automatic sync
+                          {language === 'km' ? 'សមកាលកម្មស្វ័យប្រវត្តិ' : 'Automatic sync'}
                         </span>
                       </div>
                       <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
@@ -742,15 +772,15 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
                   <div>
                     <span className="text-[11px] font-bold text-white block">
-                      14-Day Replacement Warranty
+                      {language === 'km' ? 'ការធានាប្តូរជូនវិញក្នុងរយៈពេល ១៤ ថ្ងៃ' : '14-Day Replacement Warranty'}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      Active protection status
+                      {language === 'km' ? 'ស្ថានភាពការពារកំពុងដំណើរការ' : 'Active protection status'}
                     </span>
                   </div>
                 </div>
                 <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">
-                  Active
+                  {language === 'km' ? 'សកម្ម' : 'Active'}
                 </span>
               </div>
             </div>

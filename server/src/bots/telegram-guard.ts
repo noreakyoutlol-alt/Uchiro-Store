@@ -1,5 +1,14 @@
-import { enrichWithTgEmojis } from '../config/telegram-emojis';
+import { enrichWithTgEmojis, TELEGRAM_EMOJIS } from '../config/telegram-emojis';
 import { stripLeadingEmoji } from './store-bot/keyboards';
+
+function getFallbackForCustomEmojiId(id: string): string | undefined {
+  for (const def of Object.values(TELEGRAM_EMOJIS)) {
+    if (def.customEmojiId === id) {
+      return def.fallback;
+    }
+  }
+  return undefined;
+}
 
 /**
  * Telegram Outbound Guard:
@@ -40,7 +49,14 @@ export function applyTelegramOutboundGuard(bot: any): void {
           if (Array.isArray(row)) {
             for (const btn of row) {
               if (btn && btn.icon_custom_emoji_id && typeof btn.text === 'string') {
-                btn.text = stripLeadingEmoji(btn.text);
+                const fallback = (btn as any).__fallback || getFallbackForCustomEmojiId(btn.icon_custom_emoji_id);
+                if (fallback) {
+                  const baseFallback = fallback.replace(/[︎️]/g, '');
+                  const baseText = btn.text.replace(/[︎️]/g, '');
+                  if (btn.text.startsWith(fallback) || baseText.startsWith(baseFallback)) {
+                    btn.text = stripLeadingEmoji(btn.text);
+                  }
+                }
               }
             }
           }

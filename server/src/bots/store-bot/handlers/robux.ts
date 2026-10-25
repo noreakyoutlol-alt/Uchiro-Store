@@ -3,6 +3,37 @@ import { RobuxService, RobloxAccountInfo } from '../../../services/robux.service
 import { tgEmoji, formatTelegramHtml } from '../index';
 import { cb, urlBtn } from '../keyboards';
 import { DataStore } from '../../../database/data-store';
+import { isMessageNotModifiedError } from './orders';
+
+async function sendOrEditRobuxMessage(ctx: Context, text: string, keyboard: any): Promise<void> {
+  const formattedHtml = formatTelegramHtml(text);
+  try {
+    if (ctx.callbackQuery) {
+      await ctx.editMessageText(formattedHtml, {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    } else {
+      await ctx.reply(formattedHtml, {
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+    }
+  } catch (err: any) {
+    if (isMessageNotModifiedError(err)) return;
+    if (
+      err?.description?.includes('there is no text in the message to edit') ||
+      err?.message?.includes('there is no text in the message to edit')
+    ) {
+      try {
+        await ctx.reply(formattedHtml, {
+          parse_mode: 'HTML',
+          ...keyboard,
+        });
+      } catch {}
+    }
+  }
+}
 
 // Session state storage for multi-step Robux checkout
 export interface RobuxUserSession {
@@ -188,24 +219,7 @@ export async function handleRobuxMenu(ctx: Context) {
     [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
   ]);
 
-  try {
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    } else {
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    }
-  } catch {
-    await ctx.reply(formatTelegramHtml(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  }
+  await sendOrEditRobuxMessage(ctx, text, keyboard);
 }
 
 /**
@@ -381,24 +395,7 @@ export async function handleConfirmAccountProfile(ctx: Context) {
 
   const keyboard = Markup.inlineKeyboard(buttons);
 
-  try {
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    } else {
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    }
-  } catch {
-    await ctx.reply(formatTelegramHtml(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  }
+  await sendOrEditRobuxMessage(ctx, text, keyboard);
 }
 
 /**
@@ -449,24 +446,7 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
       [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
     ]);
 
-    try {
-      if (ctx.callbackQuery) {
-        await ctx.editMessageText(formatTelegramHtml(text), {
-          parse_mode: 'HTML',
-          ...keyboard,
-        });
-      } else {
-        await ctx.reply(formatTelegramHtml(text), {
-          parse_mode: 'HTML',
-          ...keyboard,
-        });
-      }
-    } catch {
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    }
+    await sendOrEditRobuxMessage(ctx, text, keyboard);
     return;
   }
 
@@ -486,24 +466,7 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
     [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
   ]);
 
-  try {
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    } else {
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    }
-  } catch {
-    await ctx.reply(formatTelegramHtml(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  }
+  await sendOrEditRobuxMessage(ctx, text, keyboard);
 }
 
 /**
@@ -537,24 +500,7 @@ export async function handleRobuxAgeConfirmed(ctx: Context) {
     [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
   ]);
 
-  try {
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    } else {
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    }
-  } catch {
-    await ctx.reply(formatTelegramHtml(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  }
+  await sendOrEditRobuxMessage(ctx, text, keyboard);
 }
 
 /**
@@ -581,24 +527,7 @@ export async function handleRobuxAgeUnder18(ctx: Context) {
     [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
   ]);
 
-  try {
-    if (ctx.callbackQuery) {
-      await ctx.editMessageText(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    } else {
-      await ctx.reply(formatTelegramHtml(text), {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    }
-  } catch {
-    await ctx.reply(formatTelegramHtml(text), {
-      parse_mode: 'HTML',
-      ...keyboard,
-    });
-  }
+  await sendOrEditRobuxMessage(ctx, text, keyboard);
 }
 
 /**

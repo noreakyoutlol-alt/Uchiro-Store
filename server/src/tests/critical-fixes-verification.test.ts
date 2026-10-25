@@ -169,7 +169,7 @@ describe('CRITICAL FIXES: DUPE EMOJIS, ACCOUNT PILL, QR AUTH & TELEGRAM EMOJIS',
       const orderRes = await request(app)
         .post('/api/orders')
         .set('Authorization', `Bearer ${token}`)
-        .send({ productId: testProduct.id, robloxUsername: 'test_player' });
+        .send({ productId: testProduct.id, quantity: 1, robloxUsername: 'test_player' });
 
       expect(orderRes.status).toBe(201);
       const orderId = orderRes.body.data.order.id;

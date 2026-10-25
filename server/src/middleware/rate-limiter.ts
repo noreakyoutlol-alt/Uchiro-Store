@@ -61,3 +61,18 @@ export const spinLimiter = rateLimit({
     },
   },
 });
+
+export const orderCreationLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // max 30 order creations per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+  message: {
+    success: false,
+    error: {
+      code: 'ORDER_RATE_LIMIT_EXCEEDED',
+      message: 'Too many checkout attempts. Please wait a moment before trying again.',
+    },
+  },
+});

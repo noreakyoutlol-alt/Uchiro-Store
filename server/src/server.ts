@@ -79,6 +79,7 @@ import { adminAuthRouter } from './routes/admin-auth.routes';
 import { webhookSecretGuard, registerBotWebhooks } from './bots/webhook-security';
 import { vaultRouter } from './routes/vault.routes';
 import { dailyClaimRouter } from './routes/daily-claim';
+import { uploadRouter } from './routes/upload.routes';
 import { botsRouter, webhookRouter } from './routes/bots.routes';
 import { userRouter } from './routes/user.routes';
 import { storeBot } from './bots/store-bot';
@@ -162,6 +163,7 @@ app.get('/api/health', (_req, res) => {
 // 1. Admin API (/api/admin/*)
 app.use('/api', adminAuthRouter);
 app.use('/api/admin', requireAdminSession);
+app.use('/api/admin', uploadRouter);
 app.use('/api/admin', adminRouter);
 
 // 2. Store API (/api/*) & Bot Webhooks

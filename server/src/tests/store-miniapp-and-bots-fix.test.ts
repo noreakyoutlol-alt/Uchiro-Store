@@ -29,16 +29,30 @@ describe('Store Mini App & Telegram Bots Comprehensive Verification', () => {
       expect(resolveServerUrl()).toBe('https://uchiro-production.up.railway.app');
     });
 
+    it('resolves STORE_URL when configured', () => {
+      process.env.STORE_URL = 'https://uchiro-store.up.railway.app';
+      delete process.env.STORE_MINIAPP_URL;
+      delete process.env.STORE_WEBAPP_URL;
+      delete process.env.SERVER_URL;
+      delete process.env.PUBLIC_URL;
+      expect(resolveStoreUrl()).toBe('https://uchiro-store.up.railway.app');
+    });
+
     it('filters out obsolete placeholder domains like web-production-2d8bd', () => {
       process.env.PUBLIC_URL = 'https://web-production-2d8bd.up.railway.app';
       process.env.SERVER_URL = 'https://real-production.up.railway.app';
+      delete process.env.STORE_MINIAPP_URL;
+      delete process.env.STORE_WEBAPP_URL;
+      delete process.env.STORE_URL;
       expect(resolveStoreUrl()).toBe('https://real-production.up.railway.app');
+      expect(resolveServerUrl()).toBe('https://real-production.up.railway.app');
     });
 
     it('filters out template placeholder domain your-production-app', () => {
       process.env.PUBLIC_URL = 'https://your-production-app.up.railway.app';
       process.env.SERVER_URL = 'https://real-production.up.railway.app';
       expect(resolveStoreUrl()).toBe('https://real-production.up.railway.app');
+      expect(resolveServerUrl()).toBe('https://real-production.up.railway.app');
     });
 
     it('resolves Admin Portal URL preserving custom secret slug', () => {
@@ -58,12 +72,17 @@ describe('Store Mini App & Telegram Bots Comprehensive Verification', () => {
       expect(openStoreBtn.text).toContain('Open Store');
       expect(openStoreBtn.web_app).toBeDefined();
       expect(openStoreBtn.web_app.url).toBe('https://uchiro-live.up.railway.app');
-      expect(openStoreBtn.web_app.url).not.toContain('web-production-2d8bd');
     });
 
-    it('sanitizes defunct placeholder domain in createWebAppOrUrlButton', () => {
+    it('sanitizes template placeholder domain in createWebAppOrUrlButton', () => {
       process.env.SERVER_URL = 'https://uchiro-live.up.railway.app';
-      const btn = createWebAppOrUrlButton('Open', 'https://web-production-2d8bd.up.railway.app?tab=profile');
+      const btn = createWebAppOrUrlButton('Open', 'https://your-production-app.up.railway.app?tab=profile');
+      expect((btn as any).web_app.url).toBe('https://uchiro-live.up.railway.app?tab=profile');
+    });
+
+    it('sanitizes defunct placeholder domain web-production-2d8bd preserving query params', () => {
+      process.env.SERVER_URL = 'https://uchiro-live.up.railway.app';
+      const btn = createWebAppOrUrlButton('Open Profile', 'https://web-production-2d8bd.up.railway.app?tab=profile');
       expect((btn as any).web_app.url).toBe('https://uchiro-live.up.railway.app?tab=profile');
     });
   });
@@ -153,6 +172,22 @@ describe('Store Mini App & Telegram Bots Comprehensive Verification', () => {
       expect(resAdmin.status).toBe(200);
       expect(resAdmin.body.ok).toBe(true);
       expect(resAdmin.body.bot).toBe('admin-bot');
+    });
+
+    it('works on canonical /api/webhook paths and handles empty update bodies safely', async () => {
+      process.env.STORE_WEBHOOK_SECRET = 'active_store_secret_canonical_test';
+
+      const app = express();
+      app.use(express.json());
+      app.use('/api/webhook', webhookRouter);
+
+      const res = await request(app)
+        .post('/api/webhook/store-bot')
+        .set('x-telegram-bot-api-secret-token', 'active_store_secret_canonical_test')
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
     });
   });
 });

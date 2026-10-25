@@ -509,6 +509,15 @@ export class AdminService {
     return updated;
   }
 
+  // Seasonal Themes (Prompt 6)
+  static getSeasonalTheme() {
+    return DataStore.getSeasonalTheme();
+  }
+
+  static updateSeasonalTheme(adminTelegramId: string | number, theme: string) {
+    return DataStore.setSeasonalTheme(adminTelegramId, theme);
+  }
+
   static logAdminAction(adminTelegramId: number, action: string, details: any = {}) {
     return DataStore.logAdminAction(adminTelegramId, action, details);
   }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TabType, BottomNav } from './components/navigation/BottomNav';
 import { HeaderTopBar } from './components/navigation/HeaderTopBar';
 import { Gear5Atmosphere } from './components/background/Gear5Atmosphere';
-import { GamingDoodlePattern } from './components/background/GamingDoodlePattern';
+import { SeasonalAtmosphere } from './components/background/SeasonalAtmosphere';
 import { HomePage } from './components/home/HomePage';
 import { ShopPage } from './components/shop/ShopPage';
 import { GachaPage } from './components/gacha/GachaPage';
@@ -16,7 +16,7 @@ import { OrderReceiptModal } from './components/orders/OrderReceiptModal';
 import { VaultPage } from './components/vault/VaultPage';
 import { TelegramBrowserBlocked } from './components/common/TelegramBrowserBlocked';
 import { Product, Category, Order, TelegramUser, Profile, GachaPool } from './types';
-import { StoreAPI } from './services/api';
+import { StoreAPI, getStoredToken } from './services/api';
 import { Loader2 } from 'lucide-react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
@@ -101,6 +101,99 @@ const StoreAppContent: React.FC = () => {
 
     const initializeApp = async () => {
       try {
+        let inStock: Product[] = [];
+        let shopProducts: Product[] = [];
+        let userOrders: Order[] = [];
+
+        // 1. Kick off catalog and public store data in parallel immediately
+        const catalogPromise = Promise.allSettled([
+          StoreAPI.getCategories(),
+          StoreAPI.getHomeInStockProducts(),
+          StoreAPI.getShopProducts({}),
+          StoreAPI.getGachaPools(),
+        ]).then((results) => {
+          if (!isMounted) return;
+          if (results[0].status === 'fulfilled') setCategories(results[0].value);
+          if (results[1].status === 'fulfilled') {
+            inStock = results[1].value;
+            setHomeInStockProducts(results[1].value);
+            setProductsError(null);
+          } else {
+            setProductsError('Failed to load products');
+          }
+          if (results[2].status === 'fulfilled') {
+            shopProducts = results[2].value;
+            setAllShopProducts(results[2].value);
+          }
+          if (results[3].status === 'fulfilled') setGachaPools(results[3].value);
+        }).catch(() => {
+          if (isMounted) setProductsError('Failed to load products');
+        });
+
+        // 2. Perform Telegram authentication safely
+        let authDone = false;
+
+        const attemptAuth = async (tgInstance: any): Promise<boolean> => {
+          if (authDone) return true;
+          const initData = tgInstance?.initData || '';
+          if (initData && initData.length > 5) {
+            try {
+              const authData = await StoreAPI.authenticateTelegram(initData);
+              if (authData && isMounted) {
+                authDone = true;
+                const mergedUser = {
+                  ...authData.user,
+                  photo_url: authData.user?.photo_url || tgInstance?.initDataUnsafe?.user?.photo_url || null,
+                };
+                setUser(mergedUser);
+                setProfile(authData.profile);
+
+                // Fetch User's Orders once authenticated
+                try {
+                  userOrders = await StoreAPI.getOrders();
+                  if (isMounted) {
+                    setOrders(userOrders);
+                    setOrdersError(null);
+                  }
+                } catch (orderErr: any) {
+                  if (isMounted) {
+                    setOrders([]);
+                    if (orderErr?.response?.status !== 401) {
+                      setOrdersError(orderErr?.response?.data?.error?.message || orderErr?.message || 'Failed to load orders.');
+                    }
+                  }
+                }
+                return true;
+              }
+            } catch (authErr) {
+              console.warn('Telegram auth attempt notice:', authErr);
+            }
+          }
+          return false;
+        };
+
+        // Try existing stored session token first for immediate response
+        const storedToken = getStoredToken();
+        if (storedToken) {
+          try {
+            const meData = await StoreAPI.getMe();
+            if (meData?.user && isMounted) {
+              authDone = true;
+              setUser(meData.user);
+              setProfile(meData.profile || meData);
+              try {
+                userOrders = await StoreAPI.getOrders();
+                if (isMounted) {
+                  setOrders(userOrders);
+                  setOrdersError(null);
+                }
+              } catch {}
+            }
+          } catch {
+            // Stored token expired/invalid; continue to Telegram initData auth
+          }
+        }
+
         const tg = (window as any).Telegram?.WebApp;
         if (tg) {
           try {
@@ -109,86 +202,28 @@ const StoreAppContent: React.FC = () => {
           } catch (e) {
             console.warn('Telegram WebApp ready/expand warning:', e);
           }
+          await attemptAuth(tg);
         }
 
-        const initData = tg?.initData || '';
-        if (initData && initData.length > 5) {
-          try {
-            const authData = await StoreAPI.authenticateTelegram(initData);
-            if (authData && isMounted) {
-              const mergedUser = {
-                ...authData.user,
-                photo_url: authData.user?.photo_url || tg?.initDataUnsafe?.user?.photo_url || null,
-              };
-              setUser(mergedUser);
-              setProfile(authData.profile);
+        // Tolerant of delayed SDK availability: poll with short backoff if not authenticated yet
+        if (!authDone) {
+          const delays = [80, 200, 500, 1000];
+          for (const delay of delays) {
+            if (authDone || !isMounted) break;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            const lateTg = (window as any).Telegram?.WebApp;
+            if (lateTg) {
+              try {
+                lateTg.ready?.();
+                lateTg.expand?.();
+              } catch {}
+              if (await attemptAuth(lateTg)) break;
             }
-          } catch (authErr) {
-            console.warn('Telegram auth fallback:', authErr);
           }
         }
 
-        if (tg?.initDataUnsafe?.user && isMounted) {
-          const u = tg.initDataUnsafe.user;
-          setUser((prev) => prev || {
-            id: String(u.id),
-            telegram_id: u.id,
-            username: u.username || null,
-            first_name: u.first_name || '',
-            last_name: u.last_name || null,
-            photo_url: u.photo_url || null,
-            language_code: u.language_code || 'en',
-          });
-        }
-
-        // Fetch Catalog, Categories, In-Stock Products & Gacha Pools
-        let cats: Category[] = [];
-        let inStock: Product[] = [];
-        let shopProducts: Product[] = [];
-        let pools: GachaPool[] = [];
-
-        try {
-          const results = await Promise.allSettled([
-            StoreAPI.getCategories(),
-            StoreAPI.getHomeInStockProducts(),
-            StoreAPI.getShopProducts({}),
-            StoreAPI.getGachaPools(),
-          ]);
-
-          if (results[0].status === 'fulfilled') cats = results[0].value;
-          if (results[1].status === 'fulfilled') {
-            inStock = results[1].value;
-            if (isMounted) setProductsError(null);
-          } else {
-            if (isMounted) setProductsError('Failed to load products');
-          }
-          if (results[2].status === 'fulfilled') shopProducts = results[2].value;
-          if (results[3].status === 'fulfilled') pools = results[3].value;
-        } catch {
-          if (isMounted) setProductsError('Failed to load products');
-        }
-
-        if (!isMounted) return;
-
-        setCategories(cats);
-        setHomeInStockProducts(inStock);
-        setAllShopProducts(shopProducts);
-        setGachaPools(pools);
-
-        // Fetch User's Orders
-        let userOrders: Order[] = [];
-        try {
-          userOrders = await StoreAPI.getOrders();
-          if (isMounted) {
-            setOrders(userOrders);
-            setOrdersError(null);
-          }
-        } catch (err: any) {
-          if (isMounted) {
-            setOrders([]);
-            setOrdersError(err?.response?.data?.error?.message || err?.message || 'Failed to load orders. Please check your network connection.');
-          }
-        }
+        // Ensure catalog has completed loading
+        await catalogPromise;
 
         if (!isMounted) return;
 
@@ -374,7 +409,12 @@ const StoreAppContent: React.FC = () => {
       setOrdersError(null);
     } catch (err: any) {
       setIsOrdersLoading(false);
-      setOrdersError(err?.response?.data?.error?.message || err?.message || 'Failed to load orders. Please check your network connection.');
+      if (err?.response?.status === 401) {
+        setOrders([]);
+        setOrdersError(null);
+      } else {
+        setOrdersError(err?.response?.data?.error?.message || err?.message || 'Failed to load orders. Please check your network connection.');
+      }
     }
   };
 
@@ -466,8 +506,8 @@ const StoreAppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#070A14] text-slate-900 dark:text-white flex flex-col relative selection:bg-[#E63946] selection:text-white transition-colors">
-      {/* Background Pattern Layer */}
-      <GamingDoodlePattern />
+      {/* Background Pattern Layer & Seasonal Atmosphere (Prompt 6) */}
+      <SeasonalAtmosphere />
 
       {/* Sticky Top Bar */}
       <HeaderTopBar
@@ -657,7 +697,7 @@ const StoreAppContent: React.FC = () => {
   );
 };
 
-function detectTelegram(): boolean {
+export function detectTelegram(): boolean {
   if (typeof window === 'undefined') return false;
 
   const w = window as any;
@@ -665,16 +705,22 @@ function detectTelegram(): boolean {
   const hasInitData = Boolean(tg?.initData && tg.initData.length > 0);
   const hasPlatform = Boolean(tg?.platform && tg.platform !== 'unknown');
   const hasTgObject = Boolean(w.TelegramWebviewProxy || (w.Telegram && tg));
+  const hasTelegramBridge = Boolean(
+    w.TelegramWebviewProxy ||
+    w.webkit?.messageHandlers?.webAppOpenLink ||
+    (typeof w.parent !== 'undefined' && w.parent !== w)
+  );
 
   const href = window.location.href;
   const hasTgHashOrQuery =
     href.includes('tgWebAppData') ||
     href.includes('tgWebAppVersion') ||
     href.includes('tgWebAppPlatform') ||
-    href.includes('tgWebAppThemeParams');
+    href.includes('tgWebAppThemeParams') ||
+    href.includes('tgWebAppStartParam');
 
   const ua = (navigator.userAgent || '').toLowerCase();
-  const hasTgUA = ua.includes('telegram');
+  const hasTgUA = ua.includes('telegram') || ua.includes('tg/');
 
   const isDevOrWeb = Boolean(
     (import.meta as any).env?.DEV ||
@@ -683,25 +729,10 @@ function detectTelegram(): boolean {
     new URLSearchParams(window.location.search).get('guest') === 'true'
   );
 
-  return hasInitData || hasPlatform || hasTgObject || hasTgHashOrQuery || hasTgUA || isDevOrWeb;
+  return hasInitData || hasPlatform || hasTgObject || hasTelegramBridge || hasTgHashOrQuery || hasTgUA || isDevOrWeb;
 }
 
 export const App: React.FC = () => {
-  const [isTelegramMiniApp, setIsTelegramMiniApp] = useState(detectTelegram);
-
-  useEffect(() => {
-    if (!isTelegramMiniApp) {
-      const checkTimer = setTimeout(() => {
-        setIsTelegramMiniApp(detectTelegram());
-      }, 100);
-      return () => clearTimeout(checkTimer);
-    }
-  }, [isTelegramMiniApp]);
-
-  if (!isTelegramMiniApp) {
-    return <TelegramBrowserBlocked />;
-  }
-
   return (
     <ThemeProvider>
       <LanguageProvider>

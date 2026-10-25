@@ -2,25 +2,151 @@ import { Router } from 'express';
 import { OrderService } from '../services/order.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
 import { buildReceiptPdfBuffer } from '../services/receipt-pdf.service';
+import { orderCreationLimiter } from '../middleware/rate-limiter';
+import { AppError } from '../middleware/error-handler';
 
 export const orderRouter = Router();
 
 // Create Order (Idempotency Key supported)
-orderRouter.post('/', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
+orderRouter.post('/', orderCreationLimiter, requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
   try {
-    const {
-      productId,
-      quantity,
-      couponCode,
-      robloxUsername,
-      robloxDisplayName,
-      robloxUserId,
-      buyerConfirmedAge18,
-      buyerUnder18,
-    } = req.body;
-    const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotencyKey;
+    const productId = req.body.productId || req.body.product_id;
+    const rawQuantity = req.body.quantity !== undefined ? req.body.quantity : req.body.qty;
+    const couponCode = req.body.couponCode || req.body.coupon_code;
+    const robloxUsername = req.body.robloxUsername || req.body.roblox_username;
+    const robloxDisplayName = req.body.robloxDisplayName || req.body.roblox_display_name;
+    const robloxUserId = req.body.robloxUserId || req.body.roblox_user_id;
+    const buyerConfirmedAge18 =
+      req.body.buyerConfirmedAge18 !== undefined
+        ? req.body.buyerConfirmedAge18
+        : req.body.buyer_confirmed_age_18;
+    const buyerUnder18 =
+      req.body.buyerUnder18 !== undefined ? req.body.buyerUnder18 : req.body.buyer_under_18;
+    const rawHeaderKey = req.headers['idempotency-key'];
+    const headerKey = Array.isArray(rawHeaderKey) ? rawHeaderKey[0] : rawHeaderKey;
+    const idempotencyKey =
+      (headerKey as string) ||
+      req.body.idempotencyKey ||
+      req.body.idempotency_key;
 
-    // Server-side Age Confirmation Enforcement (18+ Self-Declaration; Minors Blocked)
+    // 1. Validate Product ID
+    if (!productId || typeof productId !== 'string' || productId.trim().length === 0 || productId.length > 128) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_PRODUCT_ID',
+          message: 'A valid product ID is required.',
+        },
+      });
+    }
+
+    // 2. Strict Quantity Validation (positive integer, non-zero, non-fractional, non-excessive)
+    if (
+      rawQuantity === undefined ||
+      rawQuantity === null ||
+      rawQuantity === '' ||
+      !Number.isFinite(Number(rawQuantity))
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_QUANTITY',
+          message: 'Quantity must be a valid positive whole integer.',
+        },
+      });
+    }
+
+    const parsedNum = Number(rawQuantity);
+    if (!Number.isInteger(parsedNum) || parsedNum <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_QUANTITY',
+          message: 'Quantity must be a positive whole integer.',
+        },
+      });
+    }
+
+    if (parsedNum > 100) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'EXCESSIVE_QUANTITY',
+          message: 'Quantity exceeds maximum allowable purchase limit.',
+        },
+      });
+    }
+
+    const quantity = Math.floor(parsedNum);
+
+    // 3. Validate Idempotency Key format if provided
+    if (idempotencyKey !== undefined && idempotencyKey !== null) {
+      if (
+        typeof idempotencyKey !== 'string' ||
+        idempotencyKey.length < 8 ||
+        idempotencyKey.length > 128 ||
+        !/^[\w-]+$/.test(idempotencyKey)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_IDEMPOTENCY_KEY',
+            message: 'Idempotency key must be between 8 and 128 alphanumeric characters or hyphens.',
+          },
+        });
+      }
+    }
+
+    // 4. Product Existence & Availability Check
+    const { DataStore } = await import('../database/data-store');
+    const product = DataStore.getProductById(productId);
+    if (!product || !product.is_active || product.is_draft) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'PRODUCT_NOT_AVAILABLE',
+          message: 'The requested product is not available for purchase.',
+        },
+      });
+    }
+
+    // Account products strictly locked to 1
+    if ((product.delivery_mode === 'auto_account' || product.product_type === 'account') && quantity > 1) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_QUANTITY',
+          message: 'Account products can only be purchased one at a time.',
+        },
+      });
+    }
+
+    // Stock check at reservation time
+    const availableStock = DataStore.getProductAvailableStock(product.id);
+    if (availableStock < quantity) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_STOCK',
+          message: 'Insufficient stock available for this product.',
+        },
+      });
+    }
+
+    // Roblox username requirement validation
+    if (product.requires_roblox_username) {
+      if (!robloxUsername || typeof robloxUsername !== 'string' || !/^[a-zA-Z0-9_]{3,20}$/.test(robloxUsername.trim())) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'ROBLOX_USERNAME_REQUIRED',
+            message: 'A valid Roblox username (3-20 characters) is required for this product.',
+          },
+        });
+      }
+    }
+
+    // 5. Server-side Age Confirmation Enforcement (18+ Self-Declaration; Minors Blocked)
     if (buyerUnder18 === true) {
       return res.status(403).json({
         success: false,
@@ -31,16 +157,18 @@ orderRouter.post('/', requireTelegramAuth, async (req: RequestWithAuth, res, nex
       });
     }
 
-    const { DataStore } = await import('../database/data-store');
-    const product = DataStore.getProductById(productId);
-    const requiresAgeConfirmation = Boolean(
-      product?.requires_roblox_username ||
-      product?.category_id === 'robux' ||
-      (product?.product_type as string) === 'robux' ||
-      robloxUsername
-    );
+    const isRobuxProduct = product.category_id === 'robux' || (product.product_type as string) === 'robux';
+    if (isRobuxProduct && buyerConfirmedAge18 !== true) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'AGE_CONFIRMATION_REQUIRED',
+          message: 'Buyer must confirm they are at least 18 years old to complete this purchase.',
+        },
+      });
+    }
 
-    if (requiresAgeConfirmation && buyerConfirmedAge18 === false) {
+    if (product.requires_roblox_username && buyerConfirmedAge18 === false) {
       return res.status(400).json({
         success: false,
         error: {
@@ -54,13 +182,13 @@ orderRouter.post('/', requireTelegramAuth, async (req: RequestWithAuth, res, nex
       customerId: req.user!.user_id,
       telegramId: req.user!.telegram_id,
       productId,
-      quantity: quantity ? Number(quantity) : 1,
+      quantity,
       couponCode,
-      robloxUsername,
-      robloxDisplayName,
-      robloxUserId,
-      buyerConfirmedAge18,
-      buyerUnder18,
+      robloxUsername: robloxUsername?.trim(),
+      robloxDisplayName: robloxDisplayName?.trim(),
+      robloxUserId: robloxUserId?.trim(),
+      buyerConfirmedAge18: buyerConfirmedAge18 !== undefined ? buyerConfirmedAge18 === true : undefined,
+      buyerUnder18: buyerUnder18 !== undefined ? buyerUnder18 === true : undefined,
       idempotencyKey,
     });
 
@@ -68,7 +196,16 @@ orderRouter.post('/', requireTelegramAuth, async (req: RequestWithAuth, res, nex
       success: true,
       data: result,
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err instanceof AppError) {
+      return res.status(err.statusCode).json({
+        success: false,
+        error: {
+          code: err.code || 'CHECKOUT_ERROR',
+          message: err.message,
+        },
+      });
+    }
     next(err);
   }
 });

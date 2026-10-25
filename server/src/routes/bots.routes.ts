@@ -16,23 +16,30 @@ export async function handleStoreBotWebhook(req: Request, res: Response): Promis
   const secret = req.headers['x-telegram-bot-api-secret-token'];
   const validSecrets = getStoreBotWebhookSecrets();
 
-  if (validSecrets.length > 0) {
+  if (validSecrets.length === 0) {
+    if (env.NODE_ENV === 'production') {
+      console.warn('[webhook] Store bot unauthorized: No webhook secret configured in production');
+      res.status(401).send('Unauthorized: Webhook secret not configured');
+      return;
+    }
+  } else {
     if (!secret || typeof secret !== 'string') {
       console.warn('[webhook] Store bot unauthorized: Missing x-telegram-bot-api-secret-token header');
       res.status(401).send('Unauthorized: Missing secret token');
       return;
     }
+    const cleanSecret = secret.trim();
     const matched = validSecrets.some((expected) => {
-      if (expected.length !== secret.length) return false;
+      if (expected.length !== cleanSecret.length) return false;
       try {
-        return timingSafeEqual(Buffer.from(expected), Buffer.from(secret));
+        return timingSafeEqual(Buffer.from(expected), Buffer.from(cleanSecret));
       } catch {
-        return expected === secret;
+        return expected === cleanSecret;
       }
     });
 
     if (!matched) {
-      console.warn(`[webhook] Store bot forbidden: Invalid secret token header (length ${secret.length})`);
+      console.warn(`[webhook] Store bot forbidden: Invalid secret token header (length ${cleanSecret.length})`);
       res.status(403).send('Forbidden: Invalid secret token');
       return;
     }
@@ -45,13 +52,22 @@ export async function handleStoreBotWebhook(req: Request, res: Response): Promis
       return;
     }
 
-    console.log('[webhook] Store bot processing update ID:', req.body.update_id);
-    await storeBot.handleWebhookUpdate(req.body);
-    res.status(200).json({ ok: true });
+    const updateId = req.body.update_id;
+    console.log('[webhook] Store bot processing update ID:', updateId ?? 'unknown');
+    const processed = await storeBot.handleWebhookUpdate(req.body);
+    if (!res.headersSent) {
+      if (processed === false) {
+        res.status(503).json({ ok: false, error: 'bot_unavailable' });
+      } else {
+        res.status(200).json({ ok: true });
+      }
+    }
   } catch (err: any) {
-    console.error('Store bot webhook error:', err?.message || err);
+    console.error('[webhook] Store bot processing error:', err?.message || 'unknown error');
     // Respond HTTP 200 to prevent Telegram retry spam on unexpected payload errors
-    res.status(200).json({ ok: true, warning: err.message });
+    if (!res.headersSent) {
+      res.status(200).json({ ok: true, warning: 'update_error' });
+    }
   }
 }
 
@@ -63,23 +79,30 @@ export async function handleAdminBotWebhook(req: Request, res: Response): Promis
   const secret = req.headers['x-telegram-bot-api-secret-token'];
   const validSecrets = getAdminBotWebhookSecrets();
 
-  if (validSecrets.length > 0) {
+  if (validSecrets.length === 0) {
+    if (env.NODE_ENV === 'production') {
+      console.warn('[webhook] Admin bot unauthorized: No webhook secret configured in production');
+      res.status(401).send('Unauthorized: Webhook secret not configured');
+      return;
+    }
+  } else {
     if (!secret || typeof secret !== 'string') {
       console.warn('[webhook] Admin bot unauthorized: Missing x-telegram-bot-api-secret-token header');
       res.status(401).send('Unauthorized: Missing secret token');
       return;
     }
+    const cleanSecret = secret.trim();
     const matched = validSecrets.some((expected) => {
-      if (expected.length !== secret.length) return false;
+      if (expected.length !== cleanSecret.length) return false;
       try {
-        return timingSafeEqual(Buffer.from(expected), Buffer.from(secret));
+        return timingSafeEqual(Buffer.from(expected), Buffer.from(cleanSecret));
       } catch {
-        return expected === secret;
+        return expected === cleanSecret;
       }
     });
 
     if (!matched) {
-      console.warn(`[webhook] Admin bot forbidden: Invalid secret token header (length ${secret.length})`);
+      console.warn(`[webhook] Admin bot forbidden: Invalid secret token header (length ${cleanSecret.length})`);
       res.status(403).send('Forbidden: Invalid secret token');
       return;
     }
@@ -92,13 +115,22 @@ export async function handleAdminBotWebhook(req: Request, res: Response): Promis
       return;
     }
 
-    console.log('[webhook] Admin bot processing update ID:', req.body.update_id);
-    await adminBot.handleWebhookUpdate(req.body);
-    res.status(200).json({ ok: true });
+    const updateId = req.body.update_id;
+    console.log('[webhook] Admin bot processing update ID:', updateId ?? 'unknown');
+    const processed = await adminBot.handleWebhookUpdate(req.body);
+    if (!res.headersSent) {
+      if (processed === false) {
+        res.status(503).json({ ok: false, error: 'bot_unavailable' });
+      } else {
+        res.status(200).json({ ok: true });
+      }
+    }
   } catch (err: any) {
-    console.error('Admin bot webhook error:', err?.message || err);
+    console.error('[webhook] Admin bot processing error:', err?.message || 'unknown error');
     // Respond HTTP 200 to prevent Telegram retry spam on unexpected payload errors
-    res.status(200).json({ ok: true, warning: err.message });
+    if (!res.headersSent) {
+      res.status(200).json({ ok: true, warning: 'update_error' });
+    }
   }
 }
 
@@ -151,8 +183,10 @@ botsRouter.post('/webhook/setup', async (req, res) => {
   const storeWebhookUrl = `${baseUrl.replace(/\/$/, '')}/api/webhook/store-bot`;
   const adminWebhookUrl = `${baseUrl.replace(/\/$/, '')}/api/webhook/admin-bot`;
 
-  const storeRes = await storeBot.setWebhook(storeWebhookUrl, env.STORE_BOT_WEBHOOK_SECRET);
-  const adminRes = await adminBot.setWebhook(adminWebhookUrl, env.ADMIN_BOT_WEBHOOK_SECRET);
+  const activeStoreSecret = getStoreBotWebhookSecrets()[0];
+  const activeAdminSecret = getAdminBotWebhookSecrets()[0];
+  const storeRes = await storeBot.setWebhook(storeWebhookUrl, activeStoreSecret);
+  const adminRes = await adminBot.setWebhook(adminWebhookUrl, activeAdminSecret);
 
   res.json({
     success: storeRes.success && adminRes.success,

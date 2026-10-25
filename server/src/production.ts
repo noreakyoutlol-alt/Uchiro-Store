@@ -199,7 +199,10 @@ if (process.env.NODE_ENV !== 'test') {
     PaymentWorker.start(3000);
 
     // Initialize Telegram Bots
-    if (env.NODE_ENV !== 'production') {
+    const isProduction =
+      (process.env.NODE_ENV || env.NODE_ENV || '').toLowerCase() === 'production';
+
+    if (!isProduction) {
       storeBot.startPolling().catch((err: any) => {
         console.warn('Store bot polling notice:', err.message);
       });
@@ -207,11 +210,9 @@ if (process.env.NODE_ENV !== 'test') {
         console.warn('Admin bot polling notice:', err.message);
       });
     } else {
-      if (process.env.NODE_ENV === 'production') {
-        registerBotWebhooks().catch((err: unknown) =>
-          console.error('[webhook] registration failed:', err instanceof Error ? err.message : 'unknown error'),
-        );
-      }
+      registerBotWebhooks().catch((err: unknown) =>
+        console.error('[webhook] registration failed:', err instanceof Error ? err.message : 'unknown error'),
+      );
     }
   });
 

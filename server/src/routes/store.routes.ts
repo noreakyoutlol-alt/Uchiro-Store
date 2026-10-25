@@ -135,6 +135,18 @@ storeRouter.get('/settings', (_req, res) => {
   });
 });
 
+// Seasonal Theme (Public read-only for customer Store Mini App - Prompt 6)
+storeRouter.get('/theme', (_req, res) => {
+  const themeConfig = DataStore.getSeasonalTheme();
+  res.json({
+    success: true,
+    data: {
+      active_theme: themeConfig.active_theme,
+      updated_at: themeConfig.updated_at,
+    },
+  });
+});
+
 // Roblox Username Verification Proxy & Instant Validator (Specification 1)
 storeRouter.post(['/roblox/verify-user', '/roblox/verify'], async (req, res) => {
   const raw = req.body?.username || req.body?.robloxUsername || '';

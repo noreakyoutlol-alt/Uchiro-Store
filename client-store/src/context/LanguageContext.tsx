@@ -32,6 +32,25 @@ const translations = {
     view_all: 'View All',
     shop_now: 'Buy Now',
 
+    // Standard Action Buttons (Prompt 11: 100% English across all language modes)
+    btn_open_store: 'Open Store',
+    btn_buy_robux: 'Buy Robux',
+    btn_back_to_order: 'Back to Order',
+    btn_back_to_home: 'Back to Home',
+    btn_confirm_username: 'Confirm Username',
+    btn_confirm_age: 'Confirm Age',
+    btn_continue_to_checkout: 'Continue to Checkout',
+    btn_confirm_order: 'Confirm Order',
+    btn_cancel: 'Cancel',
+    btn_close: 'Close',
+    btn_retry: 'Retry',
+    btn_publish_all_new_stock: 'Publish All New Stock',
+    btn_buy_now: 'Buy Now',
+    btn_view_receipt: 'View Receipt',
+    btn_pay_khqr: 'Pay KHQR',
+    btn_view_credentials: 'View Credentials',
+    btn_browse_catalog: 'Browse Catalog',
+
     // Shop
     shop_title: 'Gaming Catalog',
     shop_search_placeholder: 'Search accounts, items, fruits...',
@@ -125,6 +144,13 @@ const translations = {
     music_toggle: 'Background Music',
     support_tickets: 'Support Tickets',
     open_support_ticket: 'Contact Support',
+    seasonal_theme_title: 'Seasonal Theme',
+    theme_gaming: 'Default Gaming',
+    theme_halloween: 'Halloween',
+    theme_christmas: 'Christmas',
+    theme_angkor_khmer: 'Angkor / Khmer',
+    seasonal_sound_on: 'Sound ON',
+    seasonal_sound_off: 'Sound OFF',
 
     // Redeem Code System (Prompt 12)
     redeem_code_entry_title: 'Redeem Code',
@@ -182,6 +208,25 @@ const translations = {
     all_products: 'ទំនិញទាំងអស់ →',
     view_all: 'មើលទាំងអស់',
     shop_now: 'ទិញភ្លាមៗ',
+
+    // Standard Action Buttons (Prompt 11: 100% English across all language modes)
+    btn_open_store: 'Open Store',
+    btn_buy_robux: 'Buy Robux',
+    btn_back_to_order: 'Back to Order',
+    btn_back_to_home: 'Back to Home',
+    btn_confirm_username: 'Confirm Username',
+    btn_confirm_age: 'Confirm Age',
+    btn_continue_to_checkout: 'Continue to Checkout',
+    btn_confirm_order: 'Confirm Order',
+    btn_cancel: 'Cancel',
+    btn_close: 'Close',
+    btn_retry: 'Retry',
+    btn_publish_all_new_stock: 'Publish All New Stock',
+    btn_buy_now: 'Buy Now',
+    btn_view_receipt: 'View Receipt',
+    btn_pay_khqr: 'Pay KHQR',
+    btn_view_credentials: 'View Credentials',
+    btn_browse_catalog: 'Browse Catalog',
 
     // Shop
     shop_title: 'បញ្ជីទំនិញហ្គេម',
@@ -276,6 +321,13 @@ const translations = {
     music_toggle: 'តន្ត្រីផ្ទៃខាងក្រោយ',
     support_tickets: 'ជំនួយ និងសេវាកម្ម',
     open_support_ticket: 'ទាក់ទងផ្នែកជំនួយ',
+    seasonal_theme_title: 'ស្បែកតាមរដូវកាល',
+    theme_gaming: 'ហ្គេមធម្មតា (Default Gaming)',
+    theme_halloween: 'ហាឡូវីន (Halloween)',
+    theme_christmas: 'បុណ្យគ្រីស្មាស់ (Christmas)',
+    theme_angkor_khmer: 'អង្គរវត្ត / ខ្មែរ (Angkor / Khmer)',
+    seasonal_sound_on: 'Sound ON',
+    seasonal_sound_off: 'Sound OFF',
 
     // Redeem Code System (Prompt 12)
     redeem_code_entry_title: 'ប្តូរកូដរង្វាន់ (Redeem Code)',

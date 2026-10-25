@@ -6,6 +6,7 @@ import {
   Category,
   Product,
   ProductMedia,
+  ProductGame,
   DeliveryMode,
   InventoryItem,
   Order,
@@ -37,12 +38,26 @@ import {
   RedeemRewardType,
   RedeemCodeUseMode,
   CouponRewardData,
+  RegisteredGroup,
+  StockAnnouncementEvent,
+  StockAnnouncementBatch,
+  StockBatchDelivery,
+  BatchProductSnapshot,
+  SeasonalThemeId,
+  SeasonalThemeConfig,
 } from '../types';
 import { encrypt, decrypt } from '../security/encryption';
 import { TOTPService } from '../security/totp';
 import { AppError } from '../middleware/error-handler';
 import { env } from '../config/env';
 import { pgPool, isPostgresConfigured } from './postgres';
+
+export const ALLOWED_SEASONAL_THEMES: readonly SeasonalThemeId[] = [
+  'gaming',
+  'halloween',
+  'christmas',
+  'angkor-khmer',
+] as const;
 
 export type { DeliveredAccount };
 
@@ -471,6 +486,10 @@ export class DataStore {
   private static dailyRewards: Map<number, { lastClaimed: number; streak: number; totalPoints: number }> = new Map();
   private static orderNotificationDrafts: OrderNotificationDraft[] = [];
   private static broadcastCampaigns: Map<string, BroadcastCampaign> = new Map();
+  private static registeredGroups: Map<string, RegisteredGroup> = new Map();
+  private static stockAnnouncementEvents: Map<string, StockAnnouncementEvent> = new Map();
+  private static stockAnnouncementBatches: Map<string, StockAnnouncementBatch> = new Map();
+  private static stockBatchDeliveries: Map<string, StockBatchDelivery> = new Map();
   private static qualifyingOrderCounter: number = 0;
   private static activeHeartbeats: Map<string, number> = new Map();
   private static storeSettings: StoreSettings = {
@@ -491,18 +510,67 @@ export class DataStore {
     coupon_tier_200_min_order: 5.0,
     low_stock_threshold: 2,
     default_warranty_days: 14,
+    seasonal_theme: 'gaming',
+    seasonal_theme_updated_at: new Date().toISOString(),
+    seasonal_theme_updated_by: 'system',
   };
 
   // ================= INVENTORY CLEANUP & STOCK HELPER =================
   static cleanupExpiredReservations(): void {
     const now = Date.now();
+    // 1. Concrete vault inventory reservations
     for (const item of this.inventory) {
       if (item.status === 'reserved' && item.reserved_until) {
         if (new Date(item.reserved_until).getTime() < now) {
+          // Never release reserved items for paid, delivered, completed, or fulfillment orders
+          const order = item.order_id ? this.orders.find((o) => o.id === item.order_id) : null;
+          if (
+            order &&
+            (order.status === 'paid' ||
+              order.status === 'delivered' ||
+              order.status === 'completed' ||
+              order.status === 'fulfillment')
+          ) {
+            continue;
+          }
+
           item.status = 'available';
           item.reserved_until = null;
           item.order_id = null;
           item.updated_at = new Date().toISOString();
+
+          const prod = this.products.find((p) => p.id === item.product_id);
+          if (prod) {
+            const unsoldStock = this.inventory.filter(
+              (i) => i.product_id === prod.id && i.status === 'available' && !i.is_sold
+            ).length;
+            prod.stock = unsoldStock;
+            prod.stock_count = prod.stock;
+            prod.is_available = prod.stock > 0;
+            prod.updated_at = new Date().toISOString();
+          }
+        }
+      }
+    }
+
+    // 2. Pending non-vault orders whose reservation time window has expired
+    for (const order of this.orders) {
+      if (
+        order.status === 'pending_payment' &&
+        (order as any).stock_reserved &&
+        !(order as any).reservation_released
+      ) {
+        const payment = this.payments.find((p) => p.order_id === order.id);
+        const expiresAt = payment?.expires_at
+          ? new Date(payment.expires_at).getTime()
+          : new Date(order.created_at).getTime() + 10 * 60 * 1000;
+        if (now > expiresAt) {
+          order.status = 'expired';
+          if (payment && payment.status === 'pending') {
+            payment.status = 'expired';
+            payment.updated_at = new Date().toISOString();
+          }
+          this.releaseReservation(order.id);
         }
       }
     }
@@ -563,17 +631,221 @@ export class DataStore {
   }
 
   // ================= PRODUCTS =================
+  /**
+   * Normalizes product media:
+   * - Enforces at most 5 images
+   * - Sets is_primary = true for slot 0, false for others
+   * - Sets sort_order = index + 1
+   * - Backwards compatibility: if product only has legacy image/image_url/imageUrl, presents it as a 1-image gallery
+   */
+  static normalizeProductMedia(product: Partial<Product> & { id?: string; title?: string }): ProductMedia[] {
+    if (Array.isArray(product.media) && product.media.length > 0) {
+      return product.media
+        .filter((m) => m && typeof m === 'object' && typeof m.url === 'string' && m.url.trim().length > 0)
+        .slice(0, 5)
+        .map((m, idx) => ({
+          id: m.id || `media-${product.id || 'p'}-${idx + 1}`,
+          product_id: product.id || '',
+          url: m.url.trim(),
+          alt_text: m.alt_text || product.title || null,
+          is_primary: idx === 0,
+          sort_order: idx + 1,
+          created_at: m.created_at || new Date().toISOString(),
+        }));
+    }
+    const legacy = (product as any)?.image_url || (product as any)?.imageUrl || (product as any)?.image;
+    if (legacy && typeof legacy === 'string' && legacy.trim().length > 0) {
+      return [
+        {
+          id: `legacy-${product.id || 'single'}`,
+          product_id: product.id || '',
+          url: legacy.trim(),
+          alt_text: product.title || 'Product Image',
+          is_primary: true,
+          sort_order: 1,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
+    return [];
+  }
+
+  /**
+   * Normalizes and validates product games:
+   * - Enforces 1 to 5 games max per product (rejects > 5 with TOO_MANY_GAMES)
+   * - Strips and normalizes whitespace
+   * - Rejects blank names with INVALID_GAME_NAME
+   * - Rejects duplicate names with DUPLICATE_GAME_NAME
+   * - Validates image_url (http/https only, no data:)
+   * - Rejects credential fields with CREDENTIALS_IN_GAMES_METADATA
+   * - Preserves deterministic ordering
+   */
+  static normalizeProductGames(games: unknown, validateStrict: boolean = false): ProductGame[] {
+    if (games === undefined || games === null) {
+      return [];
+    }
+    if (!Array.isArray(games)) {
+      if (validateStrict) {
+        throw new AppError('games must be an array', 400, 'INVALID_GAMES_PAYLOAD');
+      }
+      return [];
+    }
+    if (games.length > 5) {
+      throw new AppError(
+        `A product may have at most 5 games. Received ${games.length}.`,
+        400,
+        'TOO_MANY_GAMES'
+      );
+    }
+
+    const seenNames = new Set<string>();
+    const sanitized: ProductGame[] = [];
+
+    for (let i = 0; i < games.length; i++) {
+      const item = games[i];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        if (validateStrict) {
+          throw new AppError('Each game entry must be a valid object.', 400, 'INVALID_GAME_ENTRY');
+        }
+        continue;
+      }
+
+      // Security: never allow account credentials, keys, or secrets in public games metadata
+      const credentialKeys = [
+        'password',
+        'raw_password',
+        'encrypted_account_password',
+        'two_factor',
+        'raw_2fa',
+        'encrypted_account_2fa',
+        'authenticator_secret_ciphertext',
+        'secret',
+        'token',
+        'credentials',
+        'email_password',
+        'recovery_codes',
+        'backup_codes',
+      ];
+      for (const k of credentialKeys) {
+        if ((item as any)[k] !== undefined && (item as any)[k] !== null) {
+          throw new AppError(
+            'Games metadata cannot contain account credentials or secrets.',
+            400,
+            'CREDENTIALS_IN_GAMES_METADATA'
+          );
+        }
+      }
+
+      const rawName = (item as any).name;
+      if (typeof rawName !== 'string' || rawName.trim().length === 0) {
+        if (validateStrict) {
+          throw new AppError('Game name is required and cannot be empty.', 400, 'INVALID_GAME_NAME');
+        }
+        continue;
+      }
+      const name = rawName.trim();
+      if (name.length > 100) {
+        if (validateStrict) {
+          throw new AppError('Game name cannot exceed 100 characters.', 400, 'INVALID_GAME_NAME');
+        }
+      }
+
+      const lowerName = name.toLowerCase();
+      if (seenNames.has(lowerName)) {
+        if (validateStrict) {
+          throw new AppError(
+            `Duplicate game name: "${name}" is already included.`,
+            400,
+            'DUPLICATE_GAME_NAME'
+          );
+        }
+        continue;
+      }
+      seenNames.add(lowerName);
+
+      // Optional platform
+      let platform: string | null = null;
+      if ((item as any).platform !== undefined && (item as any).platform !== null) {
+        if (typeof (item as any).platform !== 'string') {
+          if (validateStrict) {
+            throw new AppError('Game platform must be a string.', 400, 'INVALID_GAME_PLATFORM');
+          }
+        } else {
+          platform = (item as any).platform.trim().slice(0, 50) || null;
+        }
+      }
+
+      // Optional description
+      let description: string | null = null;
+      if ((item as any).description !== undefined && (item as any).description !== null) {
+        if (typeof (item as any).description !== 'string') {
+          if (validateStrict) {
+            throw new AppError('Game description must be a string.', 400, 'INVALID_GAME_DESCRIPTION');
+          }
+        } else {
+          description = (item as any).description.trim().slice(0, 250) || null;
+        }
+      }
+
+      // Optional image_url
+      let image_url: string | null = null;
+      if ((item as any).image_url !== undefined && (item as any).image_url !== null) {
+        const rawUrl = (item as any).image_url;
+        if (typeof rawUrl !== 'string') {
+          if (validateStrict) {
+            throw new AppError('Game image URL must be a string.', 400, 'INVALID_GAME_IMAGE_URL');
+          }
+        } else {
+          const trimmedUrl = rawUrl.trim();
+          if (trimmedUrl.length > 0) {
+            if (trimmedUrl.startsWith('data:')) {
+              throw new AppError(
+                'Base64 data URLs are not allowed as game image URLs.',
+                400,
+                'INVALID_GAME_IMAGE_URL'
+              );
+            }
+            if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+              throw new AppError(
+                'Game image URL must be a valid HTTP or HTTPS URL.',
+                400,
+                'INVALID_GAME_IMAGE_URL'
+              );
+            }
+            image_url = trimmedUrl;
+          }
+        }
+      }
+
+      sanitized.push({
+        id: (item as any).id || uuidv4(),
+        name,
+        platform,
+        description,
+        image_url,
+        sort_order: typeof (item as any).sort_order === 'number' ? (item as any).sort_order : i + 1,
+      });
+    }
+
+    return sanitized;
+  }
+
   // Core Requirement: HOME shows ALL in-stock products
   static getInStockProducts(): Product[] {
     return this.products
       .filter((p) => p.is_active && !p.is_draft && this.getProductAvailableStock(p.id) > 0)
       .map((p) => {
         const stock = this.getProductAvailableStock(p.id);
+        const media = this.normalizeProductMedia(p);
+        const games = this.normalizeProductGames(p.games);
         return {
           ...p,
           stock,
           stock_count: stock,
           is_available: stock > 0,
+          media,
+          games,
+          image_url: media[0]?.url || (p as any).image_url || null,
           category: this.categories.find((c) => c.id === p.category_id),
         };
       });
@@ -589,11 +861,16 @@ export class DataStore {
       .filter((p) => p.is_active && !p.is_draft)
       .map((p) => {
         const stock = this.getProductAvailableStock(p.id);
+        const media = this.normalizeProductMedia(p);
+        const games = this.normalizeProductGames(p.games);
         return {
           ...p,
           stock,
           stock_count: stock,
           is_available: stock > 0,
+          media,
+          games,
+          image_url: media[0]?.url || (p as any).image_url || null,
           category: this.categories.find((c) => c.id === p.category_id),
         };
       });
@@ -652,22 +929,37 @@ export class DataStore {
     if (!p) return null;
     p.views_count = (p.views_count || 0) + 1;
     const stock = this.getProductAvailableStock(p.id);
+    const media = this.normalizeProductMedia(p);
+    const games = this.normalizeProductGames(p.games);
     return {
       ...p,
       stock,
       stock_count: stock,
       is_available: stock > 0,
+      media,
+      games,
+      image_url: media[0]?.url || (p as any).image_url || null,
       category: this.categories.find((c) => c.id === p.category_id),
     };
   }
 
   static getAllProductsAdmin(): Product[] {
     this.cleanupExpiredReservations();
-    return this.products.map((p) => ({
-      ...p,
-      stock: this.getProductAvailableStock(p.id),
-      category: this.categories.find((c) => c.id === p.category_id),
-    }));
+    return this.products.map((p) => {
+      const stock = this.getProductAvailableStock(p.id);
+      const media = this.normalizeProductMedia(p);
+      const games = this.normalizeProductGames(p.games);
+      return {
+        ...p,
+        stock,
+        stock_count: stock,
+        is_available: stock > 0,
+        media,
+        games,
+        image_url: media[0]?.url || (p as any).image_url || null,
+        category: this.categories.find((c) => c.id === p.category_id),
+      };
+    });
   }
 
   static saveProduct(product: Partial<Product> & { title: string; price: number; category_id: string }): Product {
@@ -723,7 +1015,8 @@ export class DataStore {
       views_count: product.views_count || 0,
       sales_count: product.sales_count || 0,
       specifications,
-      media: product.media || [],
+      media: this.normalizeProductMedia({ ...product, id: productId }),
+      games: this.normalizeProductGames(product.games),
       video_url: product.video_url || null,
       created_at: product.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -734,6 +1027,10 @@ export class DataStore {
       return this.products[index];
     } else {
       this.products.unshift(baseProduct);
+      const liveStock = this.getProductAvailableStock(baseProduct.id);
+      if (baseProduct.is_active && !baseProduct.is_draft && liveStock > 0) {
+        this.recordPendingStockEvent(baseProduct.id, 'new_product', liveStock);
+      }
       return baseProduct;
     }
   }
@@ -776,6 +1073,14 @@ export class DataStore {
       ? (isAccountOrCode ? this.getProductAvailableStock(id) : Number(updates.stock) || 0)
       : existing.stock;
 
+    const media = updates.media !== undefined
+      ? this.normalizeProductMedia({ ...updates, id: existing.id, title: updates.title || existing.title })
+      : existing.media;
+
+    const games = updates.games !== undefined
+      ? this.normalizeProductGames(updates.games)
+      : existing.games;
+
     const updatedProduct: Product = {
       ...existing,
       ...updates,
@@ -788,10 +1093,22 @@ export class DataStore {
       requires_roblox_username: requiresRobloxUsername,
       requires_roblox_verification: requiresRobloxVerification,
       specifications,
+      media,
+      games,
       updated_at: new Date().toISOString(),
     };
 
+    const oldStock = Number(existing.stock) || 0;
     this.products[index] = updatedProduct;
+
+    // Prompt 5: Restock detection on manual products when stock increases
+    if (updates.stock !== undefined && !isAccountOrCode) {
+      const newStock = Number(updates.stock) || 0;
+      if (newStock > oldStock && newStock > 0 && updatedProduct.is_active && !updatedProduct.is_draft) {
+        this.recordPendingStockEvent(id, 'restock', newStock);
+      }
+    }
+
     return this.getProductById(existing.id);
   }
 
@@ -853,11 +1170,30 @@ export class DataStore {
 
     // For manual_service or trade_item, decrement stock reservation by quantity
     product.stock = Math.max(0, product.stock - quantity);
+    product.stock_count = product.stock;
+    product.is_available = product.stock > 0;
     product.updated_at = new Date().toISOString();
     return { success: true };
   }
 
   static releaseReservation(orderId: string): void {
+    const order = this.orders.find((o) => o.id === orderId);
+    if (order) {
+      // Never release reservation on orders that were successfully paid or fulfilled
+      if (
+        order.status === 'paid' ||
+        order.status === 'delivered' ||
+        order.status === 'completed' ||
+        order.status === 'fulfillment'
+      ) {
+        return;
+      }
+      // Idempotency: avoid releasing the same order reservation multiple times
+      if ((order as any).reservation_released) {
+        return;
+      }
+    }
+
     const reservedItems = this.inventory.filter(
       (i) => i.order_id === orderId && i.status === 'reserved'
     );
@@ -871,19 +1207,38 @@ export class DataStore {
       // Restore product stock
       const product = this.products.find((p) => p.id === item.product_id);
       if (product) {
-        product.stock = this.getProductAvailableStock(product.id);
+        const unsoldStock = this.inventory.filter(
+          (i) => i.product_id === product.id && i.status === 'available' && !i.is_sold
+        ).length;
+        product.stock = unsoldStock;
+        product.stock_count = product.stock;
+        product.is_available = product.stock > 0;
         product.updated_at = new Date().toISOString();
       }
     }
 
-    // For manual_service orders that didn't have inventory items
-    const order = this.orders.find((o) => o.id === orderId);
-    if (order && (order.delivery_mode === 'manual_service' || order.delivery_mode === 'trade_item')) {
-      const item = order.items?.[0];
-      if (item) {
-        const prod = this.products.find((p) => p.id === item.product_id);
-        if (prod) {
-          const qty = order.quantity || item.quantity || 1;
+    // For manual_service or non-vault orders that held stock reservation
+    if (
+      order &&
+      ((order as any).stock_reserved ||
+        order.delivery_mode === 'manual_service' ||
+        order.delivery_mode === 'trade_item')
+    ) {
+      const items =
+        order.items && order.items.length > 0
+          ? order.items
+          : [{ product_id: (order as any).product_id, quantity: order.quantity || 1 }];
+
+      for (const lineItem of items) {
+        const prodId = lineItem.product_id || (lineItem as any).productId;
+        const prod = this.products.find((p) => p.id === prodId);
+        if (
+          prod &&
+          prod.delivery_mode !== 'auto_account' &&
+          prod.delivery_mode !== 'digital_code' &&
+          prod.product_type !== 'account'
+        ) {
+          const qty = Math.max(1, Number(lineItem.quantity) || 1);
           prod.stock = (prod.stock || 0) + qty;
           prod.stock_count = prod.stock;
           prod.is_available = prod.stock > 0;
@@ -891,11 +1246,28 @@ export class DataStore {
         }
       }
     }
+
+    // If order had a coupon, restore it
+    if (order && order.coupon_id) {
+      const coupon = this.coupons.find((c) => c.id === order.coupon_id);
+      if (coupon && coupon.used_in_order_id === orderId) {
+        coupon.times_used = Math.max(0, coupon.times_used - 1);
+        coupon.status = 'AVAILABLE';
+        coupon.used_in_order_id = undefined;
+        coupon.used_in_order_number = undefined;
+        coupon.used_at = undefined;
+      }
+    }
+
+    if (order) {
+      (order as any).reservation_released = true;
+      (order as any).stock_reserved = false;
+    }
   }
 
   static consumeInventoryForOrder(orderId: string, productId: string): InventoryItem | null {
     let item = this.inventory.find(
-      (i) => i.order_id === orderId && i.product_id === productId && i.status !== 'sold' && i.status !== 'consumed'
+      (i) => i.order_id === orderId && i.product_id === productId
     );
 
     if (!item) {
@@ -939,7 +1311,7 @@ export class DataStore {
   static consumeInventoryForOrderMulti(orderId: string, productId: string, quantity: number = 1): InventoryItem[] {
     const qty = Math.max(1, Number(quantity) || 1);
     let assigned = this.inventory.filter(
-      (i) => i.order_id === orderId && i.product_id === productId && i.status !== 'sold' && i.status !== 'consumed'
+      (i) => i.order_id === orderId && i.product_id === productId
     );
 
     if (assigned.length < qty) {
@@ -1044,6 +1416,9 @@ export class DataStore {
     if (prod) {
       prod.stock = this.getProductAvailableStock(prod.id);
       prod.updated_at = new Date().toISOString();
+      if (prod.is_active && !prod.is_draft && prod.stock > 0) {
+        this.recordPendingStockEvent(prod.id, 'restock', prod.stock);
+      }
     }
 
     return newItem;
@@ -1594,11 +1969,18 @@ export class DataStore {
     idempotencyKey?: string;
     buyerConfirmedAge18?: boolean;
     buyerUnder18?: boolean;
+    items?: Array<{ productId: string; quantity: number }>;
   }): { success: boolean; order?: Order; error?: string } {
-    // Check idempotency
+    // Check idempotency (Customer-scoped to avoid key sharing across customers)
     if (data.idempotencyKey) {
       const existing = this.orders.find((o) => o.idempotency_key === data.idempotencyKey);
       if (existing) {
+        if (
+          (data.customerId && existing.customer_id !== data.customerId) ||
+          (data.telegramId && existing.telegram_id !== data.telegramId)
+        ) {
+          return { success: false, error: 'IDEMPOTENCY_KEY_CONFLICT' };
+        }
         return { success: true, order: existing };
       }
     }
@@ -1609,9 +1991,24 @@ export class DataStore {
     }
 
     // MULTI-QUANTITY ENFORCEMENT:
-    // Lock auto_account strictly to 1. Other modes support multi-quantity up to stock.
-    let quantity = Math.max(1, Number(data.quantity) || 1);
+    // Validate quantity is a positive whole integer
+    let quantity = 1;
+    if (data.quantity !== undefined && data.quantity !== null) {
+      const numQty = Number(data.quantity);
+      if (!Number.isInteger(numQty) || numQty <= 0) {
+        return { success: false, error: 'INVALID_QUANTITY' };
+      }
+      if (numQty > 100) {
+        return { success: false, error: 'EXCESSIVE_QUANTITY' };
+      }
+      quantity = Math.floor(numQty);
+    }
+
+    // Lock auto_account strictly to 1.
     if (product.delivery_mode === 'auto_account' || product.product_type === 'account') {
+      if (quantity > 1) {
+        return { success: false, error: 'INVALID_QUANTITY' };
+      }
       quantity = 1;
     }
 
@@ -1628,24 +2025,104 @@ export class DataStore {
     if (data.buyerUnder18 === true) {
       return { success: false, error: 'UNDER_18_PURCHASE_BLOCKED' };
     }
-    if (
-      (product.requires_roblox_username || product.category_id === 'robux' || (product.product_type as string) === 'robux') &&
-      data.buyerConfirmedAge18 === false
-    ) {
+    const isRobuxProduct = product.category_id === 'robux' || (product.product_type as string) === 'robux';
+    if (isRobuxProduct && data.buyerConfirmedAge18 !== true) {
+      return { success: false, error: 'AGE_CONFIRMATION_REQUIRED' };
+    }
+    if (product.requires_roblox_username && data.buyerConfirmedAge18 === false) {
       return { success: false, error: 'AGE_CONFIRMATION_REQUIRED' };
     }
 
     const orderId = uuidv4();
     const orderNumber = `UCH-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // Calculate pricing & coupon
-    const subtotal = Number((product.price * quantity).toFixed(2));
+    // Multi-line items or single-item atomic reservation
+    const lineItems: Array<{
+      id: string;
+      order_id: string;
+      product_id: string;
+      product_title: string;
+      price: number;
+      quantity: number;
+      delivery_data: any;
+      created_at: string;
+    }> = [];
+
+    let subtotal = 0;
+
+    if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+      // Step A: Pre-validate all items and calculate aggregate quantities
+      const aggQuantities = new Map<string, number>();
+      for (const itemInput of data.items) {
+        const itemProd = this.products.find((p) => p.id === itemInput.productId);
+        if (!itemProd || !itemProd.is_active || itemProd.is_draft) {
+          return { success: false, error: 'PRODUCT_NOT_AVAILABLE' };
+        }
+        const itemQty = Number(itemInput.quantity);
+        if (!Number.isInteger(itemQty) || itemQty <= 0) {
+          return { success: false, error: 'INVALID_QUANTITY' };
+        }
+        aggQuantities.set(itemProd.id, (aggQuantities.get(itemProd.id) || 0) + itemQty);
+      }
+
+      // Step B: Check aggregate stock for all products
+      for (const [prodId, totalRequested] of aggQuantities.entries()) {
+        const available = this.getProductAvailableStock(prodId);
+        if (available < totalRequested) {
+          return { success: false, error: 'INSUFFICIENT_STOCK' };
+        }
+      }
+
+      // Step C: Atomically reserve all items. If ANY fails, roll back all immediately!
+      for (const itemInput of data.items) {
+        const itemProd = this.products.find((p) => p.id === itemInput.productId)!;
+        const itemQty = Math.floor(Number(itemInput.quantity));
+        const reserveRes = this.reserveInventoryAtomic(itemProd.id, orderId, itemQty);
+        if (!reserveRes.success) {
+          this.releaseReservation(orderId);
+          return { success: false, error: reserveRes.error || 'INSUFFICIENT_STOCK' };
+        }
+        lineItems.push({
+          id: uuidv4(),
+          order_id: orderId,
+          product_id: itemProd.id,
+          product_title: itemProd.title,
+          price: itemProd.price, // Trusted server price
+          quantity: itemQty,
+          delivery_data: null,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      subtotal = Number(lineItems.reduce((acc, it) => acc + (it.price * it.quantity), 0).toFixed(2));
+      quantity = lineItems.reduce((acc, it) => acc + it.quantity, 0);
+    } else {
+      const reserveResult = this.reserveInventoryAtomic(product.id, orderId, quantity);
+      if (!reserveResult.success) {
+        return { success: false, error: reserveResult.error };
+      }
+      lineItems.push({
+        id: uuidv4(),
+        order_id: orderId,
+        product_id: product.id,
+        product_title: product.title,
+        price: product.price, // Trusted server price
+        quantity,
+        delivery_data: null,
+        created_at: new Date().toISOString(),
+      });
+      subtotal = Number((product.price * quantity).toFixed(2));
+    }
+
+    // Calculate coupon & trusted total
     let discount = 0;
     let couponId: string | null = null;
 
     if (data.couponCode) {
       const validation = this.validateCoupon(data.couponCode, subtotal, data.telegramId);
       if (!validation.isValid || !validation.coupon) {
+        // Rollback reservation if coupon is invalid
+        this.releaseReservation(orderId);
         return { success: false, error: validation.error || 'INVALID_COUPON_CODE' };
       }
       discount = validation.discountAmount;
@@ -1658,12 +2135,6 @@ export class DataStore {
     }
 
     const total = Math.max(0.1, Number((subtotal - discount).toFixed(2)));
-
-    // Reserve inventory
-    const reserveResult = this.reserveInventoryAtomic(product.id, orderId, quantity);
-    if (!reserveResult.success) {
-      return { success: false, error: reserveResult.error };
-    }
 
     const order: Order = {
       id: orderId,
@@ -1692,19 +2163,12 @@ export class DataStore {
       admin_notified: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      items: [
-        {
-          id: uuidv4(),
-          order_id: orderId,
-          product_id: product.id,
-          product_title: product.title,
-          price: product.price,
-          quantity,
-          delivery_data: null,
-          created_at: new Date().toISOString(),
-        },
-      ],
+      items: lineItems,
     };
+
+    (order as any).stock_reserved = true;
+    (order as any).reservation_released = false;
+    (order as any).stock_deducted = false;
 
     this.orders.unshift(order);
     return { success: true, order };
@@ -1756,50 +2220,83 @@ export class DataStore {
   }
 
   static handleOrderInventoryDeduction(order: Order): void {
-    const productId = order.items?.[0]?.product_id;
-    if (!productId) return;
-    const product = this.products.find((p) => p.id === productId);
-    if (!product) return;
-
-    const orderQty = Math.max(1, order.quantity || order.items?.[0]?.quantity || 1);
-
-    if (product.delivery_mode === 'auto_account' || order.delivery_mode === 'auto_account') {
-      const assignedItem = this.inventory.find(
-        (i) => (i.order_id === order.id || !i.order_id) && i.product_id === productId && (i.status === 'sold' || i.is_sold || i.status === 'consumed')
-      );
-      if (assignedItem) {
-        assignedItem.status = 'sold';
-        assignedItem.is_sold = true;
-        assignedItem.order_id = order.id;
-        assignedItem.updated_at = new Date().toISOString();
-      }
-
-      const unsoldStock = this.inventory.filter(
-        (i) => i.product_id === productId && i.status === 'available' && !i.is_sold
-      ).length;
-      product.stock = unsoldStock;
-      product.stock_count = unsoldStock;
-      product.is_available = unsoldStock > 0;
-      product.updated_at = new Date().toISOString();
-      this.persistToDisk();
-    } else if (product.delivery_mode === 'digital_code') {
-      const unsoldStock = this.inventory.filter(
-        (i) => i.product_id === productId && i.status === 'available' && !i.is_sold
-      ).length;
-      product.stock = unsoldStock;
-      product.stock_count = unsoldStock;
-      product.is_available = unsoldStock > 0;
-      product.updated_at = new Date().toISOString();
-      this.persistToDisk();
-    } else {
-      // manual_service or trade_item
-      const remaining = Math.max(0, (product.stock || 0) - orderQty);
-      product.stock = remaining;
-      product.stock_count = remaining;
-      product.is_available = remaining > 0;
-      product.updated_at = new Date().toISOString();
-      this.persistToDisk();
+    if ((order as any).stock_deducted) {
+      return;
     }
+
+    const items =
+      order.items && order.items.length > 0
+        ? order.items
+        : [{ product_id: (order as any).product_id, quantity: order.quantity || 1 }];
+
+    for (const lineItem of items) {
+      const productId = lineItem.product_id;
+      if (!productId) continue;
+      const product = this.products.find((p) => p.id === productId);
+      if (!product) continue;
+
+      const orderQty = Math.max(1, Number(lineItem.quantity) || 1);
+
+      if (product.delivery_mode === 'auto_account' || product.product_type === 'account') {
+        const assignedItems = this.inventory.filter(
+          (i) => i.order_id === order.id && i.product_id === productId && (i.status === 'sold' || i.is_sold || i.status === 'consumed')
+        );
+        if (assignedItems.length === 0) {
+          const reserved = this.inventory
+            .filter((i) => i.order_id === order.id && i.product_id === productId)
+            .slice(0, orderQty);
+          for (const it of reserved) {
+            it.status = 'sold';
+            it.is_sold = true;
+            it.updated_at = new Date().toISOString();
+          }
+        }
+
+        const unsoldStock = this.inventory.filter(
+          (i) => i.product_id === productId && i.status === 'available' && !i.is_sold
+        ).length;
+        product.stock = unsoldStock;
+        product.stock_count = unsoldStock;
+        product.is_available = unsoldStock > 0;
+        product.updated_at = new Date().toISOString();
+      } else if (product.delivery_mode === 'digital_code') {
+        const assignedItems = this.inventory.filter(
+          (i) => i.order_id === order.id && i.product_id === productId && (i.status === 'sold' || i.is_sold || i.status === 'consumed')
+        );
+        if (assignedItems.length === 0) {
+          const reserved = this.inventory
+            .filter((i) => i.order_id === order.id && i.product_id === productId)
+            .slice(0, orderQty);
+          for (const it of reserved) {
+            it.status = 'consumed';
+            it.is_sold = true;
+            it.updated_at = new Date().toISOString();
+          }
+        }
+
+        const unsoldStock = this.inventory.filter(
+          (i) => i.product_id === productId && i.status === 'available' && !i.is_sold
+        ).length;
+        product.stock = unsoldStock;
+        product.stock_count = unsoldStock;
+        product.is_available = unsoldStock > 0;
+        product.updated_at = new Date().toISOString();
+      } else {
+        // manual_service, trade_item, or general non-vault product
+        // If stock was ALREADY deducted during reservation, do NOT subtract again!
+        if (!(order as any).stock_reserved) {
+          const remaining = Math.max(0, (product.stock || 0) - orderQty);
+          product.stock = remaining;
+        }
+        product.stock_count = product.stock;
+        product.is_available = product.stock > 0;
+        product.updated_at = new Date().toISOString();
+      }
+    }
+
+    (order as any).stock_deducted = true;
+    (order as any).stock_reserved = false;
+    this.persistToDisk();
   }
 
   static getOrderById(orderId: string): Order | null {
@@ -3361,6 +3858,60 @@ export class DataStore {
     return { ...this.storeSettings };
   }
 
+  // ================= SEASONAL THEMES (PROMPT 6) =================
+  static isValidSeasonalTheme(theme: any): theme is SeasonalThemeId {
+    return typeof theme === 'string' && (ALLOWED_SEASONAL_THEMES as readonly string[]).includes(theme.trim().toLowerCase());
+  }
+
+  static getSeasonalTheme(): SeasonalThemeConfig {
+    const rawTheme = this.storeSettings.seasonal_theme;
+    const active_theme: SeasonalThemeId = this.isValidSeasonalTheme(rawTheme) ? (rawTheme.trim().toLowerCase() as SeasonalThemeId) : 'gaming';
+    return {
+      active_theme,
+      updated_at: this.storeSettings.seasonal_theme_updated_at || new Date().toISOString(),
+      updated_by: this.storeSettings.seasonal_theme_updated_by || 'system',
+      available_themes: [...ALLOWED_SEASONAL_THEMES],
+      description: 'Active seasonal theme for customer Store Mini App',
+    };
+  }
+
+  static setSeasonalTheme(adminId: string | number, theme: string): SeasonalThemeConfig {
+    const normalized = String(theme || '').trim().toLowerCase();
+    if (!this.isValidSeasonalTheme(normalized)) {
+      throw new AppError(
+        `Invalid seasonal theme ID: "${theme}". Supported themes are: ${ALLOWED_SEASONAL_THEMES.join(', ')}`,
+        400,
+        'INVALID_THEME_ID'
+      );
+    }
+
+    const validatedTheme = normalized as SeasonalThemeId;
+    const nowIso = new Date().toISOString();
+
+    this.storeSettings.seasonal_theme = validatedTheme;
+    this.storeSettings.seasonal_theme_updated_at = nowIso;
+    this.storeSettings.seasonal_theme_updated_by = adminId;
+
+    // Persist to PostgreSQL if configured
+    if (isPostgresConfigured()) {
+      pgPool.query(
+        `INSERT INTO app_settings (key, value, description, updated_at)
+         VALUES ('active_seasonal_theme', $1, 'Active global seasonal theme for customer Store Mini App', NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+        [JSON.stringify({ active_theme: validatedTheme, updated_at: nowIso, updated_by: adminId })]
+      ).catch((err) => console.warn('[DataStore] setSeasonalTheme postgres error:', err?.message));
+    }
+
+    const numericAdmin = typeof adminId === 'number' ? adminId : parseInt(String(adminId), 10) || 0;
+    this.logAdminAction(numericAdmin, 'ACTIVATE_SEASONAL_THEME', {
+      theme: validatedTheme,
+      updated_at: nowIso,
+      updated_by: adminId,
+    });
+
+    return this.getSeasonalTheme();
+  }
+
   // ================= ORDER NOTIFICATION DRAFTS (EVERY 3 ORDERS RULE) =================
   static recordQualifyingOrder(_order: Order): OrderNotificationDraft | null {
     this.qualifyingOrderCounter += 1;
@@ -3433,6 +3984,247 @@ export class DataStore {
       }
     }
     return null;
+  }
+
+  // ================= BATCH STOCK ANNOUNCEMENTS (PROMPT 5) =================
+  private static initDefaultRegisteredGroups(): void {
+    const defaultGroupId = (process.env.TELEGRAM_ANNOUNCEMENT_GROUP_ID || '').trim();
+    if (defaultGroupId && !Array.from(this.registeredGroups.values()).some((g) => g.chat_id === defaultGroupId)) {
+      const id = uuidv4();
+      this.registeredGroups.set(id, {
+        id,
+        chat_id: defaultGroupId,
+        title: 'Uchiro Official Community',
+        chat_type: 'supergroup',
+        is_active: true,
+        bot_can_post: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  static recordPendingStockEvent(
+    productId: string,
+    eventType: 'new_product' | 'restock' | 'manual',
+    stockAtEvent: number
+  ): StockAnnouncementEvent {
+    const prod = this.products.find((p) => p.id === productId);
+    if (!prod) {
+      throw new AppError('Product not found for stock announcement event', 404);
+    }
+
+    // Deduplicate against existing pending event for this product
+    for (const event of this.stockAnnouncementEvents.values()) {
+      if (event.product_id === productId && event.status === 'pending') {
+        event.stock_at_event = stockAtEvent;
+        if (event.event_type !== 'new_product') {
+          event.event_type = eventType;
+        }
+        return { ...event };
+      }
+    }
+
+    const newEvent: StockAnnouncementEvent = {
+      id: uuidv4(),
+      product_id: productId,
+      event_type: eventType,
+      stock_at_event: Math.max(0, stockAtEvent),
+      status: 'pending',
+      batch_id: null,
+      created_at: new Date().toISOString(),
+    };
+
+    this.stockAnnouncementEvents.set(newEvent.id, newEvent);
+    return { ...newEvent };
+  }
+
+  static getPendingStockEvents(): StockAnnouncementEvent[] {
+    return Array.from(this.stockAnnouncementEvents.values())
+      .filter((e) => e.status === 'pending')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  static removePendingStockEvent(productId: string): boolean {
+    let removed = false;
+    for (const event of this.stockAnnouncementEvents.values()) {
+      if (event.product_id === productId && event.status === 'pending') {
+        event.status = 'cancelled';
+        removed = true;
+      }
+    }
+    return removed;
+  }
+
+  static markEventsAsPublished(productIds: string[], batchId: string): void {
+    const now = new Date().toISOString();
+    const idSet = new Set(productIds);
+    for (const event of this.stockAnnouncementEvents.values()) {
+      if (idSet.has(event.product_id) && (event.status === 'pending' || event.status === 'batched')) {
+        event.status = 'published';
+        event.batch_id = batchId;
+        event.published_at = now;
+      }
+    }
+  }
+
+  static getRegisteredGroups(): RegisteredGroup[] {
+    this.initDefaultRegisteredGroups();
+    return Array.from(this.registeredGroups.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  static getActiveRegisteredGroups(): RegisteredGroup[] {
+    return this.getRegisteredGroups().filter((g) => g.is_active && g.bot_can_post);
+  }
+
+  static getRegisteredGroup(id: string): RegisteredGroup | null {
+    this.initDefaultRegisteredGroups();
+    const g = this.registeredGroups.get(id);
+    return g ? { ...g } : null;
+  }
+
+  static getRegisteredGroupByChatId(chatId: string): RegisteredGroup | null {
+    this.initDefaultRegisteredGroups();
+    const target = String(chatId).trim();
+    for (const g of this.registeredGroups.values()) {
+      if (String(g.chat_id).trim() === target) {
+        return { ...g };
+      }
+    }
+    return null;
+  }
+
+  static registerGroup(groupData: Partial<RegisteredGroup> & { chat_id: string; title: string }): RegisteredGroup {
+    this.initDefaultRegisteredGroups();
+    const chatId = String(groupData.chat_id).trim();
+    const existing = this.getRegisteredGroupByChatId(chatId);
+    const now = new Date().toISOString();
+
+    if (existing) {
+      const updated: RegisteredGroup = {
+        ...existing,
+        title: groupData.title?.trim() || existing.title,
+        chat_type: groupData.chat_type || existing.chat_type,
+        is_active: groupData.is_active !== undefined ? Boolean(groupData.is_active) : existing.is_active,
+        bot_can_post: groupData.bot_can_post !== undefined ? Boolean(groupData.bot_can_post) : existing.bot_can_post,
+        updated_at: now,
+      };
+      this.registeredGroups.set(existing.id, updated);
+      return { ...updated };
+    }
+
+    const id = groupData.id || uuidv4();
+    const newGroup: RegisteredGroup = {
+      id,
+      chat_id: chatId,
+      title: groupData.title.trim(),
+      chat_type: groupData.chat_type || 'supergroup',
+      is_active: groupData.is_active !== undefined ? Boolean(groupData.is_active) : true,
+      bot_can_post: groupData.bot_can_post !== undefined ? Boolean(groupData.bot_can_post) : true,
+      created_at: now,
+      updated_at: now,
+    };
+
+    this.registeredGroups.set(id, newGroup);
+    return { ...newGroup };
+  }
+
+  static updateRegisteredGroup(id: string, updates: Partial<RegisteredGroup>): RegisteredGroup | null {
+    this.initDefaultRegisteredGroups();
+    const existing = this.registeredGroups.get(id);
+    if (!existing) return null;
+
+    const updated: RegisteredGroup = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      chat_id: updates.chat_id ? String(updates.chat_id).trim() : existing.chat_id,
+      updated_at: new Date().toISOString(),
+    };
+
+    this.registeredGroups.set(id, updated);
+    return { ...updated };
+  }
+
+  static deleteRegisteredGroup(id: string): boolean {
+    this.initDefaultRegisteredGroups();
+    return this.registeredGroups.delete(id);
+  }
+
+  static createStockBatch(batch: StockAnnouncementBatch): void {
+    this.stockAnnouncementBatches.set(batch.id, { ...batch });
+  }
+
+  static getStockBatch(id: string): StockAnnouncementBatch | null {
+    const b = this.stockAnnouncementBatches.get(id);
+    return b ? { ...b } : null;
+  }
+
+  static getStockBatchByIdempotencyKey(key: string): StockAnnouncementBatch | null {
+    if (!key) return null;
+    for (const b of this.stockAnnouncementBatches.values()) {
+      if (b.idempotency_key === key) {
+        return { ...b };
+      }
+    }
+    return null;
+  }
+
+  static updateStockBatch(id: string, updates: Partial<StockAnnouncementBatch>): StockAnnouncementBatch | null {
+    const existing = this.stockAnnouncementBatches.get(id);
+    if (!existing) return null;
+
+    const updated = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      updated_at: new Date().toISOString(),
+    };
+    this.stockAnnouncementBatches.set(id, updated);
+    return { ...updated };
+  }
+
+  static listStockBatches(limit: number = 20): StockAnnouncementBatch[] {
+    return Array.from(this.stockAnnouncementBatches.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, limit);
+  }
+
+  static saveStockBatchDelivery(delivery: StockBatchDelivery): void {
+    this.stockBatchDeliveries.set(delivery.id, { ...delivery });
+  }
+
+  static getStockBatchDeliveries(batchId: string): StockBatchDelivery[] {
+    return Array.from(this.stockBatchDeliveries.values())
+      .filter((d) => d.batch_id === batchId)
+      .sort((a, b) => a.chunk_index - b.chunk_index || a.group_title.localeCompare(b.group_title));
+  }
+
+  static updateStockBatchDelivery(id: string, updates: Partial<StockBatchDelivery>): StockBatchDelivery | null {
+    const existing = this.stockBatchDeliveries.get(id);
+    if (!existing) return null;
+
+    const updated: StockBatchDelivery = {
+      ...existing,
+      ...updates,
+      id: existing.id,
+      updated_at: new Date().toISOString(),
+    };
+    this.stockBatchDeliveries.set(id, updated);
+    return { ...updated };
+  }
+
+  static getFailedDeliveries(batchId: string): StockBatchDelivery[] {
+    return this.getStockBatchDeliveries(batchId).filter((d) => d.status === 'failed');
+  }
+
+  static resetStockAnnouncementStateForTesting(): void {
+    this.stockAnnouncementEvents.clear();
+    this.stockAnnouncementBatches.clear();
+    this.stockBatchDeliveries.clear();
+    this.registeredGroups.clear();
   }
 
   // ================= GACHA ADMIN MANAGEMENT =================
@@ -4115,6 +4907,9 @@ export class DataStore {
     this.pointLedger = [];
     this.deliveryAccessLogs = [];
     this.dailyRewards.clear();
+    this.storeSettings.seasonal_theme = 'gaming';
+    this.storeSettings.seasonal_theme_updated_at = new Date().toISOString();
+    this.storeSettings.seasonal_theme_updated_by = 'system';
 
     return {
       success: true,

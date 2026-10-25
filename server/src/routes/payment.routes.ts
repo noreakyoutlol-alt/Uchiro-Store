@@ -5,14 +5,20 @@ import { DataStore } from '../database/data-store';
 import { env } from '../config/env';
 import { AppError } from '../middleware/error-handler';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
-import { paymentPollingLimiter } from '../middleware/rate-limiter';
+import { paymentPollingLimiter, orderCreationLimiter } from '../middleware/rate-limiter';
 
 export const paymentRouter = Router();
 
 // Create QR Code & Order (or fetch QR for existing order)
-paymentRouter.post('/create-qr', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
+paymentRouter.post('/create-qr', orderCreationLimiter, requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
   try {
     const { productId, quantity, couponCode, robloxUsername, robloxDisplayName, robloxUserId, orderId } = req.body;
+    const buyerConfirmedAge18 =
+      req.body.buyerConfirmedAge18 !== undefined
+        ? req.body.buyerConfirmedAge18
+        : req.body.buyer_confirmed_age_18;
+    const buyerUnder18 =
+      req.body.buyerUnder18 !== undefined ? req.body.buyerUnder18 : req.body.buyer_under_18;
     const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotencyKey;
 
     if (orderId) {
@@ -24,19 +30,37 @@ paymentRouter.post('/create-qr', requireTelegramAuth, async (req: RequestWithAut
       });
     }
 
-    if (!productId) {
-      throw new AppError('productId is required to generate payment QR', 400);
+    if (!productId || typeof productId !== 'string' || productId.trim().length === 0) {
+      throw new AppError('productId is required to generate payment QR', 400, 'INVALID_PRODUCT_ID');
+    }
+
+    let parsedQuantity = 1;
+    if (quantity !== undefined && quantity !== null) {
+      const num = Number(quantity);
+      if (!Number.isFinite(num) || !Number.isInteger(num) || num <= 0) {
+        throw new AppError('Quantity must be a positive integer', 400, 'INVALID_QUANTITY');
+      }
+      if (num > 100) {
+        throw new AppError('Quantity exceeds maximum allowable purchase limit', 400, 'EXCESSIVE_QUANTITY');
+      }
+      parsedQuantity = Math.floor(num);
+    }
+
+    if (buyerUnder18 === true) {
+      throw new AppError('Buyers under 18 years of age are not permitted to complete purchases.', 403, 'UNDER_18_PURCHASE_BLOCKED');
     }
 
     const result = await OrderService.createOrder({
       customerId: req.user!.user_id,
       telegramId: req.user!.telegram_id,
       productId,
-      quantity: quantity ? Number(quantity) : 1,
+      quantity: parsedQuantity,
       couponCode,
-      robloxUsername,
-      robloxDisplayName,
-      robloxUserId,
+      robloxUsername: robloxUsername?.trim(),
+      robloxDisplayName: robloxDisplayName?.trim(),
+      robloxUserId: robloxUserId?.trim(),
+      buyerConfirmedAge18: buyerConfirmedAge18 !== undefined ? buyerConfirmedAge18 === true : undefined,
+      buyerUnder18: buyerUnder18 !== undefined ? buyerUnder18 === true : undefined,
       idempotencyKey,
     });
 
@@ -69,7 +93,7 @@ paymentRouter.get('/:id/status', paymentPollingLimiter, async (req, res, next) =
 // KHPay Webhook Receiver
 paymentRouter.post('/webhook', async (req, res, next) => {
   try {
-    const signature = req.headers['x-khpay-signature'] as string;
+    const signature = (req.headers['x-khpay-signature'] || req.headers['x-signature']) as string;
     const result = await PaymentService.handleWebhook(req.body, signature);
     res.json(result);
   } catch (err) {

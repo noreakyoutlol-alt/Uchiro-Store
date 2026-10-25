@@ -58,6 +58,7 @@ describe('Order Receipt & Secure Delivery System Test Suite', () => {
       .set('Authorization', `Bearer ${customerToken}`)
       .send({
         productId: testProduct.id,
+        quantity: 1,
         idempotencyKey: `RECEIPT-TEST-${Date.now()}`,
       });
 

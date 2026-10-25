@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { AdminAPI } from '../services/api';
 import { StoreSettings } from '../types';
+import { SeasonalThemeManager } from '../components/SeasonalThemeManager';
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<StoreSettings>({
@@ -191,6 +192,9 @@ export const SettingsPage: React.FC = () => {
           Configure loyalty points economy, check-in streaks, default warranty periods, and low-inventory alert thresholds.
         </p>
       </div>
+
+      {/* Seasonal Theme Management (Prompt 6) */}
+      <SeasonalThemeManager />
 
       <form onSubmit={handleSave} className="space-y-5">
         {/* Points & Loyalty Economy */}

@@ -6,35 +6,67 @@ import { env } from '../config/env';
 type SecretEnvName = 'STORE_WEBHOOK_SECRET' | 'ADMIN_WEBHOOK_SECRET';
 
 export function getStoreBotWebhookSecrets(): string[] {
-  return [
+  const configured = [
     process.env.STORE_WEBHOOK_SECRET,
     process.env.STORE_BOT_WEBHOOK_SECRET,
-    env.STORE_BOT_WEBHOOK_SECRET,
-  ].filter((s): s is string => Boolean(s && typeof s === 'string' && s.trim().length > 0));
+  ]
+    .filter((s): s is string => Boolean(s && typeof s === 'string' && s.trim().length > 0))
+    .map((s) => s.trim());
+
+  if (configured.length > 0) {
+    return Array.from(new Set(configured));
+  }
+
+  const fallback = (env.STORE_BOT_WEBHOOK_SECRET || '').trim();
+  return fallback ? [fallback] : [];
 }
 
 export function getAdminBotWebhookSecrets(): string[] {
-  return [
+  const configured = [
     process.env.ADMIN_WEBHOOK_SECRET,
     process.env.ADMIN_BOT_WEBHOOK_SECRET,
-    env.ADMIN_BOT_WEBHOOK_SECRET,
-  ].filter((s): s is string => Boolean(s && typeof s === 'string' && s.trim().length > 0));
+  ]
+    .filter((s): s is string => Boolean(s && typeof s === 'string' && s.trim().length > 0))
+    .map((s) => s.trim());
+
+  if (configured.length > 0) {
+    return Array.from(new Set(configured));
+  }
+
+  const fallback = (env.ADMIN_BOT_WEBHOOK_SECRET || '').trim();
+  return fallback ? [fallback] : [];
 }
 
 /** Rejects any POST that does not carry the secret Telegram sends in X-Telegram-Bot-Api-Secret-Token. */
 export function webhookSecretGuard(envName: SecretEnvName): RequestHandler {
   return (req, res, next): void => {
-    const fallbackName =
-      envName === 'STORE_WEBHOOK_SECRET' ? 'STORE_BOT_WEBHOOK_SECRET' : 'ADMIN_BOT_WEBHOOK_SECRET';
-    const expected = process.env[envName] || process.env[fallbackName];
+    const validSecrets =
+      envName === 'STORE_WEBHOOK_SECRET'
+        ? getStoreBotWebhookSecrets()
+        : getAdminBotWebhookSecrets();
+
     const received = req.headers['x-telegram-bot-api-secret-token'];
-    if (!expected || typeof received !== 'string') {
+    if (!received || typeof received !== 'string') {
       res.sendStatus(401);
       return;
     }
-    const a = Buffer.from(expected);
-    const b = Buffer.from(received);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+
+    if (validSecrets.length === 0) {
+      res.sendStatus(401);
+      return;
+    }
+
+    const cleanReceived = received.trim();
+    const matched = validSecrets.some((expected) => {
+      if (expected.length !== cleanReceived.length) return false;
+      try {
+        return timingSafeEqual(Buffer.from(expected), Buffer.from(cleanReceived));
+      } catch {
+        return expected === cleanReceived;
+      }
+    });
+
+    if (!matched) {
       res.sendStatus(403);
       return;
     }
@@ -51,19 +83,21 @@ interface RegisterOptions {
 
 async function registerTelegramWebhook(options: RegisterOptions): Promise<void> {
   const { label, token, url, secret } = options;
-  if (!token) {
+  const cleanToken = (token || '').trim();
+  if (!cleanToken) {
     console.error(`[webhook] ${label}: bot token missing, not registered`);
     return;
   }
-  if (!secret || !/^[A-Za-z0-9_-]{16,256}$/.test(secret)) {
-    console.error(`[webhook] ${label}: secret missing/invalid (16-256 chars of A-Za-z0-9_-), not registered`);
+  const cleanSecret = (secret || '').trim();
+  if (!cleanSecret || !/^[A-Za-z0-9_-]{1,256}$/.test(cleanSecret)) {
+    console.error(`[webhook] ${label}: secret missing or invalid (1-256 chars of A-Za-z0-9_-), not registered`);
     return;
   }
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+    const res = await fetch(`https://api.telegram.org/bot${cleanToken}/setWebhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, secret_token: secret }),
+      body: JSON.stringify({ url, secret_token: cleanSecret }),
     });
     const body = (await res.json()) as { ok: boolean; description?: string };
     if (!res.ok || !body.ok) {
@@ -79,8 +113,8 @@ async function registerTelegramWebhook(options: RegisterOptions): Promise<void> 
 /** Call once after the server is listening, production only. */
 export async function registerBotWebhooks(): Promise<void> {
   const serverUrl = resolveServerUrl();
-  if (!serverUrl) {
-    console.error('[webhook] Server URL is not set; webhooks not registered');
+  if (!serverUrl || !serverUrl.startsWith('https://')) {
+    console.error(`[webhook] Valid HTTPS Server URL is not set (${serverUrl}); webhooks not registered`);
     return;
   }
   const storeSecret =
@@ -93,16 +127,18 @@ export async function registerBotWebhooks(): Promise<void> {
     process.env.ADMIN_BOT_WEBHOOK_SECRET ||
     env.ADMIN_BOT_WEBHOOK_SECRET;
 
-  await registerTelegramWebhook({
-    label: 'store-bot',
-    token: (process.env.STORE_BOT_TOKEN || env.STORE_BOT_TOKEN || '').trim(),
-    url: `${serverUrl}/api/webhook/store-bot`,
-    secret: storeSecret,
-  });
-  await registerTelegramWebhook({
-    label: 'admin-bot',
-    token: (process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim(),
-    url: `${serverUrl}/api/webhook/admin-bot`,
-    secret: adminSecret,
-  });
+  await Promise.allSettled([
+    registerTelegramWebhook({
+      label: 'store-bot',
+      token: (process.env.STORE_BOT_TOKEN || env.STORE_BOT_TOKEN || '').trim(),
+      url: `${serverUrl}/api/webhook/store-bot`,
+      secret: storeSecret,
+    }),
+    registerTelegramWebhook({
+      label: 'admin-bot',
+      token: (process.env.ADMIN_BOT_TOKEN || env.ADMIN_BOT_TOKEN || '').trim(),
+      url: `${serverUrl}/api/webhook/admin-bot`,
+      secret: adminSecret,
+    }),
+  ]);
 }

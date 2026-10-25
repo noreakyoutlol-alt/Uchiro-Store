@@ -24,7 +24,7 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { isPlaying, isMuted, volume, togglePlay, toggleMute, setVolume } = useAudio();
   const { language, setLanguage } = useLanguage();
-  const { themeMode, setThemeMode } = useTheme();
+  const { themeMode, setThemeMode, activeSeasonalTheme } = useTheme();
 
   if (!isOpen) return null;
 
@@ -227,6 +227,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 {themeMode === 'light' && <Check className="w-4 h-4 text-amber-400" />}
               </button>
             </div>
+          </div>
+
+          {/* 4. ACTIVE SEASONAL THEME INFO (PROMPT 6) */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-bold">
+              {language === 'km' ? 'ស្បែកតាមរដូវកាល' : 'Seasonal Atmosphere'}
+            </span>
+            <span className="font-black text-amber-500 dark:text-amber-400 flex items-center gap-1.5">
+              <span>
+                {activeSeasonalTheme === 'halloween'
+                  ? '🎃'
+                  : activeSeasonalTheme === 'christmas'
+                  ? '🎄'
+                  : activeSeasonalTheme === 'angkor-khmer'
+                  ? '🏛️'
+                  : '🎮'}
+              </span>
+              <span>
+                {activeSeasonalTheme === 'halloween'
+                  ? 'Halloween'
+                  : activeSeasonalTheme === 'christmas'
+                  ? 'Christmas'
+                  : activeSeasonalTheme === 'angkor-khmer'
+                  ? 'Angkor / Khmer'
+                  : 'Default Gaming'}
+              </span>
+            </span>
           </div>
         </div>
 

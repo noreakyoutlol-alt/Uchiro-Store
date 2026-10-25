@@ -180,6 +180,7 @@ describe('Uchiro Store Product Types & Stock Management Verification', () => {
       .set('Authorization', `Bearer ${customerToken}`)
       .send({
         productId: product.id,
+        quantity: 1,
       });
 
     expect(orderRes.status).toBe(201);
@@ -234,7 +235,7 @@ describe('Uchiro Store Product Types & Stock Management Verification', () => {
     const orderRes = await request(app)
       .post('/api/orders')
       .set('Authorization', `Bearer ${customerToken}`)
-      .send({ productId: prod.id });
+      .send({ productId: prod.id, quantity: 1 });
     expect(orderRes.status).toBe(201);
     const { order, payment } = orderRes.body.data;
 

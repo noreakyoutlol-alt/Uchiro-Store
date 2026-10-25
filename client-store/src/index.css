@@ -215,6 +215,57 @@ html.light ::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* Seasonal Animations (Prompt 6) */
+@keyframes halloweenSpiderSway {
+  0%, 100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(4deg) translateY(6px);
+  }
+  75% {
+    transform: rotate(-4deg) translateY(-4px);
+  }
+}
+
+@keyframes halloweenSpiderBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(14px);
+  }
+}
+
+@keyframes christmasSnowFall {
+  0% {
+    transform: translateY(-10px) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(105vh) translateX(15px);
+    opacity: 0;
+  }
+}
+
+.animate-halloween-spider-sway {
+  animation: halloweenSpiderSway 5s ease-in-out infinite;
+}
+
+.animate-halloween-spider-bounce {
+  animation: halloweenSpiderBounce 4s ease-in-out infinite;
+}
+
+.animate-christmas-snow {
+  animation: christmasSnowFall linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;

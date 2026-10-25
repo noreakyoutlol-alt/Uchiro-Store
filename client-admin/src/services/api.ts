@@ -12,6 +12,8 @@ import {
   RedeemCode,
   RedeemCodeUsage,
   CreateRedeemCodeDTO,
+  SeasonalThemeId,
+  SeasonalThemeConfig,
 } from '../types';
 
 const api = axios.create({
@@ -114,6 +116,29 @@ export const AdminAPI = {
   deleteProduct: async (id: string) => {
     const res = await api.delete(`/products/${id}`);
     return res.data.success;
+  },
+
+  uploadProductImage: async (
+    file: File,
+    productId: string,
+    currentCount: number
+  ): Promise<{ url: string; storage_path?: string }> => {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('product_id', productId);
+    formData.append('current_count', String(currentCount));
+    const res = await api.post('/products/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    });
+    return res.data;
+  },
+
+  deleteProductImage: async (productId: string, storagePath: string): Promise<boolean> => {
+    const res = await api.delete('/products/delete-image', {
+      data: { product_id: productId, storage_path: storagePath },
+    });
+    return res.data.deleted === true;
   },
 
   // Inventory
@@ -315,6 +340,17 @@ export const AdminAPI = {
     return res.data.data;
   },
 
+  // Seasonal Themes (Prompt 6)
+  getSeasonalTheme: async (): Promise<SeasonalThemeConfig> => {
+    const res = await api.get('/theme');
+    return res.data.data;
+  },
+
+  updateSeasonalTheme: async (theme: SeasonalThemeId): Promise<SeasonalThemeConfig> => {
+    const res = await api.put('/theme', { theme });
+    return res.data.data;
+  },
+
   // Robux Shared Stock Pool (Prompt 11)
   getRobuxStock: async () => {
     const res = await api.get('/robux/stock');
@@ -401,6 +437,62 @@ export const AdminAPI = {
 
   deleteRedeemCode: async (id: string): Promise<boolean> => {
     const res = await api.delete(`/redeem-codes/${id}`);
+    return res.data.success;
+  },
+
+  // ================= BATCH STOCK ANNOUNCEMENTS (PROMPT 5) =================
+  previewStockBatch: async (): Promise<any> => {
+    const res = await api.get('/stock-batch/preview');
+    return res.data.data;
+  },
+
+  publishStockBatch: async (idempotencyKey?: string): Promise<any> => {
+    const res = await api.post('/stock-batch/publish', { idempotency_key: idempotencyKey });
+    return res.data.data;
+  },
+
+  retryFailedStockBatch: async (batchId: string): Promise<any> => {
+    const res = await api.post(`/stock-batch/retry/${batchId}`);
+    return res.data.data;
+  },
+
+  getStockBatchHistory: async (limit = 20): Promise<any> => {
+    const res = await api.get('/stock-batch/history', { params: { limit } });
+    return res.data.data;
+  },
+
+  getStockBatchDetail: async (batchId: string): Promise<any> => {
+    const res = await api.get(`/stock-batch/batches/${batchId}`);
+    return res.data.data;
+  },
+
+  markProductForBatch: async (productId: string): Promise<any> => {
+    const res = await api.post(`/stock-batch/pending/${productId}`);
+    return res.data.data;
+  },
+
+  unmarkProductForBatch: async (productId: string): Promise<any> => {
+    const res = await api.delete(`/stock-batch/pending/${productId}`);
+    return res.data.data;
+  },
+
+  getRegisteredGroups: async (): Promise<any[]> => {
+    const res = await api.get('/stock-batch/groups');
+    return res.data.data;
+  },
+
+  registerGroup: async (data: { chat_id: string; title: string; chat_type?: string }): Promise<any> => {
+    const res = await api.post('/stock-batch/groups', data);
+    return res.data.data;
+  },
+
+  updateRegisteredGroup: async (id: string, updates: any): Promise<any> => {
+    const res = await api.patch(`/stock-batch/groups/${id}`, updates);
+    return res.data.data;
+  },
+
+  deleteRegisteredGroup: async (id: string): Promise<boolean> => {
+    const res = await api.delete(`/stock-batch/groups/${id}`);
     return res.data.success;
   },
 };

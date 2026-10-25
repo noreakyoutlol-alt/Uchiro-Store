@@ -119,18 +119,32 @@ export function requireAdminSession(req: Request, res: Response, next: NextFunct
     const jwtToken = authHeader.split(' ')[1];
     try {
       const decoded = jwt.verify(jwtToken, env.JWT_SECRET) as any;
-      if (
-        decoded &&
-        (decoded.role === 'admin' ||
+      if (decoded) {
+        const adminTgId = decoded.telegram_id ? Number(decoded.telegram_id) : NaN;
+        const isAllowlistedTelegramAdmin =
+          !isNaN(adminTgId) &&
+          (env.ADMIN_TELEGRAM_USER_IDS.includes(adminTgId) ||
+            (Array.isArray(env.ADMIN_TELEGRAM_IDS) && env.ADMIN_TELEGRAM_IDS.includes(adminTgId)));
+
+        const isApprovedAdmin =
+          decoded.role === 'admin' ||
           decoded.role === 'superadmin' ||
-          decoded.user_id?.startsWith('admin') ||
-          decoded.id?.startsWith('admin'))
-      ) {
-        res.locals.telegramUser = {
-          id: String(decoded.telegram_id || decoded.id || decoded.user_id || 'admin'),
-          username: decoded.username || 'admin',
-        };
-        next();
+          isAllowlistedTelegramAdmin;
+
+        if (isApprovedAdmin) {
+          res.locals.telegramUser = {
+            id: String(decoded.telegram_id || decoded.id || decoded.user_id || 'admin'),
+            username: decoded.username || 'admin',
+          };
+          next();
+          return;
+        }
+
+        res.status(401).json({
+          success: false,
+          error: 'UNAUTHORIZED',
+          message: 'Administrative privileges required',
+        });
         return;
       }
     } catch {
