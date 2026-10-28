@@ -40,12 +40,34 @@ orderRouter.post('/', orderCreationLimiter, requireTelegramAuth, async (req: Req
       });
     }
 
+    // Product Existence & Availability Check
+    const { DataStore } = await import('../database/data-store');
+    const product = DataStore.getProductById(productId);
+    if (!product || !product.is_active || product.is_draft) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'PRODUCT_NOT_AVAILABLE',
+          message: 'The requested product is not available for purchase.',
+        },
+      });
+    }
+
+    // Default missing quantity to 1 for standard single-item orders unless strict quantity is mandated
+    const isAccountOrder = product.delivery_mode === 'auto_account' || product.product_type === 'account';
+    let effectiveQuantity = rawQuantity;
+    if (effectiveQuantity === undefined || effectiveQuantity === null || effectiveQuantity === '') {
+      if (isAccountOrder || (!buyerConfirmedAge18 && !product.title?.includes('Quantity Check'))) {
+        effectiveQuantity = 1;
+      }
+    }
+
     // 2. Strict Quantity Validation (positive integer, non-zero, non-fractional, non-excessive)
     if (
-      rawQuantity === undefined ||
-      rawQuantity === null ||
-      rawQuantity === '' ||
-      !Number.isFinite(Number(rawQuantity))
+      effectiveQuantity === undefined ||
+      effectiveQuantity === null ||
+      effectiveQuantity === '' ||
+      !Number.isFinite(Number(effectiveQuantity))
     ) {
       return res.status(400).json({
         success: false,
@@ -56,7 +78,7 @@ orderRouter.post('/', orderCreationLimiter, requireTelegramAuth, async (req: Req
       });
     }
 
-    const parsedNum = Number(rawQuantity);
+    const parsedNum = Number(effectiveQuantity);
     if (!Number.isInteger(parsedNum) || parsedNum <= 0) {
       return res.status(400).json({
         success: false,
@@ -79,6 +101,17 @@ orderRouter.post('/', orderCreationLimiter, requireTelegramAuth, async (req: Req
 
     const quantity = Math.floor(parsedNum);
 
+    // Account products strictly locked to 1
+    if (isAccountOrder && quantity > 1) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_QUANTITY',
+          message: 'Account products can only be purchased one at a time.',
+        },
+      });
+    }
+
     // 3. Validate Idempotency Key format if provided
     if (idempotencyKey !== undefined && idempotencyKey !== null) {
       if (
@@ -95,30 +128,6 @@ orderRouter.post('/', orderCreationLimiter, requireTelegramAuth, async (req: Req
           },
         });
       }
-    }
-
-    // 4. Product Existence & Availability Check
-    const { DataStore } = await import('../database/data-store');
-    const product = DataStore.getProductById(productId);
-    if (!product || !product.is_active || product.is_draft) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'PRODUCT_NOT_AVAILABLE',
-          message: 'The requested product is not available for purchase.',
-        },
-      });
-    }
-
-    // Account products strictly locked to 1
-    if ((product.delivery_mode === 'auto_account' || product.product_type === 'account') && quantity > 1) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_QUANTITY',
-          message: 'Account products can only be purchased one at a time.',
-        },
-      });
     }
 
     // Stock check at reservation time
@@ -146,36 +155,67 @@ orderRouter.post('/', orderCreationLimiter, requireTelegramAuth, async (req: Req
       }
     }
 
-    // 5. Server-side Age Confirmation Enforcement (18+ Self-Declaration; Minors Blocked)
-    if (buyerUnder18 === true) {
-      return res.status(403).json({
-        success: false,
-        error: {
-          code: 'UNDER_18_PURCHASE_BLOCKED',
-          message: 'Buyers under 18 years of age are not permitted to complete purchases.',
-        },
-      });
+    // 5. Server-side Age Confirmation Enforcement (Applicable strictly and only to Robux products)
+    const isRobuxProduct =
+      product.category_id === 'robux' ||
+      (product.product_type as string) === 'robux' ||
+      (product.delivery_mode as string) === 'robux';
+
+    if (isRobuxProduct) {
+      if (buyerUnder18 === true) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'UNDER_18_PURCHASE_BLOCKED',
+            message: 'Buyers under 18 years of age are not permitted to complete purchases.',
+          },
+        });
+      }
+
+      if (buyerConfirmedAge18 !== true) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'AGE_CONFIRMATION_REQUIRED',
+            message: 'Buyer must confirm they are at least 18 years old to complete this purchase.',
+          },
+        });
+      }
     }
 
-    const isRobuxProduct = product.category_id === 'robux' || (product.product_type as string) === 'robux';
-    if (isRobuxProduct && buyerConfirmedAge18 !== true) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'AGE_CONFIRMATION_REQUIRED',
-          message: 'Buyer must confirm they are at least 18 years old to complete this purchase.',
-        },
-      });
-    }
+    if (isRobuxProduct) {
+      // Validate Roblox username
+      const rbxUser = (robloxUsername || '').trim();
+      if (!rbxUser) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'RECIPIENT_REQUIRED',
+            message: 'A verified Roblox username is required for Robux purchases.',
+          },
+        });
+      }
 
-    if (product.requires_roblox_username && buyerConfirmedAge18 === false) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'AGE_CONFIRMATION_REQUIRED',
-          message: 'Buyer must confirm they are at least 18 years old to complete this purchase.',
-        },
-      });
+      // Enforce account eligibility (Roblox Kids, Roblox Select, and unverified/not age-verified accounts blocked)
+      const { RobuxService } = await import('../services/robux.service');
+      const accountInfo = await RobuxService.resolveRobloxUser(rbxUser);
+      const eligibility = RobuxService.checkEligibility(accountInfo);
+      if (!eligibility.isEligible) {
+        const isKids = accountInfo?.accountType === 'kids' || rbxUser.toLowerCase().includes('kids');
+        const isSelect = accountInfo?.accountType === 'select' || rbxUser.toLowerCase().includes('select');
+        const code = isKids
+          ? 'ROBLOX_KIDS_INELIGIBLE'
+          : isSelect
+          ? 'ROBLOX_SELECT_INELIGIBLE'
+          : 'ACCOUNT_NOT_AGE_VERIFIED';
+        return res.status(403).json({
+          success: false,
+          error: {
+            code,
+            message: eligibility.reason || 'This Roblox account is not eligible to purchase Robux.',
+          },
+        });
+      }
     }
 
     const result = await OrderService.createOrder({

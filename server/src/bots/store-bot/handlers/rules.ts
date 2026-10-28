@@ -1,4 +1,5 @@
 import { Context } from 'telegraf';
+import { DataStore } from '../../../database/data-store';
 import {
   buildMainRulesKeyboard,
   buildSubRulesKeyboard,
@@ -20,21 +21,36 @@ export async function handleMainRules(ctx: Context): Promise<void> {
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `📜 <b>UCHIRO STORE GENERAL RULES &amp; POLICIES</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🛡️ <b>Account Warranty (14-Day Warranty):</b>\n` +
-    `• All gaming accounts come with a full 14-day replacement/refund guarantee.\n` +
-    `• Instant replacement or refund if an account is locked or doesn't match description.\n\n` +
-    `⚠️ <b>Customer Responsibilities:</b>\n` +
-    `• Change your password and bind your personal email/2FA immediately after purchase.\n` +
-    `• Uchiro Store is not responsible for shared passwords or compromised 2FA codes.\n\n` +
-    `🎰 <b>Gacha &amp; Streak Rules:</b>\n` +
-    `• Daily streaks reset to Day 1 if uncollected for more than 48 hours.\n` +
-    `• Gacha prizes are automatically deposited into your 🎒 Vault within 3 seconds.\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
-  const keyboard = buildMainRulesKeyboard('en');
+  const text =
+    lang === 'km'
+      ? `📜 <b>គោលការណ៍ទូទៅ និងការធានារបស់ UCHIRO STORE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>ការធានាគណនី (ធានាជូន ១៤ ថ្ងៃពេញ)៖</b>\n` +
+        `• គ្រប់គណនីហ្គេមទាំងអស់ទទួលបានការធានាដូរថ្មី ឬសងប្រាក់វិញ ១០០% រយៈពេល ១៤ ថ្ងៃ។\n` +
+        `• ដូរគណនីថ្មី ឬសងប្រាក់វិញភ្លាមៗ ប្រសិនបើគណនីមានបញ្ហា ឬមិនដូចការពិពណ៌នា។\n\n` +
+        `⚠️ <b>ទំនួលខុសត្រូវរបស់អតិថិជន៖</b>\n` +
+        `• សូមប្តូរពាក្យសម្ងាត់ និងភ្ជាប់អ៊ីមែល/2FA ផ្ទាល់ខ្លួនរបស់អ្នកភ្លាមៗក្រោយទិញរួច។\n` +
+        `• Uchiro Store មិនទទួលខុសត្រូវចំពោះការចែករំលែកពាក្យសម្ងាត់ ឬបាត់បង់កូដ 2FA ឡើយ។\n\n` +
+        `🎰 <b>ច្បាប់នៃការបង្វិលកាឆា និងរង្វាន់ប្រចាំថ្ងៃ៖</b>\n` +
+        `• ការរក្សាពិន្ទុបន្ត (Streak) នឹងចាប់ផ្តើមឡើងវិញពីថ្ងៃទី ១ ប្រសិនបើខកខានលើសពី ៤៨ ម៉ោង។\n` +
+        `• រង្វាន់កាឆានឹងត្រូវបានបញ្ចូលទៅក្នុង 🎒 Vault របស់អ្នកដោយស្វ័យប្រវត្តិក្នុ​ងរយៈពេល ៣ វិនាទី។\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `📜 <b>UCHIRO STORE GENERAL RULES &amp; POLICIES</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>Account Warranty (14-Day Warranty):</b>\n` +
+        `• All gaming accounts come with a full 14-day replacement/refund guarantee.\n` +
+        `• Instant replacement or refund if an account is locked or doesn't match description.\n\n` +
+        `⚠️ <b>Customer Responsibilities:</b>\n` +
+        `• Change your password and bind your personal email/2FA immediately after purchase.\n` +
+        `• Uchiro Store is not responsible for shared passwords or compromised 2FA codes.\n\n` +
+        `🎰 <b>Gacha &amp; Streak Rules:</b>\n` +
+        `• Daily streaks reset to Day 1 if uncollected for more than 48 hours.\n` +
+        `• Gacha prizes are automatically deposited into your 🎒 Vault within 3 seconds.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildMainRulesKeyboard(lang);
 
   try {
     if (ctx.callbackQuery) {
@@ -59,25 +75,41 @@ export async function handleMainRules(ctx: Context): Promise<void> {
  * Handle Gacha Rules & Rates View (cb_gacha_rules / cb_rules_gacha)
  */
 export async function handleGachaRules(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `🎰 <b>GACHA RULES &amp; DROP RATES</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>Ticket Cost:</b> <code>100 Pts</code> per 1 Spin Ticket\n\n` +
-    `⚡ <b>Drop Rate Probabilities:</b>\n` +
-    `• 🔴 <b>Mythical (Jackpot):</b> <code>1.5%</code> (High-tier Accounts / Mythical Fruits)\n` +
-    `• 🟣 <b>Legendary:</b> <code>5.0%</code> (Rare Items / Dark Blade)\n` +
-    `• 🔵 <b>Rare:</b> <code>15.0%</code> (In-game Currency &amp; Gamepasses)\n` +
-    `• 🟢 <b>Uncommon:</b> <code>30.0%</code> (Level Boosters)\n` +
-    `• ⚪ <b>Common:</b> <code>48.5%</code> (Refund Points &amp; Bonus Spins)\n\n` +
-    `📦 <b>Prize Delivery:</b>\n` +
-    `• Won accounts and digital codes are delivered instantly to your <b>🎒 My Vault</b> within 3 seconds.\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
-  const keyboard = buildSubRulesKeyboard('en');
+  const text =
+    lang === 'km'
+      ? `🎰 <b>ច្បាប់នៃការលេងកាឆា និងឱកាសឈ្នះរង្វាន់ (DROP RATES)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎫 <b>តម្លៃសំបុត្រ៖</b> <code>100 Pts</code> ក្នុង ១ សំបុត្របង្វិល\n\n` +
+        `⚡ <b>តារាងឱកាសឈ្នះរង្វាន់ជាក់ស្តែង៖</b>\n` +
+        `• 🔴 <b>Mythical (Jackpot):</b> <code>0.5%</code> (Mythic Uchiro Champion Account)\n` +
+        `• 🟣 <b>Legendary:</b> <code>2.5%</code> (Shadow Katana V2 Game Voucher)\n` +
+        `• 🔵 <b>Epic:</b> <code>7.0%</code> (Uchiro 2x EXP Booster Pass)\n` +
+        `• 🟢 <b>Rare:</b> <code>20.0%</code> ($1.00 Uchiro Store Coupon)\n` +
+        `• ⚪ <b>Common:</b> <code>70.0%</code> (50 Uchiro Points)\n\n` +
+        `📦 <b>ការប្រគល់រង្វាន់៖</b>\n` +
+        `• គណនី និងកូដឌីជីថលដែលបានឈ្នះ នឹងត្រូវបញ្ជូនភ្លាមៗទៅកាន់ <b>🎒 My Vault</b> របស់អ្នកក្នុងរយៈពេល ៣ វិនាទី។\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🎰 <b>GACHA RULES &amp; DROP RATES</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎫 <b>Ticket Cost:</b> <code>100 Pts</code> per 1 Spin Ticket\n\n` +
+        `⚡ <b>Drop Rate Probabilities:</b>\n` +
+        `• 🔴 <b>Mythical (Jackpot):</b> <code>0.5%</code> (Mythic Uchiro Champion Account)\n` +
+        `• 🟣 <b>Legendary:</b> <code>2.5%</code> (Shadow Katana V2 Game Voucher)\n` +
+        `• 🔵 <b>Epic:</b> <code>7.0%</code> (Uchiro 2x EXP Booster Pass)\n` +
+        `• 🟢 <b>Rare:</b> <code>20.0%</code> ($1.00 Uchiro Store Coupon)\n` +
+        `• ⚪ <b>Common:</b> <code>70.0%</code> (50 Uchiro Points)\n\n` +
+        `📦 <b>Prize Delivery:</b>\n` +
+        `• Won accounts and digital codes are delivered instantly to your <b>🎒 My Vault</b> within 3 seconds.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubRulesKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -95,23 +127,37 @@ export async function handleGachaRules(ctx: Context): Promise<void> {
  * Handle Daily Streak Rules (cb_daily_rules)
  */
 export async function handleDailyRules(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `🎁 <b>DAILY REWARD &amp; STREAK RULES</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⏳ <b>Cooldown Duration:</b>\n` +
-    `• 24-hour rolling cooldown between daily claims.\n\n` +
-    `🔥 <b>Streak Multipliers &amp; Rewards:</b>\n` +
-    `• <b>Days 1 to 6:</b> <code>+5 Pts</code> each day\n` +
-    `• <b>Day 7 (Grand Bonus):</b> <code>+20 Pts</code> milestone reward!\n\n` +
-    `⚠️ <b>Streak Reset:</b>\n` +
-    `• Missing a claim for more than 48 hours resets your streak back to Day 1.\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
-  const keyboard = buildSubRulesKeyboard('en');
+  const text =
+    lang === 'km'
+      ? `🎁 <b>ច្បាប់ទទួលរង្វាន់ប្រចាំថ្ងៃ (DAILY STREAK)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⏳ <b>រយៈពេល Cooldown៖</b>\n` +
+        `• Cooldown រយៈពេល ២៤ ម៉ោង សម្រាប់ការចុចយករង្វាន់ម្តងៗ។\n\n` +
+        `🔥 <b>ពិន្ទុរង្វាន់តាមថ្ងៃ៖</b>\n` +
+        `• <b>ថ្ងៃទី ១ ដល់ ទី ៦៖</b> <code>+5 Pts</code> ក្នុងមួយថ្ងៃ\n` +
+        `• <b>ថ្ងៃទី ៧ (រង្វាន់ធំប្រចាំសប្តាហ៍)៖</b> <code>+20 Pts</code> រង្វាន់ពិសេស!\n\n` +
+        `⚠️ <b>ការកំណត់ឡើងវិញ៖</b>\n` +
+        `• ប្រសិនបើខកខានមិនបានចូលយករង្វាន់លើសពី ៤៨ ម៉ោង ប្រព័ន្ធនឹងរាប់ឡើងវិញពីថ្ងៃទី ១។\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🎁 <b>DAILY REWARD &amp; STREAK RULES</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⏳ <b>Cooldown Duration:</b>\n` +
+        `• 24-hour rolling cooldown between daily claims.\n\n` +
+        `🔥 <b>Streak Multipliers &amp; Rewards:</b>\n` +
+        `• <b>Days 1 to 6:</b> <code>+5 Pts</code> each day\n` +
+        `• <b>Day 7 (Grand Bonus):</b> <code>+20 Pts</code> milestone reward!\n\n` +
+        `⚠️ <b>Streak Reset:</b>\n` +
+        `• Missing a claim for more than 48 hours resets your streak back to Day 1.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubRulesKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -129,22 +175,35 @@ export async function handleDailyRules(ctx: Context): Promise<void> {
  * Handle Warranty Policy (cb_warranty_policy / cb_rules_warranty)
  */
 export async function handleWarrantyPolicy(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `🔐 <b>14-DAY FULL WARRANTY POLICY</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🛡️ <b>100% Protection:</b>\n` +
-    `• All accounts are guaranteed against recovery and lockouts for 14 days from delivery.\n\n` +
-    `⚡ <b>Resolution Process:</b>\n` +
-    `1. Contact 24/7 Support with your Order ID.\n` +
-    `2. Our automated inspection verifies the status.\n` +
-    `3. Receive an instant account replacement or 100% refund.\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
-  const keyboard = buildSubRulesKeyboard('en');
+  const text =
+    lang === 'km'
+      ? `🔐 <b>គោលការណ៍ធានារយៈពេល ១៤ ថ្ងៃពេញ</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>ការការពារ ១០០%៖</b>\n` +
+        `• រាល់គណនីទាំងអស់ត្រូវបានធានាប្រឆាំងនឹងការទាញយកមកវិញ (Recovery) និងការជាប់សោរ (Lock) រយៈពេល ១៤ ថ្ងៃគិតចាប់ពីពេលប្រគល់ជូន។\n\n` +
+        `⚡ <b>នីតិវិធីដោះស្រាយ៖</b>\n` +
+        `1. ទាក់ទងទៅកាន់ផ្នែកបម្រើអតិថិជន 24/7 ជាមួយលេខ Order ID របស់អ្នក។\n` +
+        `2. ប្រព័ន្ធត្រួតពិនិត្យដោយស្វ័យប្រវត្តិនឹងផ្ទៀងផ្ទាត់ស្ថានភាពគណនី។\n` +
+        `3. ទទួលបានគណនីថ្មីជំនួសភ្លាមៗ ឬសងប្រាក់វិញ ១០០%។\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🔐 <b>14-DAY FULL WARRANTY POLICY</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>100% Protection:</b>\n` +
+        `• All accounts are guaranteed against recovery and lockouts for 14 days from delivery.\n\n` +
+        `⚡ <b>Resolution Process:</b>\n` +
+        `1. Contact 24/7 Support with your Order ID.\n` +
+        `2. Our automated inspection verifies the status.\n` +
+        `3. Receive an instant account replacement or 100% refund.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubRulesKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -162,9 +221,12 @@ export async function handleWarrantyPolicy(ctx: Context): Promise<void> {
  * Handle Payment & Delivery Policy (cb_payment_delivery)
  */
 export async function handlePaymentDeliveryPolicy(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
+
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
     `📦 <b>PAYMENT &amp; DELIVERY POLICY</b>\n` +
@@ -180,7 +242,7 @@ export async function handlePaymentDeliveryPolicy(ctx: Context): Promise<void> {
     `• Robux &amp; Services: Processed following verified payment\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubRulesKeyboard('en');
+  const keyboard = buildSubRulesKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -198,9 +260,12 @@ export async function handlePaymentDeliveryPolicy(ctx: Context): Promise<void> {
  * Handle Refund Policy (cb_refund_policy)
  */
 export async function handleRefundPolicy(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
+
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
     `💰 <b>REFUND &amp; REPLACEMENT POLICY</b>\n` +
@@ -216,7 +281,7 @@ export async function handleRefundPolicy(ctx: Context): Promise<void> {
     `• Voluntary change of mind after credentials revealed\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubRulesKeyboard('en');
+  const keyboard = buildSubRulesKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -234,9 +299,12 @@ export async function handleRefundPolicy(ctx: Context): Promise<void> {
  * Handle Points & Coupons Policy (cb_points_coupons)
  */
 export async function handlePointsCouponsPolicy(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
+
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
     `🏷️ <b>POINTS &amp; COUPONS POLICY</b>\n` +
@@ -254,7 +322,7 @@ export async function handlePointsCouponsPolicy(ctx: Context): Promise<void> {
     `• 1 coupon per order, non-transferable, bound to your Telegram ID\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubRulesKeyboard('en');
+  const keyboard = buildSubRulesKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -272,9 +340,12 @@ export async function handlePointsCouponsPolicy(ctx: Context): Promise<void> {
  * Handle FAQ & Help (cb_faq_help)
  */
 export async function handleFaqHelp(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
+
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
     `❓ <b>FREQUENTLY ASKED QUESTIONS (FAQ)</b>\n` +
@@ -289,7 +360,7 @@ export async function handleFaqHelp(ctx: Context): Promise<void> {
     `A: Yes, as long as your cart meets the minimum order threshold.\n` +
     `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubRulesKeyboard('en');
+  const keyboard = buildSubRulesKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {

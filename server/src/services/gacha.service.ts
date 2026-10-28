@@ -2,6 +2,7 @@ import { DataStore } from '../database/data-store';
 import { GachaPool, GachaPrize, GachaSpin, GachaClaim } from '../types';
 import { AppError } from '../middleware/error-handler';
 import { NotificationService } from './notification.service';
+import { CheckoutLock } from '../utils/checkout-lock';
 
 export class GachaService {
   static getPools(): (GachaPool & { prizes: GachaPrize[] })[] {
@@ -16,7 +17,7 @@ export class GachaService {
     return pool;
   }
 
-  // Server-Authoritative Gacha Spin
+  // Server-Authoritative Gacha Spin (Race-protected via CheckoutLock per user)
   static async spin(params: {
     poolId: string;
     customerId: string;
@@ -29,57 +30,59 @@ export class GachaService {
     ticketsRemaining?: number;
     nextRollAt?: string;
   }> {
-    const pool = DataStore.getGachaPoolById(params.poolId);
-    if (!pool || !pool.is_active) {
-      throw new AppError('Gacha pool is currently unavailable', 400, 'POOL_INACTIVE');
-    }
+    return CheckoutLock.runExclusive(`gacha_spin_${params.telegramId}`, async () => {
+      const pool = DataStore.getGachaPoolById(params.poolId);
+      if (!pool || !pool.is_active) {
+        throw new AppError('Gacha pool is currently unavailable', 400, 'POOL_INACTIVE');
+      }
 
-    const result = DataStore.spinGacha(
-      params.poolId,
-      params.customerId,
-      params.telegramId,
-      params.idempotencyKey
-    );
-
-    if (!result) {
-      throw new AppError('Failed to execute gacha spin', 500, 'SPIN_FAILED');
-    }
-
-    if (result.error) {
-      throw new AppError(result.error, 400, result.code || 'SPIN_ERROR');
-    }
-
-    // Route notifications for manual service & trade dispatch
-    if (result.prize.delivery_mode === 'manual_service') {
-      NotificationService.alertAdminManualServiceGachaWin(
+      const result = DataStore.spinGacha(
+        params.poolId,
+        params.customerId,
         params.telegramId,
-        result.prize.title,
-        result.claim.id
-      ).catch(console.error);
-    } else if (result.prize.delivery_mode === 'trade_item') {
-      NotificationService.alertAdminTradeItemGachaWin(
-        params.telegramId,
-        result.prize.title,
-        result.claim.id,
-        result.claim.delivery_data?.trade_id
-      ).catch(console.error);
-    }
+        params.idempotencyKey
+      );
 
-    // If Mythical Win, send immediate alert to Admin Bot!
-    if (result.prize.rarity === 'MYTHICAL') {
-      NotificationService.alertAdminMythicalGachaWin(
-        params.telegramId,
-        result.prize.title
-      ).catch(console.error);
-    }
+      if (!result) {
+        throw new AppError('Failed to execute gacha spin', 500, 'SPIN_FAILED');
+      }
 
-    return result as {
-      spin: GachaSpin;
-      claim: GachaClaim;
-      prize: GachaPrize;
-      ticketsRemaining?: number;
-      nextRollAt?: string;
-    };
+      if (result.error) {
+        throw new AppError(result.error, 400, result.code || 'SPIN_ERROR');
+      }
+
+      // Route notifications for manual service & trade dispatch
+      if (result.prize.delivery_mode === 'manual_service') {
+        NotificationService.alertAdminManualServiceGachaWin(
+          params.telegramId,
+          result.prize.title,
+          result.claim.id
+        ).catch(console.error);
+      } else if (result.prize.delivery_mode === 'trade_item') {
+        NotificationService.alertAdminTradeItemGachaWin(
+          params.telegramId,
+          result.prize.title,
+          result.claim.id,
+          result.claim.delivery_data?.trade_id
+        ).catch(console.error);
+      }
+
+      // If Mythical Win, send immediate alert to Admin Bot!
+      if (result.prize.rarity === 'MYTHICAL') {
+        NotificationService.alertAdminMythicalGachaWin(
+          params.telegramId,
+          result.prize.title
+        ).catch(console.error);
+      }
+
+      return result as {
+        spin: GachaSpin;
+        claim: GachaClaim;
+        prize: GachaPrize;
+        ticketsRemaining?: number;
+        nextRollAt?: string;
+      };
+    });
   }
 
   static buyTickets(telegramId: number, quantity: number = 1) {

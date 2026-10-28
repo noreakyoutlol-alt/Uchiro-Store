@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import app from '../server';
+import productionApp from '../production';
 import { DataStore } from '../database/data-store';
 import { env } from '../config/env';
 import { mintAdminSessionToken } from '../auth/admin-session';
@@ -143,6 +144,19 @@ describe('Product Image Gallery & Media Management (Prompt 3)', () => {
       // Must start with http or https
       expect(res.body.url.startsWith('http://') || res.body.url.startsWith('https://')).toBe(true);
       expect(res.body.mime).toBe('image/png');
+    });
+
+    it('productionApp also registers uploadRouter and handles upload successfully', async () => {
+      const res = await request(productionApp)
+        .post('/api/admin/products/upload-image')
+        .set('x-admin-session', adminSessionToken)
+        .field('product_id', testProductId)
+        .attach('image', validPngBuffer, 'prod-test.png');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.url).toBeDefined();
+      expect(res.body.url.startsWith('http://') || res.body.url.startsWith('https://')).toBe(true);
     });
   });
 

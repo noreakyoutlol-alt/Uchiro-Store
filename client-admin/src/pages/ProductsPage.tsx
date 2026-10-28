@@ -288,7 +288,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
         price: Number(price) || 0,
         stock: deliveryMode === 'auto_account' ? 0 : Number(stock) || 0,
         delivery_mode: deliveryMode,
-        warranty_days: deliveryMode === 'auto_account' ? Number(warrantyDays) || 14 : Number(warrantyDays) || 0,
+        warranty_days: deliveryMode === 'auto_account' ? Number(warrantyDays) || 14 : 0,
         requires_roblox_username:
           deliveryMode === 'manual_service' || deliveryMode === 'trade_item' || selectedProductType === 'gift' || selectedProductType === 'trade'
             ? true
@@ -610,7 +610,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                   <div>
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold mb-0.5">
                       <span>{cat?.name || 'Roblox Game'}</span>
-                      {p.warranty_days ? (
+                      {p.delivery_mode === 'auto_account' && p.warranty_days ? (
                         <span>• {p.warranty_days}d Warranty</span>
                       ) : null}
                       {p.requires_roblox_username ? (

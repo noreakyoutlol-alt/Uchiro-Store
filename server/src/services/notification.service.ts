@@ -1,6 +1,6 @@
 ﻿import axios from 'axios';
 import { env } from '../config/env';
-import { resolveStoreUrl } from '../config/app-url';
+import { resolveStoreUrl, resolveAdminPortalUrl } from '../config/app-url';
 import { formatTelegramHtml } from '../bots/store-bot';
 import { formatShortOrderId } from '../utils/order.util';
 import { DataStore } from '../database/data-store';
@@ -12,6 +12,14 @@ export class NotificationService {
 
   private static getAdminBotToken(): string {
     return env.ADMIN_BOT_TOKEN || '';
+  }
+
+  private static getAdminPortalUrl(): string {
+    return (
+      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
+      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
+      resolveAdminPortalUrl()
+    );
   }
 
   public static isTestRunner(): boolean {
@@ -241,6 +249,11 @@ export class NotificationService {
     }
 
     const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+    const order = DataStore.getOrderByNumber(orderNumber) || DataStore.getOrderById(orderNumber);
+    const isAccount = order ? order.delivery_mode === 'auto_account' : false;
+    const warrantyLineKm = isAccount && warrantyDuration && warrantyDuration !== 'No Warranty' ? `<b>ការធានា:</b> ${warrantyDuration}\n` : '';
+    const warrantyLineEn = isAccount && warrantyDuration && warrantyDuration !== 'No Warranty' ? `<b>Warranty:</b> ${warrantyDuration}\n` : '';
+
     const text =
       lang === 'km'
         ? `✅ <b>ការទូទាត់ត្រូវបានបញ្ជាក់ — UCHIRO STORE</b>\n\n` +
@@ -248,14 +261,14 @@ export class NotificationService {
           `<b>ផលិតផល:</b> ${productTitle}\n` +
           `<b>ចំនួនទឹកប្រាក់:</b> $${amount.toFixed(2)} USD\n` +
           `<b>ស្ថានភាពបញ្ជូន:</b> ${deliveryStatus.toUpperCase()}\n` +
-          `<b>ការធានា:</b> ${warrantyDuration}\n\n` +
+          warrantyLineKm + '\n' +
           `សូមអរគុណសម្រាប់ការទិញទំនិញ! ចុចប៊ូតុងខាងក្រោមដើម្បីមើលវិក្កយបត្រ ឬបើកការបញ្ជូនទំនិញរបស់អ្នក។`
         : `✅ <b>PAYMENT CONFIRMED — UCHIRO STORE</b>\n\n` +
           `<b>Order ID:</b> #${orderNumber}\n` +
           `<b>Product:</b> ${productTitle}\n` +
           `<b>Amount:</b> $${amount.toFixed(2)} USD\n` +
           `<b>Delivery Status:</b> ${deliveryStatus.toUpperCase()}\n` +
-          `<b>Warranty:</b> ${warrantyDuration}\n\n` +
+          warrantyLineEn + '\n' +
           `Thank you for your purchase! Tap below to view your official receipt or open your secure delivery.`;
 
     const defaultAppUrl = resolveStoreUrl();
@@ -331,18 +344,56 @@ export class NotificationService {
     }
 
     const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
-    const text =
-      lang === 'km'
-        ? `🎉 <b>ការបញ្ជូនទំនិញជោគជ័យ — UCHIRO STORE</b>\n\n` +
-          `<b>ផលិតផល:</b> ${productTitle}\n` +
-          `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n\n` +
-          `ការទិញរបស់អ្នកត្រូវបានផ្ទៀងផ្ទាត់ និងបញ្ជូនដោយជោគជ័យ ព្រមទាំងមានការធានាការពាររយៈពេល 14 ថ្ងៃពេញលេញ។\n` +
-          `ចុចប៊ូតុងខាងក្រោមដើម្បីបើកកាតាបសុវត្ថិភាព មើលគណនី និងបង្កើតកូដ 2FA Live:`
-        : `🎉 <b>ORDER DELIVERED — UCHIRO STORE</b>\n\n` +
-          `<b>Product:</b> ${productTitle}\n` +
-          `<b>Order:</b> #${orderNumber}\n\n` +
-          `Your purchase has been verified and securely fulfilled with full 14-day warranty protection.\n` +
-          `Tap below to open your secure vault, view credentials, and generate live authenticator codes:`;
+    const order = DataStore.getOrderByNumber(orderNumber) || DataStore.getOrderById(orderNumber);
+    const mode = order?.delivery_mode;
+    const isGift = mode === 'manual_service';
+    const isCode = mode === 'digital_code';
+
+    let text: string;
+    let buttonLabel = '🔐 OPEN SECURE DELIVERY';
+
+    if (isGift) {
+      buttonLabel = '🎁 VIEW ORDER RECEIPT';
+      text =
+        lang === 'km'
+          ? `🎉 <b>ការប្រគល់កាដូជោគជ័យ — UCHIRO STORE</b>\n\n` +
+            `<b>ផលិតផល:</b> ${productTitle}\n` +
+            `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n\n` +
+            `ទំនិញកាដូរបស់អ្នកត្រូវបានផ្ញើជូនទៅកាន់គណនី Roblox របស់អ្នកដោយជោគជ័យ!\n` +
+            `ចុចប៊ូតុងខាងក្រោមដើម្បីពិនិត្យមើលបង្កាន់ដៃ និងព័ត៌មានលម្អិតនៃការបញ្ជាទិញ:`
+          : `🎉 <b>GIFT FULFILLED — UCHIRO STORE</b>\n\n` +
+            `<b>Product:</b> ${productTitle}\n` +
+            `<b>Order:</b> #${orderNumber}\n\n` +
+            `Your gift item has been sent directly to your Roblox account in-game!\n` +
+            `Tap below to view your order receipt and delivery details:`;
+    } else if (isCode) {
+      buttonLabel = '🔑 VIEW DIGITAL CODE';
+      text =
+        lang === 'km'
+          ? `🎉 <b>ការបញ្ជូនកូដជោគជ័យ — UCHIRO STORE</b>\n\n` +
+            `<b>ផលិតផល:</b> ${productTitle}\n` +
+            `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n\n` +
+            `កូដឌីជីថលរបស់អ្នកត្រូវបានបង្កើតដោយជោគជ័យ!\n` +
+            `ចុចប៊ូតុងខាងក្រោមដើម្បីមើលកូដឌីជីថលរបស់អ្នក:`
+          : `🎉 <b>CODE DELIVERED — UCHIRO STORE</b>\n\n` +
+            `<b>Product:</b> ${productTitle}\n` +
+            `<b>Order:</b> #${orderNumber}\n\n` +
+            `Your digital key has been generated successfully!\n` +
+            `Tap below to view your activation code:`;
+    } else {
+      text =
+        lang === 'km'
+          ? `🎉 <b>ការបញ្ជូនទំនិញជោគជ័យ — UCHIRO STORE</b>\n\n` +
+            `<b>ផលិតផល:</b> ${productTitle}\n` +
+            `<b>លេខបញ្ជាទិញ:</b> #${orderNumber}\n\n` +
+            `ការទិញរបស់អ្នកត្រូវបានផ្ទៀងផ្ទាត់ និងបញ្ជូនដោយជោគជ័យ ព្រមទាំងមានការធានាការពាររយៈពេល 14 ថ្ងៃពេញលេញ។\n` +
+            `ចុចប៊ូតុងខាងក្រោមដើម្បីបើកកាតាបសុវត្ថិភាព មើលគណនី និងបង្កើតកូដ 2FA Live:`
+          : `🎉 <b>ORDER DELIVERED — UCHIRO STORE</b>\n\n` +
+            `<b>Product:</b> ${productTitle}\n` +
+            `<b>Order:</b> #${orderNumber}\n\n` +
+            `Your purchase has been verified and securely fulfilled with full 14-day warranty protection.\n` +
+            `Tap below to open your secure vault, view credentials, and generate live authenticator codes:`;
+    }
 
     const defaultAppUrl = resolveStoreUrl();
     const webAppUrl =
@@ -353,7 +404,7 @@ export class NotificationService {
     await this.sendStoreBotMessage(telegramId, text, {
       inline_keyboard: [
         [
-          this.createSafeButton('🔐 OPEN SECURE DELIVERY', `${webAppUrl}?order=${orderNumber}`),
+          this.createSafeButton(buttonLabel, `${webAppUrl}?order=${orderNumber}`),
         ],
       ],
     });
@@ -471,16 +522,13 @@ export class NotificationService {
       `👤 <b>Customer TG ID:</b> <code>${customerTelegramId}</code>\n\n` +
       `Verified real transaction.`;
 
-    const defaultAppUrl = resolveStoreUrl();
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
+    const adminPortalUrl = this.getAdminPortalUrl();
 
     await this.sendAdminBotAlert(text, {
       inline_keyboard: [
         [
-          this.createSafeButton('🛡️ OPEN ADMIN PORTAL', `${adminWebUrl}/orders?order=${orderId}`),
+          { text: '✅ Confirm & Mark Delivered', callback_data: `admin_fulfill_order:${orderId}` },
+          this.createSafeButton('🛡️ OPEN ADMIN PORTAL', `${adminPortalUrl}/orders?order=${orderId}`),
         ],
       ],
     });
@@ -514,28 +562,35 @@ export class NotificationService {
       : `https://www.roblox.com/search/users?keyword=${encodeURIComponent(robloxUsername)}`;
 
     const text =
-      `🎁 <b>ROBLOX GIFT CLAIM</b>\n\n` +
+      `🎁 <b>ROBLOX GIFT CLAIM [ADMIN NOTIFICATION]</b>\n\n` +
       `👤 <b>Roblox Name:</b> <code>${robloxUsername}</code>\n` +
       `🔗 <b>Profile Link:</b> <a href="${profileUrl}">${profileUrl}</a>\n` +
       (extra?.itemTitle ? `📦 <b>Item:</b> <b>${extra.itemTitle}</b>\n` : '') +
       (extra?.amount !== undefined ? `💵 <b>Paid:</b> $${extra.amount.toFixed(2)} USD\n` : '') +
-      (extra?.orderId ? `🆔 <b>Order:</b> <code>${formatShortOrderId(extra.orderId)}</code>\n` : '') +
+      (extra?.orderId ? `🆔 <b>Order ID:</b> <code>${formatShortOrderId(extra.orderId)}</code>\n` : '') +
       (extra?.telegramId ? `📱 <b>Customer TG ID:</b> <code>${extra.telegramId}</code>\n` : '') +
-      `\n⚠️ <b>Awaiting admin friending on Roblox to deliver gift!</b>`;
+      `\n⚠️ <b>Awaiting admin friending on Roblox to deliver gift in-game!</b>`;
 
-    const defaultAppUrl = resolveStoreUrl();
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
+    const adminPortalUrl = this.getAdminPortalUrl();
+    const orderIdentifier = extra?.orderId || '';
+
+    const keyboardRows: any[][] = [];
+    const actionRow: any[] = [];
+    if (profileUrl) {
+      actionRow.push({ text: '👤 Friend on Roblox', url: profileUrl });
+    }
+    if (orderIdentifier) {
+      actionRow.push({ text: '✅ Confirm & Mark Delivered', callback_data: `admin_fulfill_order:${orderIdentifier}` });
+    }
+    if (actionRow.length > 0) {
+      keyboardRows.push(actionRow);
+    }
+    keyboardRows.push([
+      this.createSafeButton('🛡️ OPEN ADMIN PORTAL', `${adminPortalUrl}/orders?order=${orderIdentifier}`),
+    ]);
 
     await this.sendAdminBotAlert(text, {
-      inline_keyboard: [
-        [
-          { text: '👤 Friend on Roblox', url: profileUrl },
-          this.createSafeButton('🛡️ ADMIN PORTAL', `${adminWebUrl}/orders`),
-        ],
-      ],
+      inline_keyboard: keyboardRows,
     });
   }
 
@@ -562,26 +617,30 @@ export class NotificationService {
     }
 
     const text =
-      `🤝 <b>TRADE CLAIM</b>\n\n` +
+      `🤝 <b>TRADE CLAIM [ADMIN NOTIFICATION]</b>\n\n` +
       `👤 <b>Roblox Name:</b> <code>${robloxUsername}</code>\n` +
       (extra?.telegramId ? `📱 <b>Customer TG ID:</b> <code>${extra.telegramId}</code>\n` : '') +
       (extra?.itemTitle ? `📦 <b>Item to Trade:</b> <b>${extra.itemTitle}</b>\n` : '') +
-      (extra?.orderId ? `🆔 <b>Order:</b> <code>${formatShortOrderId(extra.orderId)}</code>\n` : '') +
+      (extra?.orderId ? `🆔 <b>Order ID:</b> <code>${formatShortOrderId(extra.orderId)}</code>\n` : '') +
       (extra?.rendezvousDetails ? `📍 <b>Rendezvous:</b> ${extra.rendezvousDetails}\n` : '') +
       `\n⚠️ <b>Customer is awaiting trade rendezvous in-game.</b>`;
 
-    const defaultAppUrl = resolveStoreUrl();
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
+    const adminPortalUrl = this.getAdminPortalUrl();
+    const orderIdentifier = extra?.orderId || '';
+
+    const keyboardRows: any[][] = [];
+    const actionRow: any[] = [];
+    actionRow.push({ text: '👤 Search Roblox User', url: `https://www.roblox.com/search/users?keyword=${encodeURIComponent(robloxUsername)}` });
+    if (orderIdentifier) {
+      actionRow.push({ text: '✅ Confirm & Mark Delivered', callback_data: `admin_fulfill_order:${orderIdentifier}` });
+    }
+    keyboardRows.push(actionRow);
+    keyboardRows.push([
+      this.createSafeButton('🛡️ OPEN ADMIN PORTAL', `${adminPortalUrl}/orders`),
+    ]);
 
     await this.sendAdminBotAlert(text, {
-      inline_keyboard: [
-        [
-          this.createSafeButton('🛡️ ADMIN PORTAL', `${adminWebUrl}/orders`),
-        ],
-      ],
+      inline_keyboard: keyboardRows,
     });
   }
 
@@ -630,10 +689,16 @@ export class NotificationService {
       return;
     }
 
+    const profileUrl = extraInfo?.robloxUserId
+      ? `https://www.roblox.com/users/${extraInfo.robloxUserId}/profile`
+      : robloxUsername
+      ? `https://www.roblox.com/search/users?keyword=${encodeURIComponent(robloxUsername)}`
+      : undefined;
+
     const text =
       `🎁 <b>ACTION REQUIRED: ADMIN MANUAL GIFT/TRADE DELIVERY</b>\n\n` +
       `<b>Order:</b> <code>${formatShortOrderId(orderNumber)}</code>\n` +
-      (extraInfo?.orderId ? `🆔 <b>Order:</b> <code>${formatShortOrderId(extraInfo.orderId)}</code>\n` : '') +
+      (extraInfo?.orderId ? `🆔 <b>Order ID:</b> <code>${formatShortOrderId(extraInfo.orderId)}</code>\n` : '') +
       `<b>Product Name:</b> <b>${productTitle}</b>\n` +
       (extraInfo?.category ? `<b>Category:</b> ${extraInfo.category}\n` : '') +
       (extraInfo?.amount !== undefined ? `<b>Paid Amount:</b> $${extraInfo.amount.toFixed(2)}\n` : '') +
@@ -644,18 +709,22 @@ export class NotificationService {
       (extraInfo?.status ? `<b>Status:</b> <code>${extraInfo.status}</code>\n` : '') +
       `\n⚠️ <b>Please log into Roblox and deliver this order to the customer!</b>`;
 
-    const defaultAppUrl = resolveStoreUrl();
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
+    const adminPortalUrl = this.getAdminPortalUrl();
+    const orderIdentifier = extraInfo?.orderId || orderNumber;
+
+    const keyboardRows: any[][] = [];
+    const actionRow: any[] = [];
+    if (profileUrl) {
+      actionRow.push({ text: '👤 Friend on Roblox', url: profileUrl });
+    }
+    actionRow.push({ text: '✅ Confirm & Mark Delivered', callback_data: `admin_fulfill_order:${orderIdentifier}` });
+    keyboardRows.push(actionRow);
+    keyboardRows.push([
+      this.createSafeButton('📦 OPEN IN ADMIN PANEL', `${adminPortalUrl}/orders?order=${orderNumber}`),
+    ]);
 
     await this.sendAdminBotAlert(text, {
-      inline_keyboard: [
-        [
-          this.createSafeButton('📦 OPEN ORDER IN ADMIN PANEL', `${adminWebUrl}/orders?order=${orderNumber}`),
-        ],
-      ],
+      inline_keyboard: keyboardRows,
     });
   }
 
@@ -677,16 +746,12 @@ export class NotificationService {
       `Prize: <b>${prizeTitle}</b>\n` +
       `Status: Pending manual claim review.`;
 
-    const defaultAppUrl = resolveStoreUrl();
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
+    const adminPortalUrl = this.getAdminPortalUrl();
 
     await this.sendAdminBotAlert(text, {
       inline_keyboard: [
         [
-          this.createSafeButton('🎁 VIEW CLAIMS', `${adminWebUrl}/claims`),
+          this.createSafeButton('🎁 VIEW CLAIMS', `${adminPortalUrl}/claims`),
         ],
       ],
     });
@@ -713,16 +778,12 @@ export class NotificationService {
       `<b>Verification:</b> Roblox recipient verification required.\n` +
       `Please verify user credentials in Roblox before manual service fulfillment.`;
 
-    const defaultAppUrl = resolveStoreUrl();
-    const adminWebUrl =
-      (env.ADMIN_WEBAPP_URL?.startsWith('https://') && env.ADMIN_WEBAPP_URL) ||
-      (env.CLIENT_ADMIN_URL?.startsWith('https://') && env.CLIENT_ADMIN_URL) ||
-      `${defaultAppUrl}/admin`;
+    const adminPortalUrl = this.getAdminPortalUrl();
 
     await this.sendAdminBotAlert(text, {
       inline_keyboard: [
         [
-          this.createSafeButton('🎁 VIEW CLAIM', `${adminWebUrl}/claims?claim=${claimId}`),
+          this.createSafeButton('🎁 VIEW CLAIM', `${adminPortalUrl}/claims?claim=${claimId}`),
         ],
       ],
     });

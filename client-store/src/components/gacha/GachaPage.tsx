@@ -60,7 +60,7 @@ export const RARITY_CONFIG: Record<
     glowColor: 'rgba(113, 113, 122, 0.25)',
     accentColor: '#71717A',
     textColor: 'text-zinc-400',
-    dropRate: '50.0%',
+    dropRate: '70.0%',
     bgGradient: 'from-zinc-900 to-zinc-950',
     pillBg: 'bg-zinc-800/80 text-zinc-300 border-zinc-700/60',
   },
@@ -71,7 +71,7 @@ export const RARITY_CONFIG: Record<
     glowColor: 'rgba(59, 130, 246, 0.35)',
     accentColor: '#3B82F6',
     textColor: 'text-blue-400',
-    dropRate: '28.0%',
+    dropRate: '20.0%',
     bgGradient: 'from-blue-950/80 to-slate-950',
     pillBg: 'bg-blue-950/80 text-blue-300 border-blue-500/40',
   },
@@ -82,7 +82,7 @@ export const RARITY_CONFIG: Record<
     glowColor: 'rgba(168, 85, 247, 0.40)',
     accentColor: '#A855F7',
     textColor: 'text-purple-400',
-    dropRate: '14.0%',
+    dropRate: '7.0%',
     bgGradient: 'from-purple-950/80 to-slate-950',
     pillBg: 'bg-purple-950/80 text-purple-300 border-purple-500/40',
   },
@@ -93,7 +93,7 @@ export const RARITY_CONFIG: Record<
     glowColor: 'rgba(245, 158, 11, 0.45)',
     accentColor: '#F59E0B',
     textColor: 'text-amber-400',
-    dropRate: '6.5%',
+    dropRate: '2.5%',
     bgGradient: 'from-amber-950/80 to-slate-950',
     pillBg: 'bg-amber-950/80 text-amber-300 border-amber-500/40',
   },
@@ -104,7 +104,7 @@ export const RARITY_CONFIG: Record<
     glowColor: 'rgba(239, 68, 68, 0.55)',
     accentColor: '#EF4444',
     textColor: 'text-rose-400',
-    dropRate: '1.5%',
+    dropRate: '0.5%',
     bgGradient: 'from-rose-950/80 to-slate-950',
     pillBg: 'bg-rose-950/80 text-rose-300 border-rose-500/50',
   },
@@ -374,17 +374,18 @@ export const GachaPage: React.FC<GachaPageProps> = ({
   // =========================================================================
   const handleRoll = async (spinsCount: number = 1) => {
     if (!activePool || isSpinning) return;
+    if (spinsCount > 1) {
+      setErrorMsg('Only single spins (1 spin per request) are permitted.');
+      triggerHaptic('warning');
+      return;
+    }
     if (cooldownSeconds > 0) {
       setErrorMsg(`Cooldown active. Wait ${formatCountdown(cooldownSeconds)}.`);
       triggerHaptic('warning');
       return;
     }
-    if (tickets < spinsCount) {
-      setErrorMsg(
-        spinsCount > 1
-          ? `You need ${spinsCount} tickets for 10x Spin.`
-          : 'You need at least 1 ticket to spin.'
-      );
+    if (tickets < 1) {
+      setErrorMsg('You need at least 1 ticket to spin.');
       triggerHaptic('warning');
       return;
     }
@@ -397,10 +398,10 @@ export const GachaPage: React.FC<GachaPageProps> = ({
     triggerHaptic('medium');
 
     try {
-      // 1. Request Server Roll (Server chooses authoritatively)
+      // 1. Request Server Roll (Server chooses authoritatively, single-spin enforced)
       const res = await StoreAPI.spinGacha({
         poolId: activePool.id,
-        rollType: spinsCount > 1 ? 'multi' : 'single',
+        rollType: 'single',
       });
       const serverWinningPrize: GachaPrize = res.prize;
 
@@ -729,14 +730,14 @@ export const GachaPage: React.FC<GachaPageProps> = ({
           </div>
         </div>
 
-        {/* PRIMARY SPIN CONTROLS: 1X & 10X */}
-        <div className="grid grid-cols-2 gap-2 pt-0.5">
+        {/* PRIMARY SPIN CONTROL: 1X (Single Spin Enforced) */}
+        <div className="pt-0.5">
           {/* Spin 1x Button (Gold Luxury Gradient) */}
           <button
             type="button"
             disabled={isSpinning || cooldownSeconds > 0 || tickets < 1}
             onClick={() => handleRoll(1)}
-            className={`min-h-[44px] rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
+            className={`w-full min-h-[44px] rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
               isSpinning
                 ? 'bg-zinc-800 text-zinc-400 border border-white/10 cursor-wait'
                 : cooldownSeconds > 0
@@ -761,35 +762,6 @@ export const GachaPage: React.FC<GachaPageProps> = ({
                 <Sparkles className="w-4 h-4 text-black fill-black" />
                 <span>SPIN 1X</span>
                 <span className="text-[10px] font-bold opacity-80">(1 🎟️)</span>
-              </>
-            )}
-          </button>
-
-          {/* Spin 10x Button (Purple Neon Luxury Gradient) */}
-          <button
-            type="button"
-            disabled={isSpinning || cooldownSeconds > 0 || tickets < 10}
-            onClick={() => handleRoll(10)}
-            className={`min-h-[44px] rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
-              isSpinning
-                ? 'bg-zinc-800 text-zinc-400 border border-white/10 cursor-wait'
-                : cooldownSeconds > 0
-                ? 'bg-[#151928] text-zinc-400 border border-white/10 cursor-not-allowed'
-                : tickets >= 10
-                ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 text-white shadow-purple-500/25 active:scale-[0.98] hover:brightness-110'
-                : 'bg-zinc-800/50 text-zinc-500 border border-white/5 cursor-not-allowed'
-            }`}
-          >
-            {isSpinning ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                <span>SPINNING...</span>
-              </>
-            ) : (
-              <>
-                <Ticket className="w-4 h-4 text-purple-300" />
-                <span>SPIN 10X</span>
-                <span className="text-[10px] font-bold opacity-80">(10 🎟️)</span>
               </>
             )}
           </button>

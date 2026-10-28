@@ -290,30 +290,36 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   {selectedOrder.status}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-400">
-                <span>14-Day Warranty Protection:</span>
-                <span className="font-bold text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>14 Days Active</span>
-                </span>
-              </div>
+              {selectedOrder.delivery_mode === 'auto_account' && (
+                <div className="flex justify-between text-slate-400">
+                  <span>14-Day Warranty Protection:</span>
+                  <span className="font-bold text-emerald-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>14 Days Active</span>
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* If Already Delivered: Warranty & Re-delivery Actions */}
             {(selectedOrder.status === 'delivered' || selectedOrder.status === 'completed') ? (
               <div className="space-y-3 pt-2">
                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
-                  This order was delivered. You can issue a 14-day warranty replacement, re-deliver credentials to customer, or invalidate warranty.
+                  {selectedOrder.delivery_mode === 'auto_account'
+                    ? 'This Roblox account order was delivered. You can issue a 14-day warranty replacement, re-deliver credentials to customer, or invalidate warranty.'
+                    : 'This order was delivered. You can re-deliver order details to customer.'}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setShowWarrantyReplaceModal(true)}
-                    className="py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Warranty Replacement</span>
-                  </button>
+                  {selectedOrder.delivery_mode === 'auto_account' && (
+                    <button
+                      onClick={() => setShowWarrantyReplaceModal(true)}
+                      className="py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Warranty Replacement</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={handleReDeliver}
@@ -324,13 +330,15 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                   </button>
                 </div>
 
-                <button
-                  onClick={handleInvalidateWarranty}
-                  className="w-full py-2 px-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 hover:bg-rose-900/60 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
-                >
-                  <ShieldAlert className="w-4 h-4 text-rose-400" />
-                  <span>Invalidate Warranty Coverage</span>
-                </button>
+                {selectedOrder.delivery_mode === 'auto_account' && (
+                  <button
+                    onClick={handleInvalidateWarranty}
+                    className="w-full py-2 px-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 hover:bg-rose-900/60 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <ShieldAlert className="w-4 h-4 text-rose-400" />
+                    <span>Invalidate Warranty Coverage</span>
+                  </button>
+                )}
               </div>
             ) : (
               /* Fulfillment Form */

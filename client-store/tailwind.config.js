@@ -28,8 +28,8 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', '"Kantumruy Pro"', 'sans-serif'],
-        display: ['"Space Grotesk"', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '"Kantumruy Pro"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        display: ['"Space Grotesk"', '"Kantumruy Pro"', '"Plus Jakarta Sans"', 'sans-serif'],
       },
       animation: {
         'cloud-pulse': 'cloudPulse 4s ease-in-out infinite',

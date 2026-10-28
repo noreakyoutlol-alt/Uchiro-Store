@@ -353,50 +353,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             </span>
           </div>
         </div>
-
-        {/* My Vault Entry Banner */}
-        <button
-          type="button"
-          onClick={() => onNavigateToTab('vault')}
-          className="w-full mt-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-[#FFD166]/10 to-amber-500/15 border border-[#FFD166]/30 flex items-center justify-between text-xs font-bold text-white hover:brightness-110 transition-all"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-base">🎒</span>
-            <div className="text-left">
-              <span className="block text-white leading-tight">
-                My Vault & Accounts
-              </span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                View Usernames, Passwords & 2FA
-              </span>
-            </div>
-          </div>
-          <span className="text-[11px] text-[#FFD166] flex items-center gap-1">
-            Open →
-          </span>
-        </button>
-
-        {/* Redeem Code Entry Banner (Prompt 12) */}
-        <button
-          type="button"
-          onClick={() => setIsRedeemModalOpen(true)}
-          className="w-full mt-2 p-2.5 rounded-xl bg-gradient-to-r from-indigo-500/15 via-amber-500/10 to-indigo-500/15 border border-amber-500/30 flex items-center justify-between text-xs font-bold text-white hover:brightness-110 transition-all cursor-pointer shadow-sm active:scale-98"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-base">🎟️</span>
-            <div className="text-left">
-              <span className="block text-white leading-tight font-black">
-                {t('redeem_code_entry_title')}
-              </span>
-              <span className="text-[10px] text-slate-300 font-normal">
-                {t('redeem_code_entry_desc')}
-              </span>
-            </div>
-          </div>
-          <span className="text-[11px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30 flex items-center gap-1">
-            Redeem →
-          </span>
-        </button>
       </div>
 
       {/* 2. Daily Check-in Reward (Section 30: Dedicated in Profile / Rewards) */}
@@ -730,7 +686,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
         </div>
       </div>
 
-      {/* 4. My Orders Section */}
+      {/* 5. My Orders Section */}
       <div ref={orderHistoryRef} className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-black text-white uppercase tracking-wider">
@@ -850,6 +806,55 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
             <span>Chat with Admin / Support (24/7)</span>
           </a>
         </div>
+      </div>
+
+      {/* 7. Action Cards: My Vault & Accounts and Redeem Code (Near bottom of Profile page, above footer) */}
+      <div className="space-y-2 pt-1">
+        {/* Card 1: My Vault & Accounts */}
+        <button
+          type="button"
+          onClick={() => onNavigateToTab('vault')}
+          className="w-full p-3 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-[#FFD166]/30 flex items-center justify-between text-xs font-bold text-white hover:brightness-110 transition-all shadow-md active:scale-98"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">🎒</span>
+            <div className="text-left">
+              <span className="block text-white leading-tight font-black">
+                {language === 'km' ? 'កាបូប & គណនីរបស់ខ្ញុំ' : 'My Vault & Accounts'}
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                {language === 'km' ? 'មើលឈ្មោះគណនី លេខសម្ងាត់ និង 2FA' : 'View Usernames, Passwords & 2FA'}
+              </span>
+            </div>
+          </div>
+          <span className="text-[11px] text-[#FFD166] font-bold flex items-center gap-1">
+            Open →
+          </span>
+        </button>
+
+        {/* Card 2: Redeem Code */}
+        <button
+          type="button"
+          onClick={() => setIsRedeemModalOpen(true)}
+          className="w-full p-3 rounded-2xl bg-[#0C101D]/90 backdrop-blur-md border border-amber-500/30 flex items-center justify-between text-xs font-bold text-white hover:brightness-110 transition-all cursor-pointer shadow-md active:scale-98"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">🎟️</span>
+            <div className="text-left">
+              <span className="block text-white leading-tight font-black">
+                {language === 'km' ? 'ប្តូរកូដរង្វាន់ (Redeem Code)' : 'Redeem Promo Code'}
+              </span>
+              <span className="text-[10px] text-slate-300 font-normal">
+                {language === 'km'
+                  ? 'បញ្ចូលកូដប្រូម៉ូសិន ឬកូដកាដូរបស់អ្នក ដើម្បីទទួលបានពិន្ទុ សំបុត្រកាឆា ឬប័ណ្ណបញ្ចុះតម្លៃ។'
+                  : 'Enter your promo or gift code to claim Points, Gacha Tickets, or Discount Coupons.'}
+              </span>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30 flex items-center gap-1">
+            Redeem →
+          </span>
+        </button>
       </div>
 
       <RedeemCodeModal

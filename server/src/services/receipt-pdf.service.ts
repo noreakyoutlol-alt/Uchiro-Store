@@ -240,42 +240,45 @@ export function buildReceiptPdfBuffer(receipt: OrderReceipt): Buffer {
   stream.push(`($${receipt.amount.toFixed(2)} USD) Tj`);
   stream.push('ET');
 
-  // Warranty Card
+  // Warranty Card (Roblox Accounts only)
+  const isAccountReceipt = receipt.warranty_duration && receipt.warranty_duration !== 'N/A' && receipt.warranty_starts_at;
   const warY = totalY - 110;
-  stream.push('0.055 0.071 0.102 rg');
-  stream.push(`56 ${warY} ${cardW - 40} 95 re f`);
-  stream.push('0.204 0.780 0.447 RG'); // Green accent border
-  stream.push('1 w');
-  stream.push(`56 ${warY} ${cardW - 40} 95 re S`);
+  if (isAccountReceipt) {
+    stream.push('0.055 0.071 0.102 rg');
+    stream.push(`56 ${warY} ${cardW - 40} 95 re f`);
+    stream.push('0.204 0.780 0.447 RG'); // Green accent border
+    stream.push('1 w');
+    stream.push(`56 ${warY} ${cardW - 40} 95 re S`);
 
-  stream.push('BT');
-  stream.push('/F2 12 Tf');
-  stream.push('0.204 0.780 0.447 rg');
-  stream.push(`72 ${warY + 70} Td`);
-  stream.push('(OFFICIAL WARRANTY & REPLACEMENT PROTECTION) Tj');
-  stream.push('ET');
+    stream.push('BT');
+    stream.push('/F2 12 Tf');
+    stream.push('0.204 0.780 0.447 rg');
+    stream.push(`72 ${warY + 70} Td`);
+    stream.push('(OFFICIAL WARRANTY & REPLACEMENT PROTECTION) Tj');
+    stream.push('ET');
 
-  stream.push('BT');
-  stream.push('/F2 10 Tf');
-  stream.push('1.000 1.000 1.000 rg');
-  stream.push(`72 ${warY + 50} Td`);
-  stream.push(`(Warranty Duration: ${escapePdfText(receipt.warranty_duration)}) Tj`);
-  stream.push('ET');
+    stream.push('BT');
+    stream.push('/F2 10 Tf');
+    stream.push('1.000 1.000 1.000 rg');
+    stream.push(`72 ${warY + 50} Td`);
+    stream.push(`(Warranty Duration: ${escapePdfText(receipt.warranty_duration)}) Tj`);
+    stream.push('ET');
 
-  const warStartDate = receipt.warranty_starts_at ? new Date(receipt.warranty_starts_at).toUTCString() : formattedDate;
-  stream.push('BT');
-  stream.push('/F1 9 Tf');
-  stream.push('0.750 0.780 0.840 rg');
-  stream.push(`72 ${warY + 32} Td`);
-  stream.push(`(Warranty Active Starting: ${escapePdfText(warStartDate)}) Tj`);
-  stream.push('ET');
+    const warStartDate = receipt.warranty_starts_at ? new Date(receipt.warranty_starts_at).toUTCString() : formattedDate;
+    stream.push('BT');
+    stream.push('/F1 9 Tf');
+    stream.push('0.750 0.780 0.840 rg');
+    stream.push(`72 ${warY + 32} Td`);
+    stream.push(`(Warranty Active Starting: ${escapePdfText(warStartDate)}) Tj`);
+    stream.push('ET');
 
-  stream.push('BT');
-  stream.push('/F1 8 Tf');
-  stream.push('0.550 0.600 0.680 rg');
-  stream.push(`72 ${warY + 15} Td`);
-  stream.push('(Coverage applies provided original recovery details remain untampered. 24/7 Support via Store Bot.) Tj');
-  stream.push('ET');
+    stream.push('BT');
+    stream.push('/F1 8 Tf');
+    stream.push('0.550 0.600 0.680 rg');
+    stream.push(`72 ${warY + 15} Td`);
+    stream.push('(Coverage applies provided original recovery details remain untampered. 24/7 Support via Store Bot.) Tj');
+    stream.push('ET');
+  }
 
   // Security Note Card
   const secY = warY - 80;

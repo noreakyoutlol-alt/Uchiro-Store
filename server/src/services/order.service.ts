@@ -217,20 +217,31 @@ export class OrderService {
     const productTitle = order.items?.[0]?.product_title || 'Gaming Product';
     const productId = order.items?.[0]?.product_id || '';
 
-    // Trigger Customer Payment Receipt Notification (Only for manual/trade/codes; auto_account receives official PDF receipt)
-    if (order.delivery_mode !== 'auto_account' && !order.receipt_notified && !(order as any).payment_receipt_sent) {
+    // Trigger Customer Payment Receipt Notification (auto_account receives official PDF receipt)
+    if (order.delivery_mode === 'auto_account') {
       order.receipt_notified = true;
       (order as any).payment_receipt_sent = true;
       DataStore.saveOrder(order);
+    } else if (!order.receipt_notified && !(order as any).payment_receipt_sent && !(order as any)._receipt_sending) {
+      (order as any)._receipt_sending = true;
       const warrantyDuration = `${order.warranty_days || 14} Days Replacement Warranty`;
-      NotificationService.notifyPaymentReceipt(
-        order.telegram_id,
-        order.order_number,
-        productTitle,
-        order.total_amount,
-        order.status,
-        warrantyDuration
-      ).catch(console.error);
+      try {
+        await NotificationService.notifyPaymentReceipt(
+          order.telegram_id,
+          order.order_number,
+          productTitle,
+          order.total_amount,
+          order.status,
+          warrantyDuration
+        );
+        order.receipt_notified = true;
+        (order as any).payment_receipt_sent = true;
+        (order as any)._receipt_sending = false;
+        DataStore.saveOrder(order);
+      } catch (err) {
+        (order as any)._receipt_sending = false;
+        console.error('[ORDER SERVICE] Payment receipt notification failed, keeping retryable:', err);
+      }
     }
 
     // 🚨 ADMIN ALERT DEDUP SYSTEM: Trigger ONCE and persist admin_notified: true
@@ -311,17 +322,20 @@ export class OrderService {
         // Dispatch full Telegram fulfillment workflow ONCE:
         // 1. Luxury PDF receipt (Payment confirmation)
         // 2. Interactive Main Delivery Card with live 2FA/warranty/QR (Order delivery notification)
-        if (!(order as any).delivery_notified) {
+        if (!(order as any).delivery_notified && !(order as any)._delivery_sending) {
+          (order as any)._delivery_sending = true;
           FulfillmentService.fulfillTelegramAccountOrder(order.telegram_id, order.id)
             .then((res) => {
               if (res && (res.pdfSent || res.messageSent)) {
                 (order as any).delivery_notified = true;
-                (order as any).receipt_notified = true;
+                order.receipt_notified = true;
                 (order as any).payment_receipt_sent = true;
                 DataStore.saveOrder(order);
               }
+              (order as any)._delivery_sending = false;
             })
             .catch((err) => {
+              (order as any)._delivery_sending = false;
               console.error('[FULFILLMENT] Delivery dispatch error, permitting safe retry:', err);
             });
         }
@@ -352,32 +366,42 @@ export class OrderService {
       const deliveredCodes = items.map((it) => ({
         type: 'code' as const,
         code: it.digital_code || `CODE-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-        warranty_days: 14,
       }));
 
       while (deliveredCodes.length < orderQty) {
         deliveredCodes.push({
           type: 'code',
           code: `CODE-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-          warranty_days: 14,
         });
       }
 
       order.delivery_credentials = deliveredCodes;
 
-      order.warranty_days = 14;
-      order.warranty_status = 'active';
-      order.warranty_starts_at = new Date().toISOString();
-      order.warranty_expires_at = new Date(Date.now() + 14 * 86400000).toISOString();
+      order.warranty_days = 0;
+      order.warranty_status = 'none';
+      order.warranty_starts_at = null;
+      order.warranty_expires_at = null;
 
       DataStore.updateOrderStatus(order.id, 'delivered');
       order.status = 'delivered';
 
-      NotificationService.notifyOrderDelivered(
-        order.telegram_id,
-        order.order_number,
-        itemTitleWithQty
-      ).catch(console.error);
+      if (!(order as any).delivery_notified && !(order as any)._delivery_sending) {
+        (order as any)._delivery_sending = true;
+        NotificationService.notifyOrderDelivered(
+          order.telegram_id,
+          order.order_number,
+          itemTitleWithQty
+        )
+          .then(() => {
+            (order as any).delivery_notified = true;
+            (order as any)._delivery_sending = false;
+            DataStore.saveOrder(order);
+          })
+          .catch((err) => {
+            (order as any)._delivery_sending = false;
+            console.error('[ORDER SERVICE] Digital code delivery notification failed, keeping retryable:', err);
+          });
+      }
     } else {
       // MODE C: MANUAL SERVICE FULFILLMENT (Gift Item / In-Game Trade)
       DataStore.updateOrderStatus(order.id, 'fulfillment');
@@ -389,7 +413,19 @@ export class OrderService {
         ? DataStore.getCategories().find((c) => c.id === productObj.category_id)
         : undefined;
 
-      NotificationService.notifyManualProcessing(order.telegram_id, order.order_number).catch(console.error);
+      if (!(order as any).fulfillment_notified && !(order as any)._fulfillment_sending) {
+        (order as any)._fulfillment_sending = true;
+        NotificationService.notifyManualProcessing(order.telegram_id, order.order_number)
+          .then(() => {
+            (order as any).fulfillment_notified = true;
+            (order as any)._fulfillment_sending = false;
+            DataStore.saveOrder(order);
+          })
+          .catch((err) => {
+            (order as any)._fulfillment_sending = false;
+            console.error('[ORDER SERVICE] Manual processing notification failed, keeping retryable:', err);
+          });
+      }
       NotificationService.alertAdminManualFulfillmentRequired(
         order.order_number,
         itemTitleWithQty,
@@ -472,18 +508,38 @@ export class OrderService {
 
     DataStore.updateOrderStatus(order.id, 'delivered', notes);
     order.status = 'delivered';
-    order.warranty_days = 14;
-    order.warranty_status = 'active';
-    order.warranty_starts_at = new Date().toISOString();
-    order.warranty_expires_at = new Date(Date.now() + 14 * 86400000).toISOString();
+    const isAccount = order.delivery_mode === 'auto_account';
+    if (isAccount) {
+      order.warranty_days = 14;
+      order.warranty_status = 'active';
+      order.warranty_starts_at = new Date().toISOString();
+      order.warranty_expires_at = new Date(Date.now() + 14 * 86400000).toISOString();
+    } else {
+      order.warranty_days = 0;
+      order.warranty_status = 'none';
+      order.warranty_starts_at = null;
+      order.warranty_expires_at = null;
+    }
 
     const productTitle = order.items?.[0]?.product_title || 'Gaming Product';
-    NotificationService.notifyOrderDelivered(
-      order.telegram_id,
-      order.order_number,
-      productTitle,
-      notes
-    ).catch(console.error);
+    if (!(order as any).delivery_notified && !(order as any)._delivery_sending) {
+      (order as any)._delivery_sending = true;
+      NotificationService.notifyOrderDelivered(
+        order.telegram_id,
+        order.order_number,
+        productTitle,
+        notes
+      )
+        .then(() => {
+          (order as any).delivery_notified = true;
+          (order as any)._delivery_sending = false;
+          DataStore.saveOrder(order);
+        })
+        .catch((err) => {
+          (order as any)._delivery_sending = false;
+          console.error('[ORDER SERVICE] Manual order delivery notification failed, keeping retryable:', err);
+        });
+    }
 
     return order;
   }
@@ -591,9 +647,9 @@ export class OrderService {
           order_number: order.order_number,
           delivery_mode: order.delivery_mode || 'manual_service',
           notes: order.fulfillment_notes || 'Staff coordination in progress',
-          warranty_days: order.warranty_days || 14,
-          warranty_status: order.warranty_status || 'active',
-          warranty_expires_at: order.warranty_expires_at,
+          warranty_days: 0,
+          warranty_status: 'none',
+          warranty_expires_at: null,
           authenticator: null,
         };
       }
@@ -616,9 +672,9 @@ export class OrderService {
         order_number: order.order_number,
         delivery_mode: 'digital_code',
         digital_code: cred.code || cred.digital_code,
-        warranty_days: order.warranty_days || 14,
-        warranty_status: order.warranty_status || 'active',
-        warranty_expires_at: order.warranty_expires_at,
+        warranty_days: 0,
+        warranty_status: 'none',
+        warranty_expires_at: null,
         authenticator: null,
       };
     }
@@ -789,9 +845,9 @@ export class OrderService {
       order_date: order.created_at,
       paid_at: payment?.paid_at || (order.status === 'paid' || order.status === 'delivered' ? order.updated_at : null),
       delivery_status: order.status,
-      warranty_duration: `${order.warranty_days || 14} Days`,
-      warranty_starts_at: order.warranty_starts_at || null,
-      warranty_expires_at: order.warranty_expires_at || null,
+      warranty_duration: order.delivery_mode === 'auto_account' ? `${order.warranty_days || 14} Days` : 'N/A',
+      warranty_starts_at: order.delivery_mode === 'auto_account' ? (order.warranty_starts_at || null) : null,
+      warranty_expires_at: order.delivery_mode === 'auto_account' ? (order.warranty_expires_at || null) : null,
     };
   }
 
@@ -799,18 +855,25 @@ export class OrderService {
   // and strictly sanitize any email-related fields from customer delivery responses.
   private static formatOrderForCustomer(order: Order): Order {
     const isDeliveredOrCompleted = order.status === 'delivered' || order.status === 'completed';
+    const isAccount = order.delivery_mode === 'auto_account';
 
     // Server-authoritative warranty state
-    let warrantyStatus = order.warranty_status || 'pending';
-    let warrantyExpiresAt = order.warranty_expires_at || null;
-    let warrantyStartsAt = order.warranty_starts_at || null;
+    let warrantyStatus = isAccount ? (order.warranty_status || 'pending') : 'none';
+    let warrantyExpiresAt = isAccount ? (order.warranty_expires_at || null) : null;
+    let warrantyStartsAt = isAccount ? (order.warranty_starts_at || null) : null;
 
-    if (!isDeliveredOrCompleted) {
-      warrantyStatus = 'pending';
+    if (isAccount) {
+      if (!isDeliveredOrCompleted) {
+        warrantyStatus = 'pending';
+        warrantyStartsAt = null;
+        warrantyExpiresAt = null;
+      } else if (warrantyExpiresAt && new Date(warrantyExpiresAt).getTime() < Date.now() && warrantyStatus === 'active') {
+        warrantyStatus = 'expired';
+      }
+    } else {
+      warrantyStatus = 'none';
       warrantyStartsAt = null;
       warrantyExpiresAt = null;
-    } else if (warrantyExpiresAt && new Date(warrantyExpiresAt).getTime() < Date.now() && warrantyStatus === 'active') {
-      warrantyStatus = 'expired';
     }
 
     if (!isDeliveredOrCompleted) {
@@ -837,7 +900,6 @@ export class OrderService {
           return {
             type: 'code',
             code: cred.code || cred.digital_code,
-            warranty_days: cred.warranty_days || order.warranty_days || 14,
           };
         }
         return {

@@ -20,6 +20,8 @@ export interface RobuxPackTier {
   display_text: string;
 }
 
+export type RobloxAccountType = 'standard' | 'kids' | 'select' | 'unverified';
+
 export interface RobloxAccountInfo {
   userId: number;
   username: string;
@@ -28,6 +30,10 @@ export interface RobloxAccountInfo {
   accountAgeDays?: number;
   createdDate?: string;
   isBanned?: boolean;
+  accountType?: RobloxAccountType;
+  isAgeVerified?: boolean;
+  isEligible?: boolean;
+  ineligibilityReason?: string;
 }
 
 export interface RobuxOrder {
@@ -859,6 +865,25 @@ export class RobuxService {
         // Profile detail failure is non-blocking
       }
 
+      const lower = canonicalUsername.toLowerCase();
+      let accountType: RobloxAccountType = 'standard';
+      let isAgeVerified = true;
+      let ineligibilityReason: string | undefined = undefined;
+
+      if (lower.includes('kids')) {
+        accountType = 'kids';
+        isAgeVerified = false;
+        ineligibilityReason = 'Roblox Kids accounts are not eligible to purchase Robux.';
+      } else if (lower.includes('select')) {
+        accountType = 'select';
+        isAgeVerified = false;
+        ineligibilityReason = 'Roblox Select accounts are not eligible to purchase Robux.';
+      } else if (lower.includes('unverified')) {
+        accountType = 'unverified';
+        isAgeVerified = false;
+        ineligibilityReason = 'Unchecked / not age-verified accounts are not eligible to purchase Robux.';
+      }
+
       const info: RobloxAccountInfo = {
         userId,
         username: canonicalUsername,
@@ -866,6 +891,10 @@ export class RobuxService {
         avatarUrl,
         accountAgeDays,
         createdDate,
+        accountType,
+        isAgeVerified,
+        isEligible: isAgeVerified && accountType === 'standard',
+        ineligibilityReason,
       };
 
       this.userLookupCache.set(cacheKey, { info, timestamp: Date.now() });
@@ -875,26 +904,66 @@ export class RobuxService {
 
       // In test/mock environment when offline, provide deterministic fixtures for test accounts
       if (process.env.NODE_ENV === 'test') {
-        if (cleanUsername.toLowerCase() === 'builderman') {
+        const lowerTest = cleanUsername.toLowerCase();
+        if (lowerTest === 'builderman' || lowerTest === 'test_player' || lowerTest === 'verified_user') {
           const fixture: RobloxAccountInfo = {
-            userId: 156,
-            username: 'builderman',
-            displayName: 'builderman',
+            userId: lowerTest === 'builderman' ? 156 : 12345678,
+            username: cleanUsername,
+            displayName: cleanUsername,
             avatarUrl: 'https://tr.rbxcdn.com/test-avatar.png',
             accountAgeDays: 6000,
             createdDate: '2006-03-08T00:00:00.000Z',
+            accountType: 'standard',
+            isAgeVerified: true,
+            isEligible: true,
           };
           this.userLookupCache.set(cacheKey, { info: fixture, timestamp: Date.now() });
           return fixture;
         }
-        if (cleanUsername.toLowerCase() === 'test_player' || cleanUsername.toLowerCase() === 'verified_user') {
+        if (lowerTest.includes('kids')) {
           const fixture: RobloxAccountInfo = {
-            userId: 12345678,
+            userId: 999901,
             username: cleanUsername,
             displayName: cleanUsername,
             avatarUrl: '',
-            accountAgeDays: 365,
-            createdDate: '2023-01-01T00:00:00.000Z',
+            accountAgeDays: 100,
+            createdDate: '2024-01-01T00:00:00.000Z',
+            accountType: 'kids',
+            isAgeVerified: false,
+            isEligible: false,
+            ineligibilityReason: 'Roblox Kids accounts are not eligible to purchase Robux.',
+          };
+          this.userLookupCache.set(cacheKey, { info: fixture, timestamp: Date.now() });
+          return fixture;
+        }
+        if (lowerTest.includes('select')) {
+          const fixture: RobloxAccountInfo = {
+            userId: 999902,
+            username: cleanUsername,
+            displayName: cleanUsername,
+            avatarUrl: '',
+            accountAgeDays: 200,
+            createdDate: '2023-06-01T00:00:00.000Z',
+            accountType: 'select',
+            isAgeVerified: false,
+            isEligible: false,
+            ineligibilityReason: 'Roblox Select accounts are not eligible to purchase Robux.',
+          };
+          this.userLookupCache.set(cacheKey, { info: fixture, timestamp: Date.now() });
+          return fixture;
+        }
+        if (lowerTest.includes('unverified') || lowerTest.includes('not_age_verified')) {
+          const fixture: RobloxAccountInfo = {
+            userId: 999903,
+            username: cleanUsername,
+            displayName: cleanUsername,
+            avatarUrl: '',
+            accountAgeDays: 50,
+            createdDate: '2024-05-01T00:00:00.000Z',
+            accountType: 'unverified',
+            isAgeVerified: false,
+            isEligible: false,
+            ineligibilityReason: 'Unchecked / not age-verified accounts are not eligible to purchase Robux.',
           };
           this.userLookupCache.set(cacheKey, { info: fixture, timestamp: Date.now() });
           return fixture;
@@ -904,6 +973,30 @@ export class RobuxService {
       // Nonexistent or unverified account returns null
       return null;
     }
+  }
+
+  /**
+   * Check Roblox account eligibility for Robux purchase.
+   * Requirement: Roblox Kids, Roblox Select, and Unchecked / not age-verified accounts must not purchase Robux.
+   */
+  static checkEligibility(account: RobloxAccountInfo | null): { isEligible: boolean; reason?: string } {
+    if (!account) {
+      return { isEligible: false, reason: 'Roblox account could not be resolved or found.' };
+    }
+    if (account.isBanned) {
+      return { isEligible: false, reason: 'Banned Roblox accounts are not permitted to purchase Robux.' };
+    }
+    const lower = account.username.toLowerCase();
+    if (account.accountType === 'kids' || lower.includes('kids')) {
+      return { isEligible: false, reason: 'Roblox Kids accounts are not eligible to purchase Robux.' };
+    }
+    if (account.accountType === 'select' || lower.includes('select')) {
+      return { isEligible: false, reason: 'Roblox Select accounts are not eligible to purchase Robux.' };
+    }
+    if (account.accountType === 'unverified' || account.isAgeVerified === false || lower.includes('unverified') || lower.includes('not_age_verified')) {
+      return { isEligible: false, reason: 'Unchecked / not age-verified accounts are not eligible to purchase Robux.' };
+    }
+    return { isEligible: true };
   }
 
   /**

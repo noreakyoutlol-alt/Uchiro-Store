@@ -459,17 +459,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             {renderStatus()}
           </div>
 
-          {/* 5. WARRANTY */}
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-xs text-slate-600 dark:text-slate-300">
-            <ShieldCheck className="w-4 h-4 text-amber-500 dark:text-[#FFD166] shrink-0" />
-            <span className="font-semibold">
-              {language === 'km'
-                ? 'ធានាជូន ១៤ ថ្ងៃ'
-                : product.warranty_days
-                ? `${product.warranty_days}-Day Protection Warranty Included`
-                : '14-Day Warranty Guarantee Included'}
-            </span>
-          </div>
+          {/* 5. WARRANTY (Roblox Accounts only) */}
+          {isAccount && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-xs text-slate-600 dark:text-slate-300">
+              <ShieldCheck className="w-4 h-4 text-amber-500 dark:text-[#FFD166] shrink-0" />
+              <span className="font-semibold">
+                {language === 'km'
+                  ? 'ធានាជូន ១៤ ថ្ងៃ'
+                  : product.warranty_days
+                  ? `${product.warranty_days}-Day Protection Warranty Included`
+                  : '14-Day Warranty Guarantee Included'}
+              </span>
+            </div>
+          )}
 
           {/* Quantity Controls */}
           {showQuantityStepper && (

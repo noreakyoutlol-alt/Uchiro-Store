@@ -65,6 +65,18 @@ gachaRouter.post('/buy-tickets', requireTelegramAuth, (req: RequestWithAuth, res
 
 gachaRouter.post('/play', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
   try {
+    const rawQuantity = req.body?.quantity ?? req.body?.spinsCount;
+    const rollType = req.body?.rollType;
+    if ((rawQuantity !== undefined && Number(rawQuantity) > 1) || rollType === 'multi') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MULTI_SPIN_NOT_ALLOWED',
+          message: 'Only single spins (1 spin per request) are permitted.',
+        },
+      });
+    }
+
     const poolId = req.body?.poolId || GachaService.getPools()[0]?.id;
     const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body?.idempotencyKey;
     const result = await GachaService.spin({
@@ -85,6 +97,18 @@ gachaRouter.post('/play', requireTelegramAuth, async (req: RequestWithAuth, res,
 
 gachaRouter.post('/:poolId/spin', requireTelegramAuth, async (req: RequestWithAuth, res, next) => {
   try {
+    const rawQuantity = req.body?.quantity ?? req.body?.spinsCount;
+    const rollType = req.body?.rollType;
+    if ((rawQuantity !== undefined && Number(rawQuantity) > 1) || rollType === 'multi') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'MULTI_SPIN_NOT_ALLOWED',
+          message: 'Only single spins (1 spin per request) are permitted.',
+        },
+      });
+    }
+
     const idempotencyKey = (req.headers['idempotency-key'] as string) || req.body.idempotencyKey;
     const result = await GachaService.spin({
       poolId: req.params.poolId,

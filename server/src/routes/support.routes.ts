@@ -163,6 +163,20 @@ supportRouter.post('/tickets/:id/close', requireTelegramAuth, (req: RequestWithA
   }
 });
 
+function isAccountOrder(order: any): boolean {
+  if (order.delivery_mode === 'auto_account' || order.product_type === 'account') {
+    return true;
+  }
+  const itemProdId = order.items?.[0]?.product_id || order.product_id;
+  if (itemProdId) {
+    const prod = DataStore.getProductById(itemProdId);
+    if (prod && (prod.delivery_mode === 'auto_account' || prod.product_type === 'account')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // 14-Day Warranty Status Check
 supportRouter.get('/warranty-status/:orderId', requireTelegramAuth, (req: RequestWithAuth, res, next) => {
   try {
@@ -172,6 +186,25 @@ supportRouter.get('/warranty-status/:orderId', requireTelegramAuth, (req: Reques
     }
     if (order.telegram_id !== req.user!.telegram_id && String(order.telegram_id) !== String(req.user!.telegram_id)) {
       throw new AppError('Access denied: You do not own this order', 403, 'FORBIDDEN');
+    }
+
+    if (!isAccountOrder(order)) {
+      return res.json({
+        success: true,
+        data: {
+          orderId: order.id,
+          orderNumber: order.order_number,
+          isDelivered: order.status === 'delivered' || order.status === 'completed',
+          warrantyDays: 0,
+          startsAt: null,
+          expiresAt: null,
+          isExpired: true,
+          daysRemaining: 0,
+          canClaim: false,
+          status: 'not_applicable',
+          message: 'Account Warranty applies only to purchased Roblox Accounts.',
+        },
+      });
     }
 
     const isDelivered = order.status === 'delivered' || order.status === 'completed';
@@ -220,6 +253,14 @@ supportRouter.post('/warranty-claim', requireTelegramAuth, (req: RequestWithAuth
     }
     if (order.telegram_id !== req.user!.telegram_id && String(order.telegram_id) !== String(req.user!.telegram_id)) {
       throw new AppError('Access denied: You do not own this order', 403, 'FORBIDDEN');
+    }
+
+    if (!isAccountOrder(order)) {
+      throw new AppError(
+        'Account Warranty applies to purchased Roblox Accounts only. This product is not eligible for warranty claims.',
+        400,
+        'WARRANTY_NOT_APPLICABLE'
+      );
     }
 
     if (order.status !== 'delivered' && order.status !== 'completed') {

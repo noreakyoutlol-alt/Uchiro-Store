@@ -329,20 +329,37 @@ export const StoreAPI = {
     }
   },
 
-  spinGacha: async (data: { poolId: string; rollType?: 'single' | 'multi' } | string) => {
-    const payload = typeof data === 'string' ? { poolId: data, rollType: 'single' } : data;
+  spinGacha: async (data: { poolId: string; rollType?: 'single' } | string) => {
+    const payload = typeof data === 'string' ? { poolId: data, rollType: 'single' } : { ...data, rollType: 'single' };
     const poolId = typeof data === 'string' ? data : data.poolId;
     try {
       const res = await api.post(`/gacha/${poolId}/spin`, payload);
       return res.data.data;
-    } catch {
-      const res = await api.post('/gacha/play', payload);
-      return res.data.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        const res = await api.post('/gacha/play', payload);
+        return res.data.data;
+      }
+      throw err;
     }
   },
 
   buyGachaTickets: async (quantity: number = 1) => {
     const res = await api.post('/gacha/buy-tickets', { quantity });
+    return res.data.data;
+  },
+
+  getMyGachaPrizes: async (): Promise<any[]> => {
+    try {
+      const res = await api.get('/gacha/my-prizes');
+      return res.data.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  submitGachaClaim: async (claimId: string, deliveryData: any): Promise<any> => {
+    const res = await api.post(`/gacha/claims/${claimId}/submit`, { deliveryData });
     return res.data.data;
   },
 
@@ -479,7 +496,7 @@ export const StoreAPI = {
   },
 
   redeemPointsForCoupon: async (points: number) => {
-    const res = await api.post('/points/redeem-coupon', { points });
+    const res = await api.post('/points/redeem-coupon', { tierPoints: points });
     return res.data.data;
   },
 

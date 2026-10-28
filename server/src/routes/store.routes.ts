@@ -6,6 +6,7 @@ import { RobloxService } from '../services/roblox.service';
 import { RobuxService } from '../services/robux.service';
 import { RedeemCodeService } from '../services/redeem.service';
 import { requireTelegramAuth, RequestWithAuth } from '../middleware/auth';
+import { CheckoutLock } from '../utils/checkout-lock';
 
 export const storeRouter = Router();
 
@@ -401,12 +402,21 @@ storeRouter.get('/points/ledger', requireTelegramAuth, (req: RequestWithAuth, re
 });
 
 // Redeem Points for Store Coupon (50, 100, or 200 points tier)
-storeRouter.post('/points/redeem-coupon', requireTelegramAuth, (req: RequestWithAuth, res) => {
-  const { tierPoints } = req.body;
-  const result = DataStore.redeemPointsForCoupon(
-    req.user!.telegram_id,
-    tierPoints ? Number(tierPoints) : 100
+storeRouter.post('/points/redeem-coupon', requireTelegramAuth, async (req: RequestWithAuth, res) => {
+  const rawTierPoints = req.body?.tierPoints !== undefined ? req.body.tierPoints : req.body?.points;
+  if (rawTierPoints === undefined || rawTierPoints === null || isNaN(Number(rawTierPoints))) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_COUPON_TIER', message: 'tierPoints is required (50, 100, or 200)' },
+    });
+  }
+  const tierPoints = Number(rawTierPoints);
+  const telegramId = req.user!.telegram_id;
+
+  const result = await CheckoutLock.runExclusive(`coupon_redeem_${telegramId}`, () =>
+    DataStore.redeemPointsForCoupon(telegramId, tierPoints)
   );
+
   if (!result.success) {
     res.status(400).json({
       success: false,
@@ -416,7 +426,10 @@ storeRouter.post('/points/redeem-coupon', requireTelegramAuth, (req: RequestWith
   }
   res.json({
     success: true,
-    data: result.coupon,
+    data: {
+      ...result.coupon,
+      newBalance: result.newBalance,
+    },
   });
 });
 

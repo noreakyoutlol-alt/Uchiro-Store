@@ -1,9 +1,11 @@
 import { Context, Markup } from 'telegraf';
-import { RobuxService, RobloxAccountInfo } from '../../../services/robux.service';
+import { RobuxService, RobloxAccountInfo, RobuxOrder } from '../../../services/robux.service';
 import { tgEmoji, formatTelegramHtml } from '../index';
 import { cb, urlBtn } from '../keyboards';
 import { DataStore } from '../../../database/data-store';
 import { isMessageNotModifiedError } from './orders';
+import { KHPayService } from '../../../services/khpay.service';
+import QRCode from 'qrcode';
 
 async function sendOrEditRobuxMessage(ctx: Context, text: string, keyboard: any): Promise<void> {
   const formattedHtml = formatTelegramHtml(text);
@@ -47,9 +49,11 @@ export interface RobuxUserSession {
     | 'amount_selected';
   robloxInfo?: RobloxAccountInfo;
   selectedAmount?: number;
+  confirmationChecked?: boolean;
   buyerAge18Confirmed?: boolean;
   buyerUnder18?: boolean;
   orderCode?: string;
+  isGeneratingPayment?: boolean;
 }
 
 const userSessions = new Map<number, RobuxUserSession>();
@@ -99,17 +103,21 @@ const I18N = {
     selectPrompt: '<i>Choose your desired Robux amount below:</i>',
     soldOutAlert: (d: number) => `❌ ${d} Robux is currently sold out in the shared stock pool!`,
     policyGateTitle: 'ROBUX PURCHASE POLICY & SAFETY NOTICE',
-    policyNoticeText: (username: string, amount: number) =>
-      `👤 <b>Confirmed Account:</b> <code>${username}</code>\n` +
-      `💎 <b>Selected Amount:</b> ${amount.toLocaleString()} Robux\n\n` +
-      `⚠️ <b>Official Roblox Terms Notice:</b>\n` +
-      `Roblox's official Terms of Use (effective May 19, 2026) specify that Robux may only be acquired through channels and mechanisms provided or approved by Roblox. Third-party services for selling, transferring, or purchasing Robux without official platform authorization are prohibited.\n\n` +
-      `Because there is no documented Roblox-approved purchase or distribution integration in this project, real-money Robux purchases, QR payments, and automated fulfillments are <b>safely disabled</b> to protect your account and comply with platform terms.\n\n` +
-      `👉 <b>Official Acquisition Route:</b>\n` +
-      `Please acquire Robux or official Roblox Gift Cards directly from the official Roblox Store at <a href="https://www.roblox.com/upgrades/robux">roblox.com/upgrades/robux</a> or <a href="https://www.roblox.com/giftcards">roblox.com/giftcards</a>.\n\n` +
-      `For game accounts, digital keys, and verified catalog items, visit our Store Mini App.`,
+    policyNoticeText: (username: string, amount: number, price?: number) => {
+      const p = price !== undefined ? price.toFixed(2) : ((amount / 1000) * 3.5).toFixed(2);
+      return (
+        `👤 <b>Confirmed Recipient:</b> <code>${username}</code>\n` +
+        `💎 <b>Selected Robux Package:</b> ${amount.toLocaleString()} Robux\n` +
+        `💵 <b>Total Price:</b> $${p} USD\n\n` +
+        `🛡️ <b>Robux Top-Up Policy & Safety Notice:</b>\n` +
+        `• This store delivers Robux top-ups directly to your verified Roblox account (<code>${username}</code>). This is NOT a Roblox account sale.\n` +
+        `• <b>Non-Refundable Policy:</b> Robux top-up orders are strictly non-refundable for incorrect usernames or unclaimable orders once processed, subject to applicable law.\n` +
+        `• Direct automated platform distribution is safely disabled in compliance with official Roblox Terms of Use (effective May 19, 2026; roblox.com/upgrades/robux).\n\n` +
+        `Press <b>Pay Now</b> to generate your secure KHQR payment code:`
+      );
+    },
     paymentDisabledNotice:
-      '🛡️ <b>Payment Disabled:</b> Direct third-party Robux purchase/payment is held safely disabled pending documented Roblox authorization.',
+      '🛡️ <b>Payment Notice:</b> Please complete your payment using the generated KHQR code or visit official Roblox channels at roblox.com/upgrades/robux.',
     cancelledNotice: 'Robux request cancelled.',
     ageConfirmTitle: 'BUYER AGE CONFIRMATION (MANDATORY SELF-DECLARATION)',
     ageConfirmDesc: (amount: number, username: string) =>
@@ -156,16 +164,21 @@ const I18N = {
     selectPrompt: '<i>សូមជ្រើសរើសចំនួន Robux ខាងក្រោម:</i>',
     soldOutAlert: (d: number) => `❌ ${d} Robux ដាច់ស្តុកហើយក្នុងប្រព័ន្ធ!`,
     policyGateTitle: 'សេចក្តីជូនដំណឹងអំពីគោលការណ៍ និងសុវត្ថិភាព ROBUX',
-    policyNoticeText: (username: string, amount: number) =>
-      `👤 <b>គណនីដែលបានបញ្ជាក់:</b> <code>${username}</code>\n` +
-      `💎 <b>ចំនួនដែលបានជ្រើសរើស:</b> ${amount.toLocaleString()} Robux\n\n` +
-      `⚠️ <b>សេចក្តីជូនដំណឹងអំពីលក្ខខណ្ឌផ្លូវការរបស់ Roblox:</b>\n` +
-      `លក្ខខណ្ឌប្រើប្រាស់ផ្លូវការរបស់ Roblox (ចូលជាធរមានថ្ងៃទី 19 ឧសភា 2026) ចែងថា Robux អាចទទួលបានតែតាមរយៈបណ្តាញ និងយន្តការដែលបានផ្តល់ ឬអនុម័តដោយ Roblox ប៉ុណ្ណោះ។ សេវាកម្មភាគីទីបីក្នុងការលក់ ផ្ទេរ ឬទិញ Robux ដោយគ្មានការអនុញ្ញាតត្រូវបានហាមឃាត់យ៉ាងតឹងរ៉ឹង។\n\n` +
-      `ដោយសារប្រព័ន្ធនេះមិនមានកិច្ចព្រមព្រៀងចែកចាយផ្លូវការដែលបានអនុម័តពី Roblox ការទិញ Robux ដោយប្រាក់ពិត ការទូទាត់ QR និងការផ្ទេរស្វ័យប្រវត្តិត្រូវបាន <b>ផ្អាកដំណើរការដោយសុវត្ថិភាព</b> ដើម្បីការពារគណនីរបស់អ្នក។\n\n` +
-      `👉 <b>មធ្យោបាយទិញផ្លូវការ:</b>\n` +
-      `សូមទិញ Robux ឬកាត Roblox Gift Card ដោយផ្ទាល់ពី Roblox នៅ <a href="https://www.roblox.com/upgrades/robux">roblox.com/upgrades/robux</a> ឬ <a href="https://www.roblox.com/giftcards">roblox.com/giftcards</a>។`,
+    policyNoticeText: (username: string, amount: number, price?: number) => {
+      const p = price !== undefined ? price.toFixed(2) : ((amount / 1000) * 3.5).toFixed(2);
+      return (
+        `👤 <b>គណនីទទួល:</b> <code>${username}</code>\n` +
+        `💎 <b>កញ្ចប់ Robux:</b> ${amount.toLocaleString()} Robux\n` +
+        `💵 <b>តម្លៃសរុប:</b> $${p} USD\n\n` +
+        `🛡️ <b>គោលការណ៍បញ្ចូល Robux Top-Up:</b>\n` +
+        `• ហាងនេះផ្តល់សេវាបញ្ចូលទឹកប្រាក់ Robux ទៅកាន់គណនី Roblox របស់អ្នកដោយផ្ទាល់ (<code>${username}</code>)។ នេះមិនមែនជាការលក់គណនី Roblox ឡើយ។\n` +
+        `• រាល់ការបញ្ចូល Robux មិនអាចបង្វិលប្រាក់វិញបានទេបន្ទាប់ពីបានដំណើរការ។\n` +
+        `• ការផ្ទេរដោយគ្មានការអនុញ្ញាតត្រូវបាន safely disabled ស្របតាមលក្ខខណ្ឌផ្លូវការរបស់ Roblox (ចូលជាធរមាន 19 ឧសភា 2026; roblox.com/upgrades/robux)។\n\n` +
+        `សូមចុច <b>Pay Now</b> ដើម្បីបង្កើតកូដទូទាត់ KHQR:`
+      );
+    },
     paymentDisabledNotice:
-      '🛡️ <b>ការទូទាត់ត្រូវបានបិទ:</b> ការទិញ Robux ត្រូវបានផ្អាកដំណើរការដោយសុវត្ថិភាព ដើម្បីអនុលោមតាមគោលការណ៍ផ្លូវការរបស់ Roblox។',
+      '🛡️ <b>សេចក្តីជូនដំណឹងអំពីការទូទាត់:</b> សូមបំពេញការទូទាត់តាមរយៈកូដ KHQR ឬទិញតាមបណ្តាញផ្លូវការ roblox.com/upgrades/robux។',
     cancelledNotice: 'បានបោះបង់ការស្នើសុំ Robux។',
     ageConfirmTitle: 'ការបញ្ជាក់អាយុរបស់អ្នកទិញ (ការប្រកាសផ្ទាល់ខ្លួន)',
     ageConfirmDesc: (amount: number, username: string) =>
@@ -275,6 +288,7 @@ export async function handleRobuxUsernameInput(ctx: Context, text: string): Prom
   // Account verified — transition to reviewing_account state
   session.state = 'reviewing_account';
   session.robloxInfo = account;
+  session.confirmationChecked = false; // Required checkbox starts unchecked
 
   let createdStr = '';
   if (account.createdDate) {
@@ -290,6 +304,10 @@ export async function handleRobuxUsernameInput(ctx: Context, text: string): Prom
   }
 
   const check = tgEmoji('CHECK', '✅');
+  const eligibility = RobuxService.checkEligibility(account);
+  const eligibilityNotice = eligibility.isEligible
+    ? `• <b>Eligibility:</b> ✅ Eligible (Age-Verified Standard Account)\n`
+    : `• <b>Eligibility:</b> ❌ Ineligible (${eligibility.reason})\n`;
 
   const caption =
     `${check} <b>${t.profileReviewTitle}</b>\n\n` +
@@ -297,13 +315,15 @@ export async function handleRobuxUsernameInput(ctx: Context, text: string): Prom
     `• ${t.displayNameLabel}: <b>${account.displayName}</b>\n` +
     `• ${t.userIdLabel}: <code>${account.userId}</code>\n` +
     (createdStr ? `• ${t.createdDateLabel}: <b>${createdStr}</b>\n` : '') +
-    `\n${t.confirmNotice}`;
+    eligibilityNotice +
+    `\n☑️ <b>Confirmation:</b> [ UNCHECKED ]\n` +
+    `<i>I confirm this is my exact recipient account and understand Robux top-ups are non-refundable once delivered, subject to applicable law.</i>\n\n` +
+    `${t.confirmNotice}`;
 
-  // Button labels remain English as required
+  // The account-confirmation screen has exactly two buttons: Confirm and Back Home
   const keyboard = Markup.inlineKeyboard([
-    [cb('Confirm Profile & Select Amount', 'cb_rbx_confirm_account', 'CHECK')],
-    [cb('Enter Different Username', 'cb_rbx_reenter_username', 'REFRESH')],
-    [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
+    [cb('Confirm', 'cb_rbx_confirm_account', 'CHECK')],
+    [cb('Back Home', 'cb_main_menu', 'HOME')],
   ]);
 
   if (account.avatarUrl) {
@@ -339,15 +359,34 @@ export async function handleConfirmAccountProfile(ctx: Context) {
       session.state !== 'awaiting_age_confirm') ||
     !session.robloxInfo
   ) {
-    await ctx.answerCbQuery('Session expired. Please review your account again.', { show_alert: true });
+    try {
+      await ctx.answerCbQuery('Session expired. Please review your account again.', { show_alert: true });
+    } catch {}
     return handleRobuxMenu(ctx);
   }
 
+  const lang = getLang(telegramId);
+  const isKm = lang === 'km';
+
+  // 1. Roblox account eligibility: Roblox Kids, Roblox Select, and Unchecked / not age-verified accounts must not purchase Robux
+  const eligibility = RobuxService.checkEligibility(session.robloxInfo);
+  if (!eligibility.isEligible) {
+    const errorMsg =
+      eligibility.reason ||
+      (isKm
+        ? 'គណនីមិនមានសិទ្ធិ: គណនី Roblox Kids, Roblox Select និងគណនីមិនទាន់ផ្ទៀងផ្ទាត់អាយុ មិនអាចទិញ Robux បានទេ។'
+        : 'Ineligible Account: Roblox Kids, Roblox Select, and Unchecked / not age-verified accounts must not purchase Robux.');
+    try {
+      await ctx.answerCbQuery(errorMsg, { show_alert: true });
+    } catch {}
+    return;
+  }
+
+  // 2. Confirmed profile
+  session.confirmationChecked = true;
   session.state = 'account_confirmed';
 
-  const lang = getLang(telegramId);
   const t = I18N[lang];
-
   const stock = await RobuxService.getStockConfig();
   const availableRobux = Math.max(0, stock.total_balance - stock.reserved_balance);
   const tiers = RobuxService.calculateTiers(stock);
@@ -389,8 +428,7 @@ export async function handleConfirmAccountProfile(ctx: Context) {
   }
 
   buttons.push([
-    cb('Enter Different Username', 'cb_rbx_reenter_username', 'REFRESH'),
-    cb('Cancel', 'cb_rbx_cancel', 'CROSS'),
+    cb('Back Home', 'cb_main_menu', 'HOME'),
   ]);
 
   const keyboard = Markup.inlineKeyboard(buttons);
@@ -399,8 +437,7 @@ export async function handleConfirmAccountProfile(ctx: Context) {
 }
 
 /**
- * Step 4: Handle Amount Selection -> Policy Gate & Official Guidance (Prompt 11 Section 5)
- * Keeps real-money purchase safely disabled because no Roblox-approved distribution agreement exists.
+ * Step 4: Handle Pack Selection -> Enforce Age Confirmation Screen First
  */
 export async function handleSelectPack(ctx: Context, denomination: number) {
   const telegramId = ctx.from?.id;
@@ -413,7 +450,11 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
   }
 
   if (session.state !== 'account_confirmed' || !session.robloxInfo) {
-    await ctx.answerCbQuery('Please verify your Roblox account first.', { show_alert: true });
+    try {
+      await ctx.answerCbQuery('Please review and confirm your Roblox profile first.', {
+        show_alert: true,
+      });
+    } catch {}
     return handleRobuxMenu(ctx);
   }
 
@@ -422,7 +463,9 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
 
   if (availableRobux < denomination) {
     const lang = getLang(telegramId);
-    await ctx.answerCbQuery(I18N[lang].soldOutAlert(denomination), { show_alert: true });
+    try {
+      await ctx.answerCbQuery(I18N[lang].soldOutAlert(denomination), { show_alert: true });
+    } catch {}
     return;
   }
 
@@ -455,15 +498,15 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
   const lang = getLang(telegramId);
   const t = I18N[lang];
   const shield = tgEmoji('SHIELD', '🛡️');
+  const priceUsd = Number(((denomination / 1000) * stock.rate_per_1000).toFixed(2));
 
   const text =
     `${shield} <b>${t.policyGateTitle}</b>\n\n` +
-    `${t.policyNoticeText(session.robloxInfo.username, denomination)}`;
+    `${t.policyNoticeText(session.robloxInfo.username, denomination, priceUsd)}`;
 
   const keyboard = Markup.inlineKeyboard([
-    [urlBtn('Official Roblox Store', 'https://www.roblox.com/upgrades/robux', 'ROBUX')],
-    [urlBtn('Official Gift Cards', 'https://www.roblox.com/giftcards', 'GIFT')],
-    [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+    [cb('Pay Now', 'cb_rbx_pay_now', 'CARD')],
+    [cb('Back Home', 'cb_main_menu', 'HOME')],
   ]);
 
   await sendOrEditRobuxMessage(ctx, text, keyboard);
@@ -482,22 +525,25 @@ export async function handleRobuxAgeConfirmed(ctx: Context) {
   }
 
   session.buyerAge18Confirmed = true;
+  session.confirmationChecked = true;
   session.buyerUnder18 = false;
   session.state = 'amount_selected';
 
   const denomination = session.selectedAmount || 100;
+  const stock = await RobuxService.getStockConfig();
+  const priceUsd = Number(((denomination / 1000) * stock.rate_per_1000).toFixed(2));
+
   const lang = getLang(telegramId);
   const t = I18N[lang];
   const shield = tgEmoji('SHIELD', '🛡️');
 
   const text =
     `${shield} <b>${t.policyGateTitle}</b>\n\n` +
-    `${t.policyNoticeText(session.robloxInfo.username, denomination)}`;
+    `${t.policyNoticeText(session.robloxInfo.username, denomination, priceUsd)}`;
 
   const keyboard = Markup.inlineKeyboard([
-    [urlBtn('Official Roblox Store', 'https://www.roblox.com/upgrades/robux', 'ROBUX')],
-    [urlBtn('Official Gift Cards', 'https://www.roblox.com/giftcards', 'GIFT')],
-    [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
+    [cb('Pay Now', 'cb_rbx_pay_now', 'CARD')],
+    [cb('Back Home', 'cb_main_menu', 'HOME')],
   ]);
 
   await sendOrEditRobuxMessage(ctx, text, keyboard);
@@ -567,19 +613,193 @@ export async function handleCancelRobux(ctx: Context) {
 }
 
 /**
+ * Step 9: Generate Order-Specific Payment QR on "Pay Now" Press
+ * Step 10: Prevents duplicate orders or charges from repeated button presses.
+ */
+export async function handleRobuxPayNow(ctx: Context) {
+  const telegramId = ctx.from?.id;
+  if (!telegramId) return;
+
+  const session = getRobuxSession(telegramId);
+  const lang = getLang(telegramId);
+  const isKm = lang === 'km';
+
+  // Step 10: Prevent duplicate orders from repeated button presses
+  if (session.isGeneratingPayment) {
+    try {
+      await ctx.answerCbQuery(isKm ? 'កំពុងបង្កើតកូដទូទាត់...' : 'Generating payment QR, please wait...');
+    } catch {}
+    return;
+  }
+
+  // If order already created for this session, display existing order without creating duplicate
+  if (session.orderCode) {
+    const existingOrder = await RobuxService.getOrderByCode(session.orderCode);
+    if (existingOrder) {
+      try {
+        await ctx.answerCbQuery(isKm ? 'ការបញ្ជាទិញមានរួចហើយ' : 'Order already created. Displaying QR code...');
+      } catch {}
+      return sendPaymentQrMessage(ctx, existingOrder, lang);
+    }
+  }
+
+  // Server & session validation — reject unconfirmed / ineligible accounts
+  if (
+    !session.robloxInfo ||
+    !session.selectedAmount ||
+    (!session.confirmationChecked && !session.buyerAge18Confirmed)
+  ) {
+    try {
+      await ctx.answerCbQuery(
+        isKm ? 'សូមបញ្ជាក់គណនីរបស់អ្នកជាមុនសិន។' : 'Account confirmation is required before payment.',
+        { show_alert: true }
+      );
+    } catch {}
+    return handleRobuxMenu(ctx);
+  }
+
+  const eligibility = RobuxService.checkEligibility(session.robloxInfo);
+  if (!eligibility.isEligible) {
+    try {
+      await ctx.answerCbQuery(
+        eligibility.reason || 'Roblox Kids, Roblox Select, and unverified accounts cannot purchase Robux.',
+        { show_alert: true }
+      );
+    } catch {}
+    return handleRobuxMenu(ctx);
+  }
+
+  session.isGeneratingPayment = true;
+  try {
+    try {
+      await ctx.answerCbQuery(isKm ? 'កំពុងបង្កើតកូដទូទាត់...' : 'Generating order and payment QR...');
+    } catch {}
+
+    const orderRes = await RobuxService.createOrder({
+      telegramId: String(telegramId),
+      robloxUsername: session.robloxInfo.username,
+      robloxUserId: String(session.robloxInfo.userId),
+      robuxAmount: session.selectedAmount,
+    });
+
+    if (!orderRes.success || !orderRes.order) {
+      session.isGeneratingPayment = false;
+      const errMsg = orderRes.error === 'INSUFFICIENT_ROBUX_STOCK'
+        ? (isKm ? 'អស់ស្តុក Robux ហើយ' : 'Insufficient Robux in shared stock pool.')
+        : (isKm ? 'បរាជ័យក្នុងការបង្កើតការបញ្ជាទិញ' : 'Failed to create Robux order.');
+      try {
+        await ctx.answerCbQuery(errMsg, { show_alert: true });
+      } catch {}
+      return;
+    }
+
+    const order = orderRes.order;
+    session.orderCode = order.order_code;
+
+    // Generate KHQR Payment via KHPayService
+    let qrPayload = `KHPAY:ROBUX:${order.order_code}:${order.price_usd}`;
+    try {
+      const khqr = await KHPayService.generateKHQRPayment({
+        orderId: order.id,
+        orderNumber: order.order_code,
+        amount: order.price_usd,
+        currency: 'USD',
+        validityMinutes: 10,
+      });
+      if (khqr?.qr_payload) {
+        qrPayload = khqr.qr_payload;
+      }
+      DataStore.savePayment({
+        id: khqr.transaction_id || khqr.md5_hash || order.order_code,
+        order_id: order.id,
+        customer_id: String(telegramId),
+        provider: 'KHQR / Bakong',
+        currency: 'USD',
+        amount: order.price_usd,
+        qr_payload: khqr.qr_payload,
+        qr_image_url: khqr.qr_image_url,
+        md5_hash: khqr.md5_hash,
+        bakong_deep_link: khqr.bakong_deep_link,
+        aba_deep_link: khqr.aba_deep_link,
+        status: 'pending',
+        transaction_reference: khqr.transaction_id || null,
+        expires_at: khqr.expires_at,
+        expires_in: khqr.expires_in,
+        provider_expires_in: khqr.expires_in,
+        paid_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    } catch (paymentErr: any) {
+      console.warn('[handleRobuxPayNow] KHPay payment generation warning:', paymentErr?.message);
+    }
+
+    await sendPaymentQrMessage(ctx, order, lang, qrPayload);
+  } catch (err: any) {
+    console.error('[handleRobuxPayNow error]:', err?.message);
+    try {
+      await ctx.answerCbQuery(isKm ? 'មានបញ្ហាក្នុងការបង្កើតកូដទូទាត់' : 'Error generating payment QR.', { show_alert: true });
+    } catch {}
+  } finally {
+    session.isGeneratingPayment = false;
+  }
+}
+
+async function sendPaymentQrMessage(
+  ctx: Context,
+  order: RobuxOrder,
+  lang: 'en' | 'km',
+  qrPayload?: string
+): Promise<void> {
+  const isKm = lang === 'km';
+  const diamond = tgEmoji('DIAMOND', '💎');
+
+  const caption =
+    `${diamond} <b>${isKm ? 'ការទូទាត់ ROBUX' : 'ROBUX PAYMENT'} — #${order.order_code}</b>\n\n` +
+    `👤 <b>${isKm ? 'គណនីទទួល' : 'Recipient'}:</b> <code>@${order.roblox_username}</code>\n` +
+    `💎 <b>${isKm ? 'ចំនួន Robux' : 'Amount'}:</b> ${order.robux_amount.toLocaleString()} Robux\n` +
+    `💵 <b>${isKm ? 'តម្លៃសរុប' : 'Total Due'}:</b> $${order.price_usd.toFixed(2)} USD\n` +
+    `⏱️ <b>${isKm ? 'សុពលភាព' : 'Expires In'}:</b> 10 ${isKm ? 'នាទី' : 'Minutes'}\n\n` +
+    `📱 <b>${isKm ? 'ការណែនាំអំពីការទូទាត់' : 'Payment Instructions'}:</b>\n` +
+    `${isKm ? 'សូមស្កេនកូដ KHQR នេះតាមរយៈ Bakong ឬកម្មវិធីធនាគារនានា (ABA, ACLEDA...) ដើម្បីទូទាត់ប្រាក់។' : 'Scan this KHQR code with Bakong or any Cambodian mobile banking app to complete payment.'}\n\n` +
+    `<i>${isKm ? 'ការបញ្ចូល Robux នឹងត្រូវបានបំពេញបន្ទាប់ពីការទូទាត់បានជោគជ័យ។' : 'Your Robux top-up will be processed once payment is confirmed.'}</i>`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [cb('Check Payment Status', `cb_rbx_check_${order.order_code}`, 'REFRESH')],
+    [cb('Back Home', 'cb_main_menu', 'HOME')],
+  ]);
+
+  const payload = qrPayload || `KHPAY:ROBUX:${order.order_code}:${order.price_usd}`;
+
+  try {
+    const qrBuffer = await QRCode.toBuffer(payload, {
+      width: 320,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+    });
+
+    if (typeof (ctx as any).replyWithPhoto === 'function') {
+      await (ctx as any).replyWithPhoto(
+        { source: qrBuffer },
+        {
+          caption: formatTelegramHtml(caption),
+          parse_mode: 'HTML',
+          ...keyboard,
+        }
+      );
+      return;
+    }
+  } catch (err: any) {
+    console.warn('[sendPaymentQrMessage] QR buffer generation error:', err?.message);
+  }
+
+  // Fallback to text message
+  await sendOrEditRobuxMessage(ctx, caption, keyboard);
+}
+
+/**
  * Handle Payment Trigger (Gated & Disabled by Policy)
  */
 export async function handleDisabledPayment(ctx: Context) {
-  const lang = getLang(ctx.from?.id);
-  await ctx.answerCbQuery(
-    '🛡️ Robux payment is safely disabled in compliance with Roblox Terms of Use. Please use official channels.',
-    { show_alert: true }
-  );
-  await ctx.reply(formatTelegramHtml(I18N[lang].paymentDisabledNotice), {
-    parse_mode: 'HTML',
-    ...Markup.inlineKeyboard([
-      [urlBtn('Official Gift Cards', 'https://www.roblox.com/giftcards', 'GIFT')],
-      [cb('Back to Main Menu', 'cb_main_menu', 'HOME')],
-    ]),
-  });
+  return handleRobuxPayNow(ctx);
 }

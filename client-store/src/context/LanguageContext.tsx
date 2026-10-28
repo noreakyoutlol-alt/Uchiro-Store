@@ -207,7 +207,7 @@ const translations = {
     featured_products: 'ទំនិញលេចធ្លោ',
     all_products: 'ទំនិញទាំងអស់ →',
     view_all: 'មើលទាំងអស់',
-    shop_now: 'ទិញភ្លាមៗ',
+    shop_now: 'Buy Now',
 
     // Standard Action Buttons (Prompt 11: 100% English across all language modes)
     btn_open_store: 'Open Store',
@@ -246,8 +246,8 @@ const translations = {
     warranty_info: 'ធានាជូន ១៤ ថ្ងៃ',
     warranty_desc: 'ធានាជូន ១៤ ថ្ងៃ ដរាបណា Email និង Authenticator ដើមមិនត្រូវបានលុបចេញ។',
     viewers_watching: 'នាក់កំពុងមើលឥឡូវនេះ',
-    buy_now: 'ទិញភ្លាមៗ',
-    instant_buy: 'ទិញភ្លាមៗ',
+    buy_now: 'Buy Now',
+    instant_buy: 'Buy Now',
     roblox_username_required: 'សូមបញ្ចូលឈ្មោះ Roblox របស់អ្នក',
     roblox_username_label: 'សូមបញ្ចូលឈ្មោះ Roblox របស់អ្នក',
 
@@ -258,8 +258,8 @@ const translations = {
     total_amount: 'ទឹកប្រាក់ត្រូវបង់',
     apply_coupon: 'បញ្ចូលប័ណ្ណបញ្ចុះតម្លៃ',
     coupon_code: 'លេខកូដប័ណ្ណ',
-    apply: 'ប្រើប្រាស់',
-    proceed_to_payment: 'បន្តទៅការបង់ប្រាក់ KHPay',
+    apply: 'Apply',
+    proceed_to_payment: 'Proceed to KHPay Checkout',
     payment_title: 'ស្កេនទូទាត់ជាមួយ KHPay',
     payment_countdown: 'រយៈពេលទូទាត់នៅសល់',
     open_aba: 'បើក ABA Mobile',
@@ -300,12 +300,12 @@ const translations = {
     gacha_subtitle: 'រង្វាន់ពិន្ទុ Blox Fruits & MM2',
     spin_cost: 'តម្លៃបង្វិល៖ ១០០ ពិន្ទុ',
     available_points: 'ពិន្ទុរបស់អ្នក',
-    spin_now: 'បង្វិល (១០០ ពិន្ទុ)',
-    spinning: 'កំពុងបើករង្វាន់...',
+    spin_now: 'Spin for 100 Points',
+    spinning: 'Summoning...',
     reward_congratulations: 'អបអរសាទរ!',
-    redeem_coupon_from_points: 'ប្តូរយកប័ណ្ណ $1 (១០០ ពិន្ទុ)',
+    redeem_coupon_from_points: 'Redeem $1 Coupon (100 Pts)',
     daily_reward: 'យកពិន្ទុប្រចាំថ្ងៃ',
-    claim_daily: 'យកពិន្ទុ',
+    claim_daily: 'Claim Points',
     streak_days: 'ថ្ងៃជាប់ៗគ្នា',
     already_claimed_today: 'អ្នកបានយកពិន្ទុថ្ងៃនេះរួចហើយ (ចាំថ្ងៃស្អែក)',
 
@@ -374,7 +374,7 @@ const LanguageContext = createContext<LanguageContextType>({
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<'km' | 'en'>(
-    () => (localStorage.getItem('uchiro_lang') as 'km' | 'en') || 'km'
+    () => (localStorage.getItem('uchiro_lang') as 'km' | 'en') || (localStorage.getItem('uchiro_store_lang') as 'km' | 'en') || 'km'
   );
 
   const handleSetLanguage = (lang: 'km' | 'en') => {
@@ -382,9 +382,35 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       localStorage.setItem('uchiro_lang', lang);
       localStorage.setItem('uchiro_store_lang', lang);
+      document.documentElement.lang = lang;
     } catch {}
     StoreAPI.setUserLanguage(lang).catch(() => {});
   };
+
+  useEffect(() => {
+    try {
+      document.documentElement.lang = language;
+    } catch {}
+  }, [language]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('uchiro_lang') || localStorage.getItem('uchiro_store_lang');
+    if (!saved) {
+      StoreAPI.getMe()
+        .then((data: any) => {
+          const pref = data?.language_preference || data?.language;
+          if (pref === 'en' || pref === 'km') {
+            setLanguage(pref);
+            try {
+              localStorage.setItem('uchiro_lang', pref);
+              localStorage.setItem('uchiro_store_lang', pref);
+              document.documentElement.lang = pref;
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   const t = (key: keyof typeof translations.en): string => {
     return translations[language][key] || translations.en[key] || key;

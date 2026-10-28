@@ -74,20 +74,32 @@ export async function handleProfileMenu(ctx: Context, storeUrl: string): Promise
   } catch {}
 
   const profile = await fetchUserProfileData(telegramId);
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const text =
-    `👤 <b>UCHIRO ACCOUNT PROFILE</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🆔 <b>Telegram ID:</b> <code>${profile.telegram_id}</code>\n` +
-    `👤 <b>Account Name:</b> @${escapeHtml(profile.username)}\n` +
-    `⭐ <b>Membership Tier:</b> ${profile.tier_name}\n` +
-    `🪙 <b>Points Balance:</b> <code>${profile.points}</code> Pts\n` +
-    `🎟️ <b>Gacha Tickets:</b> <code>${profile.tickets}</code> Tickets\n` +
-    `🔥 <b>Daily Streak:</b> <code>${profile.streak_count}</code> / 7 Days\n` +
-    `📦 <b>Total Orders:</b> <code>${profile.total_orders}</code> Orders\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `👤 <b>ព័ត៌មានគណនី UCHIRO</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🆔 <b>លេខសម្គាល់ Telegram ID៖</b> <code>${profile.telegram_id}</code>\n` +
+        `👤 <b>ឈ្មោះគណនី៖</b> @${escapeHtml(profile.username)}\n` +
+        `⭐ <b>កម្រិតសមាជិក៖</b> ${profile.tier_name}\n` +
+        `🪙 <b>ពិន្ទុក្នុងគណនី៖</b> <code>${profile.points}</code> Pts\n` +
+        `🎟️ <b>សំបុត្រកាឆា៖</b> <code>${profile.tickets}</code> សំបុត្រ\n` +
+        `🔥 <b>ចំនួនថ្ងៃជាប់គ្នា (Streak)៖</b> <code>${profile.streak_count}</code> / 7 ថ្ងៃ\n` +
+        `📦 <b>ការកុម្ម៉ង់សរុប៖</b> <code>${profile.total_orders}</code> ដង\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `👤 <b>UCHIRO ACCOUNT PROFILE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🆔 <b>Telegram ID:</b> <code>${profile.telegram_id}</code>\n` +
+        `👤 <b>Account Name:</b> @${escapeHtml(profile.username)}\n` +
+        `⭐ <b>Membership Tier:</b> ${profile.tier_name}\n` +
+        `🪙 <b>Points Balance:</b> <code>${profile.points}</code> Pts\n` +
+        `🎟️ <b>Gacha Tickets:</b> <code>${profile.tickets}</code> Tickets\n` +
+        `🔥 <b>Daily Streak:</b> <code>${profile.streak_count}</code> / 7 Days\n` +
+        `📦 <b>Total Orders:</b> <code>${profile.total_orders}</code> Orders\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildProfileKeyboard(storeUrl, 'en');
+  const keyboard = buildProfileKeyboard(storeUrl, lang);
   const formattedHtml = enrichWithTgEmojis(text);
 
   try {
@@ -138,16 +150,26 @@ export async function handlePointsLedger(ctx: Context): Promise<void> {
       .join('\n');
   }
 
-  const text =
-    `📜 <b>POINTS LEDGER &amp; HISTORY</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🪙 <b>Current Balance:</b> <code>${profile.points}</code> Pts\n\n` +
-    `<b>Last 5 Transactions:</b>\n` +
-    ledgerText + `\n` +
-    `💡 <i>Tip: Earn free points via daily check-ins or by shopping in our store!</i>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
-  const keyboard = buildPointsLedgerKeyboard('en');
+  const text =
+    lang === 'km'
+      ? `📜 <b>ប្រវត្តិប្រតិបត្តិការពិន្ទុ (POINTS LEDGER)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>ពិន្ទុបច្ចុប្បន្នរបស់អ្នក៖</b> <code>${profile.points}</code> Pts\n\n` +
+        `<b>ប្រតិបត្តិការ ៥ លើកចុងក្រោយ៖</b>\n` +
+        ledgerText + `\n` +
+        `💡 <i>គន្លឹះ៖ ទទួលបានពិន្ទុបន្ថែមដោយការចូលទទួលរង្វាន់ប្រចាំថ្ងៃ ឬការទិញទំនិញក្នុងហាង!</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `📜 <b>POINTS LEDGER &amp; HISTORY</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>Current Balance:</b> <code>${profile.points}</code> Pts\n\n` +
+        `<b>Last 5 Transactions:</b>\n` +
+        ledgerText + `\n` +
+        `💡 <i>Tip: Earn free points via daily check-ins or by shopping in our store!</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildPointsLedgerKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -174,20 +196,32 @@ export async function handleRedeemPoints(ctx: Context): Promise<void> {
 
   const profile = await fetchUserProfileData(telegramId);
   const ticketCost = DataStore.getStoreSettings().gacha_ticket_points_cost || 100;
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const text =
-    `🎁 <b>REDEEM REWARD POINTS</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🪙 <b>Your Points Balance:</b> <code>${profile.points}</code> Pts\n\n` +
-    `<b>Available Redemptions:</b>\n` +
-    `🎟️ <b>1x Gacha Ticket:</b> <code>${ticketCost} Pts</code>\n` +
-    `🏷️ <b>$0.50 Discount Voucher:</b> <code>50 Pts</code> (Orders from $1.50)\n` +
-    `🏷️ <b>$1.00 Discount Voucher:</b> <code>100 Pts</code> (Orders from $3)\n` +
-    `🏷️ <b>$2.00 Discount Voucher:</b> <code>200 Pts</code> (Orders from $5)\n\n` +
-    `👇 Exchange for Gacha Tickets below or open Mini App to redeem vouchers:\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `🎁 <b>ប្តូរពិន្ទុយករង្វាន់ (REDEEM REWARD POINTS)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>ពិន្ទុបច្ចុប្បន្នរបស់អ្នក៖</b> <code>${profile.points}</code> Pts\n\n` +
+        `<b>ជម្រើសនៃការប្តូរយករង្វាន់៖</b>\n` +
+        `🎟️ <b>សំបុត្រកាឆា ១ សន្លឹក៖</b> <code>${ticketCost} Pts</code>\n` +
+        `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $0.50៖</b> <code>50 Pts</code> (កុម្ម៉ង់ចាប់ពី $1.50)\n` +
+        `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $1.00៖</b> <code>100 Pts</code> (កុម្ម៉ង់ចាប់ពី $3.00)\n` +
+        `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $2.00៖</b> <code>200 Pts</code> (កុម្ម៉ង់ចាប់ពី $5.00)\n\n` +
+        `👇 ប្តូរយកសំបុត្រកាឆាខាងក្រោម ឬបើក Mini App ដើម្បីប្តូរយកប័ណ្ណបញ្ចុះតម្លៃ៖\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🎁 <b>REDEEM REWARD POINTS</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>Your Points Balance:</b> <code>${profile.points}</code> Pts\n\n` +
+        `<b>Available Redemptions:</b>\n` +
+        `🎟️ <b>1x Gacha Ticket:</b> <code>${ticketCost} Pts</code>\n` +
+        `🏷️ <b>$0.50 Discount Voucher:</b> <code>50 Pts</code> (Orders from $1.50)\n` +
+        `🏷️ <b>$1.00 Discount Voucher:</b> <code>100 Pts</code> (Orders from $3.00)\n` +
+        `🏷️ <b>$2.00 Discount Voucher:</b> <code>200 Pts</code> (Orders from $5.00)\n\n` +
+        `👇 Exchange for Gacha Tickets below or open Mini App to redeem vouchers:\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildRedeemPointsKeyboard('en');
+  const keyboard = buildRedeemPointsKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -213,22 +247,32 @@ export async function handleRedeemCodeMenu(ctx: Context, storeUrl: string): Prom
   } catch {}
 
   const profileWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=profile` : `${storeUrl}?tab=profile`;
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const text =
-    `🎟️ <b>REDEEM PROMO CODE</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `Have a gift or promo code? You can redeem it right now for Points, Gacha Tickets, or Discount Coupons!\n\n` +
-    `💬 <b>How to redeem:</b>\n` +
-    `Send: <code>/redeem YOUR_CODE</code>\n` +
-    `<i>Example: <code>/redeem WELCOME100</code></i>\n\n` +
-    `Or open your Profile in the Store Mini App to enter it with 1 tap.\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `🎟️ <b>ប្តូរកូដរង្វាន់ (REDEEM PROMO CODE)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `តើអ្នកមានកូដកាដូ ឬកូដប្រូម៉ូសិនទេ? អ្នកអាចប្តូរវាឥឡូវនេះដើម្បីទទួលបានពិន្ទុ សំបុត្រកាឆា ឬប័ណ្ណបញ្ចុះតម្លៃ!\n\n` +
+        `💬 <b>របៀបប្តូរយក៖</b>\n` +
+        `ផ្ញើសារ៖ <code>/redeem កូដរបស់អ្នក</code>\n` +
+        `<i>ឧទាហរណ៍៖ <code>/redeem WELCOME100</code></i>\n\n` +
+        `ឬបើក Profile របស់អ្នកនៅក្នុង Store Mini App ដើម្បីបញ្ចូលដោយចុចតែម្តង។\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🎟️ <b>REDEEM PROMO CODE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Have a gift or promo code? You can redeem it right now for Points, Gacha Tickets, or Discount Coupons!\n\n` +
+        `💬 <b>How to redeem:</b>\n` +
+        `Send: <code>/redeem YOUR_CODE</code>\n` +
+        `<i>Example: <code>/redeem WELCOME100</code></i>\n\n` +
+        `Or open your Profile in the Store Mini App to enter it with 1 tap.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = Markup.inlineKeyboard([
     [createWebAppOrUrlButton('Open Profile in Mini App', profileWebUrl, 'PACKAGE')],
     [
       cb('Back to Profile', 'cb_profile_menu', 'BACK'),
-      cb('Main Menu', 'cb_main_menu', 'HOME'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 

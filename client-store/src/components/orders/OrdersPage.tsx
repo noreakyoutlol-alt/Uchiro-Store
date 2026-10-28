@@ -313,8 +313,8 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                       </span>
                     </div>
 
-                    {/* 14-Day Warranty Badge */}
-                    {isDelivered && order.warranty_status && (
+                    {/* 14-Day Warranty Badge (Roblox Accounts only) */}
+                    {isDelivered && (order.delivery_mode === 'auto_account' || (order as any).product_type === 'account') && order.warranty_status && order.warranty_status !== 'none' && (
                       <div className="pt-0.5">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${

@@ -11,41 +11,73 @@ import { escapeHtml, isMessageNotModifiedError } from './orders';
 import { buyGachaTicket } from '../../../database/data-store';
 
 export interface GachaLiveInfo {
+  pool_name: string;
   tickets: number;
   points: number;
   ticket_price_pts: number;
   top_mythical_item: string;
   top_legendary_item: string;
   mythical_drop_rate: number;
+  cooldown_seconds: number;
 }
 
 export async function fetchGachaLiveInfo(telegramId: number | string): Promise<GachaLiveInfo> {
   const tid = String(telegramId);
   const numId = Number(telegramId);
 
+  // 1. Authoritative pool & prize configuration from DataStore
+  const pools = DataStore.getGachaPools();
+  const activePool = pools.find((p) => p.is_active) || pools[0];
+  const pool_name = (activePool as any)?.name || activePool?.title || 'Uchiro Mythical Gacha';
+  const prizes = (activePool?.prizes || []).filter((p) => p.is_active);
+
+  const mythicalPrize = prizes.find((p) => p.rarity === 'MYTHICAL');
+  const legendaryPrize = prizes.find((p) => p.rarity === 'LEGENDARY');
+
+  const top_mythical_item = mythicalPrize?.title
+    ? `🍎 ${mythicalPrize.title} (Jackpot)`
+    : '🍎 Mythic Uchiro Champion Account (Jackpot)';
+  const top_legendary_item = legendaryPrize?.title
+    ? `⚔️ ${legendaryPrize.title}`
+    : '⚔️ Shadow Katana V2 Game Voucher';
+  const mythical_drop_rate = mythicalPrize ? Number(mythicalPrize.probability_percent) : 0.5;
+
+  const storeSettings = DataStore.getStoreSettings();
+  const ticket_price_pts = storeSettings.gacha_ticket_points_cost || 100;
+
   let tickets = 0;
   let points = 0;
-  let ticket_price_pts = 100;
-  let top_mythical_item = '🍎 Kitsune Fruit Permanent (Jackpot)';
-  let top_legendary_item = '⚔️ Dark Blade (Yoru) Account';
-  let mythical_drop_rate = 1.5;
+  let cooldown_seconds = 0;
 
-  // 1. Fetch user data from getUserSnapshot (single source of truth)
+  // 2. Fetch user data from DataStore getGachaStatus
+  try {
+    const status = DataStore.getGachaStatus(numId);
+    tickets = status.tickets || 0;
+    points = status.points || 0;
+    cooldown_seconds = status.cooldownSecondsRemaining || 0;
+  } catch (err: any) {
+    console.warn('[fetchGachaLiveInfo] getGachaStatus warning:', err?.message);
+  }
+
   try {
     const snap = await getUserSnapshot(tid);
-    points = snap.points;
-    tickets = snap.gachaTickets || 0;
+    if (!tickets && !points) {
+      points = snap.points;
+      tickets = snap.gachaTickets || 0;
+    }
   } catch (err: any) {
     console.warn('[fetchGachaLiveInfo] getUserSnapshot warning:', err?.message);
   }
 
   return {
+    pool_name,
     tickets,
     points,
     ticket_price_pts,
     top_mythical_item,
     top_legendary_item,
     mythical_drop_rate,
+    cooldown_seconds,
   };
 }
 
@@ -60,20 +92,39 @@ export async function handleGachaMenu(
   if (!telegramId) return;
 
   const liveInfo = await fetchGachaLiveInfo(telegramId);
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+
+  const cooldownText =
+    liveInfo.cooldown_seconds > 0
+      ? `⏳ ${Math.floor(liveInfo.cooldown_seconds / 60)}m ${liveInfo.cooldown_seconds % 60}s (${lang === 'km' ? 'រង់ចាំ Cooldown' : 'Wait for cooldown'})`
+      : (lang === 'km' ? `✅ រួចរាល់ក្នុងការបង្វិល` : `✅ Ready to spin`);
 
   const text =
-    `🎰 <b>UCHIRO MYTHICAL GACHA — LIVE OVERVIEW</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>Your Tickets:</b> ` +
-    `${liveInfo.tickets}\n` +
-    `💎 <b>Your Points:</b> ${liveInfo.points} Pts\n` +
-    `💰 <b>Ticket Price:</b> ${liveInfo.ticket_price_pts} Pts\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🏆 <b>Top Prizes:</b>\n` +
-    `  ${liveInfo.top_mythical_item}\n` +
-    `  ${liveInfo.top_legendary_item}\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚠️ <b>Mythical Drop Rate:</b> ${liveInfo.mythical_drop_rate}%\n`;
+    lang === 'km'
+      ? `🎰 <b>${escapeHtml(liveInfo.pool_name.toUpperCase())} — ព័ត៌មានបន្តផ្ទាល់</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎫 <b>សំបុត្ររបស់អ្នក៖</b> ${liveInfo.tickets}\n` +
+        `💎 <b>ពិន្ទុរបស់អ្នក៖</b> ${liveInfo.points} Pts\n` +
+        `💰 <b>តម្លៃសំបុត្រ៖</b> ${liveInfo.ticket_price_pts} Pts\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏆 <b>រង្វាន់កំពូល៖</b>\n` +
+        `  ${liveInfo.top_mythical_item}\n` +
+        `  ${liveInfo.top_legendary_item}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚠️ <b>ឱកាសឈ្នះ Mythical៖</b> ${liveInfo.mythical_drop_rate}%\n` +
+        `⏱️ <b>ស្ថានភាព៖</b> ${cooldownText}\n`
+      : `🎰 <b>${escapeHtml(liveInfo.pool_name.toUpperCase())} — LIVE OVERVIEW</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎫 <b>Your Tickets:</b> ${liveInfo.tickets}\n` +
+        `💎 <b>Your Points:</b> ${liveInfo.points} Pts\n` +
+        `💰 <b>Ticket Price:</b> ${liveInfo.ticket_price_pts} Pts\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏆 <b>Top Prizes:</b>\n` +
+        `  ${liveInfo.top_mythical_item}\n` +
+        `  ${liveInfo.top_legendary_item}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚠️ <b>Mythical Drop Rate:</b> ${liveInfo.mythical_drop_rate}%\n` +
+        `⏱️ <b>Status:</b> ${cooldownText}\n`;
 
   try {
     if (ctx.callbackQuery) {
@@ -112,22 +163,21 @@ export async function handleGachaPrizes(
     `🏆 <b>UCHIRO GACHA PRIZE POOL</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `🍭 <b>Common Items:</b>\n` +
-    `  • Apple Seeds x50\n` +
-    `  • Iron Ore x30\n` +
-    `  • Healing Herb x20\n` +
-    `  • Lucky Coin x10\n` +
+    `  • 50 Uchiro Points\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🏷️ <b>Rare Items:</b>\n` +
+    `  • $1.00 Uchiro Store Coupon\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `⚡ <b>Epic Items:</b>\n` +
+    `  • Uchiro 2x EXP Booster Pass\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `⚔️ <b>Legendary Items:</b>\n` +
-    `  ${liveInfo.top_legendary_item}\n` +
-    `  • Phoenix Feather Account\n` +
-    `  • Dragon Scale Sword\n` +
+    `  • Shadow Katana V2 Game Voucher\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `🌟 <b>Mythical Items:</b>\n` +
-    `  ${liveInfo.top_mythical_item}\n` +
-    `  • Celestial Kimono Set\n` +
-    `  • Void Walker Companion\n` +
+    `  • Mythic Uchiro Champion Account (Jackpot)\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `💰 <b>Odds:</b> Common 70% | Legendary 25% | Mythical 5%\n`;
+    `💰 <b>Odds:</b> Common 70.0% | Rare 20.0% | Epic 7.0% | Legendary 2.5% | Mythical 0.5%\n`;
 
   try {
     if (ctx.callbackQuery) {
@@ -166,15 +216,15 @@ export async function handleGachaOdds(
     `📊 <b>UCHIRO GACHA DROP RATES</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `📦 <b>Item Rarity Distribution:</b>\n` +
-    `  • Common: 70.0% (Everyday items & resources)\n` +
-    `  • Rare: 20.0% (Enhanced gear & materials)\n` +
-    `  • Epic: 7.0% (Powerful artifacts)\n` +
-    `  • Legendary: 2.5% (Hero equipment)\n` +
-    `  • Mythical: 0.5% (Divine relics)\n` +
+    `  • Common: 70.0% (50 Uchiro Points)\n` +
+    `  • Rare: 20.0% ($1.00 Store Coupon)\n` +
+    `  • Epic: 7.0% (2x EXP Booster Pass)\n` +
+    `  • Legendary: 2.5% (Shadow Katana V2)\n` +
+    `  • Mythical: 0.5% (Mythic Uchiro Champion Account)\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `🎯 <b>Current Focus:</b>\n` +
     `  • Mythical Drop Rate: ${liveInfo.mythical_drop_rate}%\n` +
-    `  • Guaranteed Legendary: Every 40th pull\n` +
+    `  • Guaranteed Single Spin Server Enforcement\n` +
     `  • Jackpot Reset: None (Progressive)\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `💡 <b>Tip:</b> Save tickets for rate-up events!\n`;
@@ -257,11 +307,15 @@ export async function handleBuyGachaTicket(
   gacha.points = newBalance;
   gacha.tickets = newTickets;
 
+  const cooldownText =
+    gacha.cooldown_seconds > 0
+      ? `⏳ ${Math.floor(gacha.cooldown_seconds / 60)}m ${gacha.cooldown_seconds % 60}s (Wait for cooldown)`
+      : `✅ Ready to spin`;
+
   const text =
-    `🎰 <b>UCHIRO MYTHICAL GACHA — LIVE OVERVIEW</b>\n` +
+    `🎰 <b>${escapeHtml(gacha.pool_name.toUpperCase())} — LIVE OVERVIEW</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>Your Tickets:</b> ` +
-    `${gacha.tickets}\n` +
+    `🎫 <b>Your Tickets:</b> ${gacha.tickets}\n` +
     `💎 <b>Your Points:</b> ${gacha.points} Pts\n` +
     `💰 <b>Ticket Price:</b> ${gacha.ticket_price_pts} Pts\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -269,7 +323,8 @@ export async function handleBuyGachaTicket(
     `  ${gacha.top_mythical_item}\n` +
     `  ${gacha.top_legendary_item}\n` +
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚠️ <b>Mythical Drop Rate:</b> ${gacha.mythical_drop_rate}%\n`;
+    `⚠️ <b>Mythical Drop Rate:</b> ${gacha.mythical_drop_rate}%\n` +
+    `⏱️ <b>Status:</b> ${cooldownText}\n`;
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {

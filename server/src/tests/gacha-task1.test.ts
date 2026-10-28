@@ -143,6 +143,15 @@ describe('Gacha System - Task 1 Contract Verification', () => {
       const archivedInStore = allPrizes.find((p: any) => p.id === currentPrize.id);
       expect(archivedInStore.slot_status).toBe('archived');
       expect(archivedInStore.is_active).toBe(false);
+
+      // Restore prize state so test isolation is maintained
+      archivedInStore.slot_status = 'current';
+      archivedInStore.is_active = true;
+      archivedInStore.stock = 9999;
+      draftPrize.slot_status = 'draft';
+      draftPrize.is_active = false;
+      const testDraftIdx = allPrizes.findIndex((p: any) => p.id === 'test-draft-prize-id');
+      if (testDraftIdx >= 0) allPrizes.splice(testDraftIdx, 1);
     }
   });
 
@@ -164,5 +173,36 @@ describe('Gacha System - Task 1 Contract Verification', () => {
     expect(firstPrize).toHaveProperty('probability_percent');
     expect(firstPrize).toHaveProperty('slot_status');
     expect(firstPrize).toHaveProperty('delivery_mode');
+  });
+
+  it('validates active pool probabilities total exactly 100.0% with canonical distribution', () => {
+    const pools = GachaService.getPools();
+    expect(pools.length).toBeGreaterThan(0);
+    const pool = pools[0];
+    const validation = DataStore.validatePoolProbabilities(pool.id);
+    expect(validation.isValid).toBe(true);
+    expect(validation.totalProbability).toBe(100.0);
+    expect(validation.difference).toBe(0.0);
+
+    const activePrizes = pool.prizes.filter((p) => p.is_active && p.slot_status === 'current');
+    expect(activePrizes.length).toBe(5);
+
+    const common = activePrizes.find((p) => p.rarity === 'COMMON');
+    const rare = activePrizes.find((p) => p.rarity === 'RARE');
+    const epic = activePrizes.find((p) => p.rarity === 'EPIC');
+    const legendary = activePrizes.find((p) => p.rarity === 'LEGENDARY');
+    const mythical = activePrizes.find((p) => p.rarity === 'MYTHICAL');
+
+    expect(common?.probability_percent).toBe(70.0);
+    expect(rare?.probability_percent).toBe(20.0);
+    expect(epic?.probability_percent).toBe(7.0);
+    expect(legendary?.probability_percent).toBe(2.5);
+    expect(mythical?.probability_percent).toBe(0.5);
+
+    // Common is most likely, Mythical is least likely
+    expect(common!.probability_percent).toBeGreaterThan(rare!.probability_percent);
+    expect(rare!.probability_percent).toBeGreaterThan(epic!.probability_percent);
+    expect(epic!.probability_percent).toBeGreaterThan(legendary!.probability_percent);
+    expect(legendary!.probability_percent).toBeGreaterThan(mythical!.probability_percent);
   });
 });

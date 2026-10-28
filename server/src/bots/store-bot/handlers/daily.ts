@@ -78,22 +78,37 @@ export async function handleDailyMenu(ctx: Context): Promise<void> {
 
   await DataStore.syncUserFromPostgres(telegramId);
   const daily = await fetchDailyLiveInfo(telegramId);
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
-  const statusText = daily.is_claimable
-    ? '✅ <b>Ready to Claim (+5 Pts)</b>'
-    : `⏳ <b>Cooldown Remaining:</b> <code>${daily.cooldown_str}</code>`;
+  const statusText =
+    lang === 'km'
+      ? daily.is_claimable
+        ? '✅ <b>អាចចុចយករង្វាន់បាន (+5 Pts)</b>'
+        : `⏳ <b>ពេលវេលារង់ចាំ (Cooldown)៖</b> <code>${daily.cooldown_str}</code>`
+      : daily.is_claimable
+        ? '✅ <b>Ready to Claim (+5 Pts)</b>'
+        : `⏳ <b>Cooldown Remaining:</b> <code>${daily.cooldown_str}</code>`;
 
   const text =
-    `🎁 <b>DAILY REWARD &amp; STREAK DASHBOARD</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔥 <b>Current Streak:</b> <code>${daily.streak_count}</code> / 7 Days\n` +
-    `💎 <b>Total Points:</b> <code>${daily.points}</code> Pts\n` +
-    `⚡ <b>Next Reward:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
-    `⏳ <b>Status:</b> ${statusText}\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `<i>Check in every 24 hours to keep your streak multiplier active!</i>`;
+    lang === 'km'
+      ? `🎁 <b>ផ្ទាំងគ្រប់គ្រងរង្វាន់ប្រចាំថ្ងៃ (DAILY REWARD &amp; STREAK)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🔥 <b>ចំនួនថ្ងៃជាប់គ្នា (Streak)៖</b> <code>${daily.streak_count}</code> / 7 ថ្ងៃ\n` +
+        `💎 <b>ពិន្ទុសរុបរបស់អ្នក៖</b> <code>${daily.points}</code> Pts\n` +
+        `⚡ <b>រង្វាន់លើកក្រោយ៖</b> <b>+${daily.next_pts} Pts</b>\n\n` +
+        `⏳ <b>ស្ថានភាព៖</b> ${statusText}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<i>ចូលមកទទួលរង្វាន់រៀងរាល់ ២៤ ម៉ោង ដើម្បីរក្សាពិន្ទុគុណ Streak របស់អ្នក!</i>`
+      : `🎁 <b>DAILY REWARD &amp; STREAK DASHBOARD</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🔥 <b>Current Streak:</b> <code>${daily.streak_count}</code> / 7 Days\n` +
+        `💎 <b>Total Points:</b> <code>${daily.points}</code> Pts\n` +
+        `⚡ <b>Next Reward:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
+        `⏳ <b>Status:</b> ${statusText}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<i>Check in every 24 hours to keep your streak multiplier active!</i>`;
 
-  const keyboard = buildDailyKeyboard(daily.is_claimable);
+  const keyboard = buildDailyKeyboard(daily.is_claimable, lang);
   const formattedHtml = enrichWithTgEmojis(text);
 
   try {
@@ -167,7 +182,8 @@ export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
     `━━━━━━━━━━━━━━━━━━━━━━\n` +
     `<i>Check in every 24 hours to keep your streak multiplier active!</i>`;
 
-  const keyboard = buildDailyKeyboard(false);
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+  const keyboard = buildDailyKeyboard(false, lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
@@ -194,20 +210,32 @@ export async function handleDailyShop(ctx: Context): Promise<void> {
 
   await DataStore.syncUserFromPostgres(telegramId);
   const daily = await fetchDailyLiveInfo(telegramId);
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const text =
-    `💎 <b>POINTS REWARDS SHOP</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🪙 <b>Current Balance:</b> <code>${daily.points}</code> Pts\n\n` +
-    `<b>Available Items:</b>\n` +
-    `🎟️ <b>Gacha Ticket:</b> <code>100 Pts</code> (1 Spin for Mythical Prizes)\n` +
-    `🏷️ <b>Coupon $0.50 Off:</b> <code>50 Pts</code> (Valid on all games)\n` +
-    `🏷️ <b>Coupon $1.00 Off:</b> <code>100 Pts</code> (Valid on all games)\n` +
-    `🏷️ <b>Coupon $2.00 Off:</b> <code>200 Pts</code> (Valid on all games)\n\n` +
-    `<i>Exchange points for tickets below or launch the Mini App to redeem coupons!</i>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `💎 <b>ហាងប្តូរពិន្ទុរង្វាន់ (POINTS REWARDS SHOP)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>ពិន្ទុបច្ចុប្បន្នរបស់អ្នក៖</b> <code>${daily.points}</code> Pts\n\n` +
+        `<b>ទំនិញដែលអាចប្តូរបាន៖</b>\n` +
+        `🎟️ <b>សំបុត្រកាឆា (Gacha Ticket)៖</b> <code>100 Pts</code> (បង្វិលយករង្វាន់ Mythical)\n` +
+        `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $0.50 Off៖</b> <code>50 Pts</code> (ប្រើបានគ្រប់ទំនិញ)\n` +
+        `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $1.00 Off៖</b> <code>100 Pts</code> (ប្រើបានគ្រប់ទំនិញ)\n` +
+        `🏷️ <b>ប័ណ្ណបញ្ចុះតម្លៃ $2.00 Off៖</b> <code>200 Pts</code> (ប្រើបានគ្រប់ទំនិញ)\n\n` +
+        `<i>ប្តូរសំបុត្រកាឆាខាងក្រោម ឬបើកកម្មវិធី Mini App ដើម្បីប្តូរយកប័ណ្ណបញ្ចុះតម្លៃ!</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `💎 <b>POINTS REWARDS SHOP</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>Current Balance:</b> <code>${daily.points}</code> Pts\n\n` +
+        `<b>Available Items:</b>\n` +
+        `🎟️ <b>Gacha Ticket:</b> <code>100 Pts</code> (1 Spin for Mythical Prizes)\n` +
+        `🏷️ <b>Coupon $0.50 Off:</b> <code>50 Pts</code> (Valid on all games)\n` +
+        `🏷️ <b>Coupon $1.00 Off:</b> <code>100 Pts</code> (Valid on all games)\n` +
+        `🏷️ <b>Coupon $2.00 Off:</b> <code>200 Pts</code> (Valid on all games)\n\n` +
+        `<i>Exchange points for tickets below or launch the Mini App to redeem coupons!</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
-  const keyboard = buildSubDailyShopKeyboard('en');
+  const keyboard = buildSubDailyShopKeyboard(lang);
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {

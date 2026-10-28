@@ -71,6 +71,7 @@ import {
   handleReenterUsername,
   handleCancelRobux,
   handleDisabledPayment,
+  handleRobuxPayNow,
   handleRobuxAgeConfirmed,
   handleRobuxAgeUnder18,
   clearRobuxSession,
@@ -439,10 +440,9 @@ export class StoreBotService {
       await handleSoldOutPack(ctx, denom);
     });
 
-    // Payment Attempt: Safely Disabled by Policy Gate
-    this.bot.action(/^cb_rbx_pay_(.+)$/, async (ctx) => {
-      try { await ctx.answerCbQuery(); } catch {}
-      await handleDisabledPayment(ctx);
+    // Payment Generation on Pay Now Press
+    this.bot.action(['cb_rbx_pay_now', /^cb_rbx_pay_(.+)$/], async (ctx) => {
+      await handleRobuxPayNow(ctx);
     });
 
     this.bot.action(/^cb_rbx_check_(.+)$/, async (ctx) => {
@@ -469,11 +469,14 @@ export class StoreBotService {
       const statusText = order.status;
       const statusHtml = formatTelegramHtml(
         `📦 <b>Robux Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
+        `👤 <b>Recipient:</b> <code>@${order.roblox_username}</code>\n` +
+        `💎 <b>Amount:</b> ${order.robux_amount.toLocaleString()} Robux\n` +
+        `💵 <b>Total:</b> $${order.price_usd.toFixed(2)} USD\n\n` +
         (statusText === 'completed'
-          ? '✅ Order completed via authorized fulfillment channel.'
+          ? '✅ <b>Delivered:</b> Robux top-up has been transferred to your Roblox account.'
           : statusText === 'paid'
-          ? '⏳ Payment received. Fulfillment pending verification.'
-          : '🛡️ <b>Notice:</b> Direct third-party Robux purchase/payment is held safely disabled pending documented Roblox authorization.')
+          ? '⏳ <b>Payment Confirmed:</b> Robux delivery in progress.'
+          : '⏳ <b>Pending Payment:</b> Please scan the KHQR code to complete payment.')
       );
       const statusKb = Markup.inlineKeyboard([
         [cb('🔄 Refresh Status', `cb_rbx_check_${orderCode}`, 'REFRESH')],

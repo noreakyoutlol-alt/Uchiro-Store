@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { DataStore } from '../database/data-store';
 import {
   buildMainRulesKeyboard,
   buildSubRulesKeyboard,
@@ -50,6 +51,10 @@ function createMockContext(userId: number = 999888777): {
 }
 
 describe('Rules, Policies & Official Support Verification Suite', () => {
+  beforeEach(() => {
+    DataStore.setUserLanguagePreference(999888777, 'en');
+  });
+
   describe('1. Main Rules Keyboard Layout & Callbacks', () => {
     it('builds exactly 5 rows with 100% English button labels and correct callbacks', () => {
       const kb = buildMainRulesKeyboard('en');

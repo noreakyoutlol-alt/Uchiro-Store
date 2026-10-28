@@ -59,6 +59,7 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
         else if (order.delivery_mode === 'manual_service') pType = 'Roblox Gift Delivery';
         else if (order.delivery_mode === 'trade_item') pType = 'In-Game Trade';
 
+        const isAcc = order.delivery_mode === 'auto_account' || (order as any).product_type === 'account';
         setReceipt({
           order_id: order.id,
           order_number: order.order_number,
@@ -73,9 +74,9 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
           order_date: order.created_at,
           paid_at: order.payment?.paid_at || order.updated_at,
           delivery_status: order.status,
-          warranty_duration: `${order.warranty_days || 14} Days`,
-          warranty_starts_at: order.warranty_starts_at || null,
-          warranty_expires_at: order.warranty_expires_at || null,
+          warranty_duration: isAcc ? `${order.warranty_days || 14} Days` : 'N/A',
+          warranty_starts_at: isAcc ? (order.warranty_starts_at || null) : null,
+          warranty_expires_at: isAcc ? (order.warranty_expires_at || null) : null,
         });
       } finally {
         if (isMounted) setIsLoading(false);
@@ -107,6 +108,11 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
       setIsDownloading(false);
     }
   };
+
+  const isAccount =
+    order.delivery_mode === 'auto_account' ||
+    (order as any).product_type === 'account' ||
+    Boolean(receipt?.product_type && receipt.product_type.toLowerCase().includes('account'));
 
   const formattedDate = receipt?.order_date
     ? new Date(receipt.order_date).toLocaleString('en-US', {
@@ -250,28 +256,30 @@ export const OrderReceiptModal: React.FC<OrderReceiptModalProps> = ({
                 </div>
               </div>
 
-              {/* Warranty Protection Card */}
-              <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
-                <div className="flex items-center gap-1.5 text-emerald-400 font-black text-xs">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>{language === 'km' ? 'ការធានាការពារ' : 'Warranty Protection'}</span>
-                </div>
-                <div className="text-[11px] text-slate-300 space-y-0.5">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">{language === 'km' ? 'រយៈពេល៖' : 'Duration:'}</span>
-                    <span className="font-bold text-white">{receipt.warranty_duration}</span>
+              {/* Warranty Protection Card (Roblox Accounts only) */}
+              {isAccount && Boolean(receipt.warranty_starts_at || receipt.warranty_expires_at || (receipt.warranty_duration && receipt.warranty_duration !== 'N/A')) && (
+                <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-black text-xs">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>{language === 'km' ? 'ការធានាការពារ' : 'Warranty Protection'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">{language === 'km' ? 'សកម្មចាប់តាំងពី៖' : 'Active Since:'}</span>
-                    <span className="text-slate-200">{warrantyStartDate}</span>
+                  <div className="text-[11px] text-slate-300 space-y-0.5">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{language === 'km' ? 'រយៈពេល៖' : 'Duration:'}</span>
+                      <span className="font-bold text-white">{receipt.warranty_duration}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{language === 'km' ? 'សកម្មចាប់តាំងពី៖' : 'Active Since:'}</span>
+                      <span className="text-slate-200">{warrantyStartDate}</span>
+                    </div>
                   </div>
+                  <p className="text-[10px] text-slate-400 pt-1 leading-normal">
+                    {language === 'km'
+                      ? 'ការធានាប្តូរជូនវិញពេញលេញរយៈពេល ១៤ ថ្ងៃ ប្រសិនបើព័ត៌មានគណនីនៅតែត្រឹមត្រូវ។'
+                      : 'Full 14-day replacement guarantee provided recovery credentials remain intact.'}
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-400 pt-1 leading-normal">
-                  {language === 'km'
-                    ? 'ការធានាប្តូរជូនវិញពេញលេញរយៈពេល ១៤ ថ្ងៃ ប្រសិនបើព័ត៌មានគណនីនៅតែត្រឹមត្រូវ។'
-                    : 'Full 14-day replacement guarantee provided recovery credentials remain intact.'}
-                </p>
-              </div>
+              )}
 
               {/* Security Compliance Note */}
               <div className="p-3 rounded-xl bg-black/40 border border-white/5 text-[10px] text-slate-400 space-y-1">

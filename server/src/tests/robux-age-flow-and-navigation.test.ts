@@ -15,6 +15,7 @@ import {
   handleSelectPack,
   handleRobuxAgeConfirmed,
   handleRobuxAgeUnder18,
+  handleRobuxPayNow,
 } from '../bots/store-bot/handlers/robux';
 import { cb } from '../bots/store-bot/keyboards';
 
@@ -39,10 +40,10 @@ describe('Robux Age Flow, Checkout Safety & Navigation Integrity', () => {
     clearRobuxSession(99999);
     DataStore.saveProduct({
       id: 'prod-blox-1',
-      category_id: '11111111-1111-1111-1111-111111111103',
-      title: 'Blox Fruits Test Item',
-      product_type: 'gift',
-      delivery_mode: 'manual_service',
+      category_id: 'robux',
+      title: 'Robux Test Pack 100 R$',
+      product_type: 'robux',
+      delivery_mode: 'robux',
       stock: 10,
       requires_roblox_username: true,
       price: 10.0,
@@ -376,6 +377,175 @@ describe('Robux Age Flow, Checkout Safety & Navigation Integrity', () => {
 
       expect(orderRes.success).toBe(true);
       expect(orderRes.order?.total_amount).toBe(product?.price);
+    });
+  });
+
+  // =========================================================================
+  // 5. ISSUE 1 & ISSUE 3: PAY NOW, QR GENERATION & SCOPE VERIFICATION
+  // =========================================================================
+  describe('5. Pay Now, QR Generation & Age Scope Verification', () => {
+    beforeEach(() => {
+      DataStore.setUserLanguagePreference(12345, 'en');
+      clearRobuxSession(12345);
+    });
+
+    it('displays Pay Now and Back Home buttons on final order review', async () => {
+      let sentExtra: any = null;
+      let sentText = '';
+      const mockCtx: any = {
+        from: { id: 12345 },
+        answerCbQuery: async () => {},
+        reply: async (text: string, extra?: any) => {
+          sentText = text;
+          sentExtra = extra;
+        },
+        editMessageText: async (text: string, extra?: any) => {
+          sentText = text;
+          sentExtra = extra;
+        },
+      };
+
+      await RobuxService.setStock('admin1', 2000, 'Test pool');
+      const session = getRobuxSession(12345);
+      session.state = 'account_confirmed';
+      session.robloxInfo = { userId: 156, username: 'builderman', displayName: 'builderman' };
+      session.buyerAge18Confirmed = true;
+
+      await handleSelectPack(mockCtx, 500);
+
+      const flatButtons = sentExtra?.reply_markup?.inline_keyboard?.flat() || [];
+      const buttonLabels = flatButtons.map((b: any) => b.text);
+      const buttonCallbacks = flatButtons.map((b: any) => b.callback_data);
+
+      expect(buttonLabels.some((l: string) => l.includes('Pay Now'))).toBe(true);
+      expect(buttonLabels.some((l: string) => l.includes('Back Home'))).toBe(true);
+      expect(buttonCallbacks).toContain('cb_rbx_pay_now');
+      expect(buttonCallbacks).toContain('cb_main_menu');
+
+      // Wording describes buying and receiving Robux, NOT buying a Roblox account
+      expect(sentText).toContain('builderman');
+      expect(sentText).toContain('Robux');
+      expect(sentText).toContain('NOT a Roblox account sale');
+
+      // Step 9: Payable order and QR must NOT be created prematurely before Pay Now
+      expect(session.orderCode).toBeUndefined();
+    });
+
+    it('generates payable order and payment QR only when Pay Now is pressed', async () => {
+      let photoSent = false;
+      let photoCaption = '';
+
+      const mockCtx: any = {
+        from: { id: 12345 },
+        answerCbQuery: async () => {},
+        reply: async () => {},
+        replyWithPhoto: async (_photo: any, extra?: any) => {
+          photoSent = true;
+          photoCaption = extra?.caption || '';
+        },
+      };
+
+      await RobuxService.setStock('admin1', 2000, 'Test pool');
+      const session = getRobuxSession(12345);
+      session.state = 'amount_selected';
+      session.robloxInfo = { userId: 156, username: 'builderman', displayName: 'builderman' };
+      session.selectedAmount = 500;
+      session.buyerAge18Confirmed = true;
+
+      await handleRobuxPayNow(mockCtx);
+
+      expect(photoSent).toBe(true);
+      expect(photoCaption).toContain('ROBUX PAYMENT');
+      expect(photoCaption).toContain('builderman');
+      expect(session.orderCode).toBeDefined();
+
+      const createdOrder = await RobuxService.getOrderByCode(session.orderCode!);
+      expect(createdOrder).toBeDefined();
+      expect(createdOrder?.robux_amount).toBe(500);
+      expect(createdOrder?.roblox_username).toBe('builderman');
+    });
+
+    it('prevents duplicate orders upon repeated Pay Now button clicks', async () => {
+      let photosCount = 0;
+      const mockCtx: any = {
+        from: { id: 12345 },
+        answerCbQuery: async () => {},
+        reply: async () => {},
+        replyWithPhoto: async () => {
+          photosCount++;
+        },
+      };
+
+      await RobuxService.setStock('admin1', 2000, 'Test pool');
+      const session = getRobuxSession(12345);
+      session.state = 'amount_selected';
+      session.robloxInfo = { userId: 156, username: 'builderman', displayName: 'builderman' };
+      session.selectedAmount = 500;
+      session.buyerAge18Confirmed = true;
+
+      // First click
+      await handleRobuxPayNow(mockCtx);
+      const originalOrderCode = session.orderCode;
+      expect(originalOrderCode).toBeDefined();
+
+      // Second click of Pay Now button
+      await handleRobuxPayNow(mockCtx);
+
+      // Must reuse existing orderCode, not create a duplicate order
+      expect(session.orderCode).toBe(originalOrderCode);
+    });
+
+    it('Issue 3: Gamepass and Gift products do NOT require age confirmation', async () => {
+      DataStore.saveProduct({
+        id: 'prod-gamepass-1',
+        category_id: '11111111-1111-1111-1111-111111111110',
+        title: 'VIP Gamepass Service',
+        product_type: 'gift',
+        delivery_mode: 'manual_service',
+        stock: 5,
+        requires_roblox_username: false,
+        price: 8.0,
+        is_active: true,
+        is_draft: false,
+      });
+
+      // Purchasing Gamepass with Roblox username but without age confirmation must succeed (201 Created)
+      const res = await request(app)
+        .post('/api/orders')
+        .send({
+          productId: 'prod-gamepass-1',
+          quantity: 1,
+          robloxUsername: 'builderman',
+        });
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.order).toBeDefined();
+
+      // Gift product requiring roblox username must also succeed even if buyerConfirmedAge18 is false
+      DataStore.saveProduct({
+        id: 'prod-gift-req-roblox-1',
+        category_id: '11111111-1111-1111-1111-111111111110',
+        title: 'Blox Fruits Fruit Notifier Gift',
+        product_type: 'gift',
+        delivery_mode: 'manual_service',
+        stock: 5,
+        requires_roblox_username: true,
+        price: 25.0,
+        is_active: true,
+        is_draft: false,
+      });
+
+      const resGift = await request(app)
+        .post('/api/orders')
+        .send({
+          productId: 'prod-gift-req-roblox-1',
+          quantity: 1,
+          robloxUsername: 'builderman',
+          buyerConfirmedAge18: false,
+        });
+      expect(resGift.status).toBe(201);
+      expect(resGift.body.success).toBe(true);
+      expect(resGift.body.data.order).toBeDefined();
     });
   });
 });

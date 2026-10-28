@@ -41,6 +41,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const isAccount = product.delivery_mode === 'auto_account' || product.product_type === 'account';
   const isGift = product.delivery_mode === 'manual_service' || product.product_type === 'gift';
   const isTrade = product.delivery_mode === 'trade_item' || product.product_type === 'trade';
+  const isRobux = product.delivery_mode === 'robux' || (product as any).product_type === 'robux' || product.category_id === 'robux';
   const isMultiQtyEligible = !isAccount && (
     product.delivery_mode === 'digital_code' ||
     product.delivery_mode === 'manual_service' ||
@@ -91,10 +92,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isVerifyingRoblox, setIsVerifyingRoblox] = useState(false);
   const [robloxVerifyError, setRobloxVerifyError] = useState<string | null>(null);
   const [recipientConfirmed, setRecipientConfirmed] = useState(false);
-  // Age confirmation state (Mandatory 18+ self-declaration; unchecked by default)
-  const [buyerConfirmedAge18, setBuyerConfirmedAge18] = useState(false);
-  const [buyerUnder18, setBuyerUnder18] = useState(false);
+  // Robux checkout step: 'confirm_account' -> 'final_payment'
+  const [robuxReviewStep, setRobuxReviewStep] = useState<'confirm_account' | 'final_payment'>('confirm_account');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper to verify Roblox account eligibility for Robux:
+  // Roblox Kids, Roblox Select, and Unchecked / not age-verified accounts must not purchase Robux.
+  const checkRobuxEligibility = (profile: RobloxProfile | null): { eligible: boolean; reason?: string } => {
+    if (!profile) return { eligible: false, reason: 'Profile not found' };
+    const lower = profile.name.toLowerCase();
+    if (profile.accountType === 'kids' || lower.includes('kids')) {
+      return { eligible: false, reason: 'Roblox Kids accounts are not eligible to purchase Robux.' };
+    }
+    if (profile.accountType === 'select' || lower.includes('select')) {
+      return { eligible: false, reason: 'Roblox Select accounts are not eligible to purchase Robux.' };
+    }
+    if (profile.accountType === 'unverified' || profile.isAgeVerified === false || lower.includes('unverified') || lower.includes('not_age_verified')) {
+      return { eligible: false, reason: 'Unchecked / not age-verified accounts are not eligible to purchase Robux.' };
+    }
+    return { eligible: true };
+  };
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
@@ -135,30 +152,42 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const profile = await StoreAPI.verifyRobloxUsername(clean);
       if (profile) {
         setVerifiedProfile(profile);
-        setRecipientConfirmed(true);
+        setRecipientConfirmed(false); // The required checkbox starts unchecked
         setRobloxVerifyError(null);
       } else {
-        const fallback = {
+        const fallback: RobloxProfile = {
           id: 0,
           name: clean,
           displayName: clean,
           avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${clean.toLowerCase()}`,
           isVerified: true,
+          accountType: isRobux ? 'unverified' : 'standard',
+          isAgeVerified: !isRobux,
+          isEligible: !isRobux,
+          ineligibilityReason: isRobux
+            ? 'Unchecked / not age-verified accounts are not eligible to purchase Robux.'
+            : undefined,
         };
         setVerifiedProfile(fallback);
-        setRecipientConfirmed(true);
+        setRecipientConfirmed(false); // The required checkbox starts unchecked
         setRobloxVerifyError(null);
       }
     } catch {
-      const fallback = {
+      const fallback: RobloxProfile = {
         id: 0,
         name: clean,
         displayName: clean,
         avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${clean.toLowerCase()}`,
         isVerified: true,
+        accountType: isRobux ? 'unverified' : 'standard',
+        isAgeVerified: !isRobux,
+        isEligible: !isRobux,
+        ineligibilityReason: isRobux
+          ? 'Unchecked / not age-verified accounts are not eligible to purchase Robux.'
+          : undefined,
       };
       setVerifiedProfile(fallback);
-      setRecipientConfirmed(true);
+      setRecipientConfirmed(false); // The required checkbox starts unchecked
       setRobloxVerifyError(null);
     } finally {
       setIsVerifyingRoblox(false);
@@ -167,7 +196,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleRobloxInputChange = (val: string) => {
     setRobloxUsernameInput(val);
-    setRecipientConfirmed(false);
+    setRecipientConfirmed(false); // Starts unchecked
+    setRobuxReviewStep('confirm_account');
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       verifyUsername(val);
@@ -213,7 +243,38 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const isFulfillmentReady =
     !requiresRoblox ||
-    (Boolean(verifiedProfile) && recipientConfirmed && buyerConfirmedAge18 && !buyerUnder18);
+    (Boolean(verifiedProfile) && recipientConfirmed && (!isRobux || checkRobuxEligibility(verifiedProfile).eligible));
+
+  const handleConfirmRobuxAccount = () => {
+    setErrorMessage(null);
+    if (!verifiedProfile) {
+      setErrorMessage(
+        language === 'km'
+          ? 'សូមបញ្ចូល និងផ្ទៀងផ្ទាត់ឈ្មោះគណនី Roblox ជាមុនសិន។'
+          : 'Please enter and verify a Roblox recipient username.'
+      );
+      return;
+    }
+    const check = checkRobuxEligibility(verifiedProfile);
+    if (!check.eligible) {
+      setErrorMessage(
+        check.reason ||
+          (language === 'km'
+            ? 'គណនីមិនមានសិទ្ធិ៖ គណនី Roblox Kids, Roblox Select និងគណនីមិនទាន់ផ្ទៀងផ្ទាត់អាយុ មិនអាចទិញ Robux បានទេ។'
+            : 'Roblox account eligibility: Roblox Kids, Roblox Select, and unverified accounts cannot purchase Robux.')
+      );
+      return;
+    }
+    if (!recipientConfirmed) {
+      setErrorMessage(
+        language === 'km'
+          ? 'សូមធីកប្រអប់បញ្ជាក់គណនីអ្នកទទួលជាមុនសិន។'
+          : 'Please check the confirmation box to confirm this recipient account.'
+      );
+      return;
+    }
+    setRobuxReviewStep('final_payment');
+  };
 
   const handleProceedToPayment = async () => {
     if (requiresRoblox) {
@@ -225,21 +286,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setErrorMessage('Please confirm that this is the correct recipient account.');
         return;
       }
-      if (buyerUnder18) {
-        setErrorMessage(
-          language === 'km'
-            ? 'ការទិញត្រូវបានរារាំង៖ អ្នកទិញត្រូវតែមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅ។'
-            : 'Purchases are strictly restricted to buyers 18 years of age or older. Orders cannot be placed.'
-        );
-        return;
-      }
-      if (!buyerConfirmedAge18) {
-        setErrorMessage(
-          language === 'km'
-            ? 'សូមបញ្ជាក់ថាអ្នកមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅមុនពេលបន្ត។'
-            : 'Please confirm that you are at least 18 years of age before proceeding.'
-        );
-        return;
+      if (isRobux) {
+        const check = checkRobuxEligibility(verifiedProfile);
+        if (!check.eligible) {
+          setErrorMessage(
+            check.reason ||
+              'Roblox account eligibility: Roblox Kids, Roblox Select, and unverified accounts cannot purchase Robux.'
+          );
+          return;
+        }
       }
     }
 
@@ -258,8 +313,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       robloxUsername: verifiedProfile?.name || robloxUsernameInput.trim() || undefined,
       robloxDisplayName: verifiedProfile?.displayName || undefined,
       robloxUserId: verifiedProfile?.id ? String(verifiedProfile.id) : undefined,
-      buyerConfirmedAge18,
-      buyerUnder18,
+      recipientConfirmed,
+      confirmationChecked: recipientConfirmed,
       idempotencyKey,
     };
 
@@ -325,7 +380,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-[#FFD166]" />
-            <h3 className="font-black text-white text-base">ORDER CHECKOUT</h3>
+            <h3 className="font-black text-white text-base">
+              {isRobux && robuxReviewStep === 'final_payment'
+                ? 'FINAL ORDER REVIEW'
+                : isRobux
+                ? 'ACCOUNT CONFIRMATION'
+                : 'ORDER CHECKOUT'}
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -351,7 +412,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <div className="flex-1 min-w-0">
               <h4 className="font-bold text-xs text-white truncate">{product.title}</h4>
               <p className="text-[11px] text-slate-400">
-                {isGift
+                {isRobux
+                  ? (language === 'km' ? 'បញ្ចូល Robux ផ្ទាល់ទៅក្នុងគណនី' : 'Robux Top-Up Delivery')
+                  : isGift
                   ? 'Roblox Gift Delivery'
                   : isTrade
                   ? 'In-Game Trade'
@@ -472,9 +535,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-bold uppercase shrink-0">
-                    Verified
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase shrink-0 ${
+                    isRobux && !checkRobuxEligibility(verifiedProfile).eligible
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300'
+                  }`}>
+                    {isRobux
+                      ? checkRobuxEligibility(verifiedProfile).eligible
+                        ? 'Eligible (Age-Verified)'
+                        : 'Ineligible'
+                      : 'Verified'}
                   </span>
+                </div>
+              )}
+
+              {/* Ineligible Notice for Robux */}
+              {isRobux && verifiedProfile && !checkRobuxEligibility(verifiedProfile).eligible && (
+                <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{checkRobuxEligibility(verifiedProfile).reason}</span>
                 </div>
               )}
 
@@ -486,7 +565,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Recipient Confirmation Checkbox */}
+              {/* Recipient Confirmation Checkbox — starts unchecked */}
               {verifiedProfile && (
                 <label className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-colors">
                   <input
@@ -496,84 +575,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-0 focus:ring-offset-0 bg-black/40 border-white/20 cursor-pointer"
                   />
                   <span className="text-[11px] text-slate-300 leading-snug">
-                    I confirm this is my exact Roblox account{' '}
-                    <strong className="text-white">(@{verifiedProfile.name})</strong> and understand gift/trade deliveries cannot be transferred once sent.
+                    {isRobux ? (
+                      <>
+                        I confirm this is my exact recipient profile{' '}
+                        <strong className="text-white">(@{verifiedProfile.name})</strong> for this Robux top-up. I understand that Robux top-ups are strictly non-refundable for incorrect usernames or unclaimable orders once processed, subject to applicable law.
+                      </>
+                    ) : (
+                      <>
+                        I confirm this is my exact recipient profile{' '}
+                        <strong className="text-white">(@{verifiedProfile.name})</strong> and understand gift/trade deliveries cannot be transferred once sent.
+                      </>
+                    )}
                   </span>
                 </label>
-              )}
-
-              {/* Step 3: Confirm Buyer's Age (18+ Self-Declaration; unchecked by default) */}
-              {verifiedProfile && recipientConfirmed && (
-                <div className="p-3 rounded-2xl bg-black/40 border border-amber-500/20 space-y-2.5 animate-fadeIn">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-amber-400" />
-                      {language === 'km' ? 'ការបញ្ជាក់អាយុរបស់អ្នកទិញ (១៨+ ឆ្នាំ)' : 'Buyer Age Confirmation'}
-                    </span>
-                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      Required
-                    </span>
-                  </div>
-
-                  <p className="text-[11px] text-slate-300 leading-snug">
-                    {language === 'km'
-                      ? 'អ្នកទិញត្រូវតែមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅដើម្បីធ្វើការបញ្ជាទិញ។ នេះជាការប្រកាសបញ្ជាក់ផ្ទាល់ខ្លួនរបស់អ្នកទិញ។'
-                      : 'Buyers must be at least 18 years of age to complete a purchase. This is an explicit buyer self-declaration.'}
-                  </p>
-
-                  {/* 18+ Unchecked by default checkbox */}
-                  <label className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={buyerConfirmedAge18}
-                      onChange={(e) => {
-                        setBuyerConfirmedAge18(e.target.checked);
-                        if (e.target.checked) setBuyerUnder18(false);
-                      }}
-                      className="mt-0.5 w-4 h-4 rounded text-amber-500 focus:ring-0 focus:ring-offset-0 bg-black/40 border-white/20 cursor-pointer"
-                    />
-                    <span className="text-[11px] text-slate-200 font-medium leading-snug">
-                      {language === 'km'
-                        ? 'ខ្ញុំសូមបញ្ជាក់ថាខ្ញុំមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅ (ការប្រកាសផ្ទាល់ខ្លួន)'
-                        : 'I confirm that I am at least 18 years old (Buyer Self-Declaration)'}
-                    </span>
-                  </label>
-
-                  {/* Option to declare under 18 */}
-                  <div className="flex items-center justify-between pt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBuyerUnder18(true);
-                        setBuyerConfirmedAge18(false);
-                      }}
-                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                        buyerUnder18
-                          ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      I am under 18
-                    </button>
-                    {buyerUnder18 && (
-                      <span className="text-[10px] font-bold text-rose-400">
-                        {language === 'km' ? 'ការទិញត្រូវបានរារាំង' : 'Purchase blocked'}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Under 18 blocked message */}
-                  {buyerUnder18 && (
-                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                      <span>
-                        {language === 'km'
-                          ? 'ការទិញត្រូវបានរារាំង៖ អ្នកទិញដែលមានអាយុក្រោម ១៨ ឆ្នាំមិនត្រូវបានអនុញ្ញាតឱ្យធ្វើការបញ្ជាទិញទេ។'
-                          : 'Under-18 Purchase Blocked: Buyers under 18 years of age are not permitted to complete purchases.'}
-                      </span>
-                    </div>
-                  )}
-                </div>
               )}
             </div>
           )}
@@ -645,36 +659,70 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         </div>
 
         {/* Footer / Action */}
-        <div className="p-4 bg-[#0A0D14] border-t border-white/10">
-          <button
-            disabled={isSubmitting || !isFulfillmentReady}
-            onClick={handleProceedToPayment}
-            className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm text-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              isSubmitting || !isFulfillmentReady
-                ? 'bg-white/10 text-slate-500 cursor-not-allowed opacity-60'
-                : 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
-            }`}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin text-black" />
-                <span>Generating KHPay QR...</span>
-              </>
-            ) : requiresRoblox && !verifiedProfile ? (
-              <span>ENTER VERIFIED ROBLOX RECIPIENT</span>
-            ) : requiresRoblox && !recipientConfirmed ? (
-              <span>CONFIRM RECIPIENT TO PROCEED</span>
-            ) : requiresRoblox && buyerUnder18 ? (
-              <span>PURCHASE BLOCKED (UNDER 18)</span>
-            ) : requiresRoblox && !buyerConfirmedAge18 ? (
-              <span>CONFIRM AGE (18+) TO PROCEED</span>
-            ) : (
-              <>
-                <span>PAY ${finalTotal.toFixed(2)} WITH KHPAY</span>
-                <ArrowRight className="w-4 h-4 text-black" />
-              </>
-            )}
-          </button>
+        <div className="p-4 bg-[#0A0D14] border-t border-white/10 space-y-2">
+          {/* For Robux on the confirm_account step, show "Confirm Account" button, not the payment button */}
+          {isRobux && robuxReviewStep === 'confirm_account' ? (
+            <>
+              <button
+                type="button"
+                disabled={!verifiedProfile || !recipientConfirmed || !checkRobuxEligibility(verifiedProfile).eligible}
+                onClick={handleConfirmRobuxAccount}
+                className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm text-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  !verifiedProfile || !recipientConfirmed || !checkRobuxEligibility(verifiedProfile).eligible
+                    ? 'bg-white/10 text-slate-500 cursor-not-allowed opacity-60'
+                    : 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
+                }`}
+              >
+                {!verifiedProfile ? (
+                  <span>ENTER VERIFIED ROBLOX RECIPIENT</span>
+                ) : !checkRobuxEligibility(verifiedProfile).eligible ? (
+                  <span>ACCOUNT INELIGIBLE FOR ROBUX</span>
+                ) : !recipientConfirmed ? (
+                  <span>CHECK CONFIRMATION BOX TO CONFIRM</span>
+                ) : (
+                  <>
+                    <span>CONFIRM ACCOUNT & SELECT AMOUNT</span>
+                    <ArrowRight className="w-4 h-4 text-black" />
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2 px-4 rounded-xl font-bold text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                Back Home
+              </button>
+            </>
+          ) : (
+            <button
+              disabled={isSubmitting || !isFulfillmentReady}
+              onClick={handleProceedToPayment}
+              className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm text-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                isSubmitting || !isFulfillmentReady
+                  ? 'bg-white/10 text-slate-500 cursor-not-allowed opacity-60'
+                  : 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
+              }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin text-black" />
+                  <span>Generating KHPay QR...</span>
+                </>
+              ) : requiresRoblox && !verifiedProfile ? (
+                <span>ENTER VERIFIED ROBLOX RECIPIENT</span>
+              ) : requiresRoblox && !recipientConfirmed ? (
+                <span>CONFIRM RECIPIENT TO PROCEED</span>
+              ) : isRobux && verifiedProfile && !checkRobuxEligibility(verifiedProfile).eligible ? (
+                <span>ACCOUNT INELIGIBLE FOR ROBUX</span>
+              ) : (
+                <>
+                  <span>PAY ${finalTotal.toFixed(2)} WITH KHPAY</span>
+                  <ArrowRight className="w-4 h-4 text-black" />
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

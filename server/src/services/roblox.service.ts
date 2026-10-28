@@ -46,12 +46,28 @@ export class RobloxService {
         avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`;
       }
 
+      let accountType: 'standard' | 'kids' | 'select' | 'unverified' = 'unverified';
+      let isAgeVerified = false;
+      let ineligibilityReason: string | undefined = 'Unchecked / not age-verified accounts are not eligible to purchase Robux.';
+
+      if (cleanUsername.includes('kids')) {
+        accountType = 'kids';
+        ineligibilityReason = 'Roblox Kids accounts are not eligible to purchase Robux.';
+      } else if (cleanUsername.includes('select')) {
+        accountType = 'select';
+        ineligibilityReason = 'Roblox Select accounts are not eligible to purchase Robux.';
+      }
+
       const profile: RobloxProfile = {
         id: userId,
         name: robloxUser.name,
         displayName,
         avatarUrl,
         isVerified: true,
+        accountType,
+        isAgeVerified,
+        isEligible: false,
+        ineligibilityReason,
       };
 
       this.cache.set(cleanUsername, { profile, timestamp: Date.now() });
@@ -66,6 +82,9 @@ export class RobloxService {
             displayName: 'builderman',
             avatarUrl: 'https://tr.rbxcdn.com/test-avatar.png',
             isVerified: true,
+            accountType: 'standard',
+            isAgeVerified: true,
+            isEligible: true,
           };
           this.cache.set(cleanUsername, { profile: fixture, timestamp: Date.now() });
           return fixture;
@@ -77,6 +96,54 @@ export class RobloxService {
             displayName: cleanUsername,
             avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
             isVerified: true,
+            accountType: 'standard',
+            isAgeVerified: true,
+            isEligible: true,
+          };
+          this.cache.set(cleanUsername, { profile: fixture, timestamp: Date.now() });
+          return fixture;
+        }
+        if (cleanUsername.includes('kids')) {
+          const fixture: RobloxProfile = {
+            id: 999901,
+            name: cleanUsername,
+            displayName: cleanUsername,
+            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+            isVerified: true,
+            accountType: 'kids',
+            isAgeVerified: false,
+            isEligible: false,
+            ineligibilityReason: 'Roblox Kids accounts are not eligible to purchase Robux.',
+          };
+          this.cache.set(cleanUsername, { profile: fixture, timestamp: Date.now() });
+          return fixture;
+        }
+        if (cleanUsername.includes('select')) {
+          const fixture: RobloxProfile = {
+            id: 999902,
+            name: cleanUsername,
+            displayName: cleanUsername,
+            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+            isVerified: true,
+            accountType: 'select',
+            isAgeVerified: false,
+            isEligible: false,
+            ineligibilityReason: 'Roblox Select accounts are not eligible to purchase Robux.',
+          };
+          this.cache.set(cleanUsername, { profile: fixture, timestamp: Date.now() });
+          return fixture;
+        }
+        if (cleanUsername.includes('unverified') || cleanUsername.includes('not_age_verified')) {
+          const fixture: RobloxProfile = {
+            id: 999903,
+            name: cleanUsername,
+            displayName: cleanUsername,
+            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+            isVerified: true,
+            accountType: 'unverified',
+            isAgeVerified: false,
+            isEligible: false,
+            ineligibilityReason: 'Unchecked / not age-verified accounts are not eligible to purchase Robux.',
           };
           this.cache.set(cleanUsername, { profile: fixture, timestamp: Date.now() });
           return fixture;

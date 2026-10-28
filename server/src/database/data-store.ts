@@ -313,7 +313,7 @@ const initialGachaPrizes: GachaPrize[] = [
     title: '50 Uchiro Points',
     description: 'Instant credit of 50 Uchiro Reward Points directly to your wallet',
     rarity: 'COMMON',
-    probability_percent: 50.0,
+    probability_percent: 70.0,
     delivery_mode: 'instant_code',
     reward_type: 'points',
     reward_data: { points: 50 },
@@ -331,7 +331,7 @@ const initialGachaPrizes: GachaPrize[] = [
     title: '$1.00 Uchiro Store Coupon',
     description: 'Fixed $1.00 discount voucher for your next qualifying game or code order (min. order $3.00)',
     rarity: 'RARE',
-    probability_percent: 28.0,
+    probability_percent: 20.0,
     delivery_mode: 'instant_code',
     reward_type: 'code',
     reward_data: { coupon_code: 'UCHIRO-GACHA-1USD' },
@@ -349,7 +349,7 @@ const initialGachaPrizes: GachaPrize[] = [
     title: 'Uchiro 2x EXP Booster Pass',
     description: 'Digital code voucher granting 24 hours of 2x experience multiplier in supported gaming modes',
     rarity: 'EPIC',
-    probability_percent: 14.0,
+    probability_percent: 7.0,
     delivery_mode: 'instant_code',
     reward_type: 'code',
     reward_data: { code: 'UCH-2XBOOST-24H' },
@@ -367,7 +367,7 @@ const initialGachaPrizes: GachaPrize[] = [
     title: 'Shadow Katana V2 Game Voucher',
     description: 'Legendary digital equipment voucher redeemable for high-tier katana in gaming library',
     rarity: 'LEGENDARY',
-    probability_percent: 6.5,
+    probability_percent: 2.5,
     delivery_mode: 'instant_code',
     reward_type: 'code',
     reward_data: { code: 'KATANA-LEGENDARY-8821' },
@@ -385,7 +385,7 @@ const initialGachaPrizes: GachaPrize[] = [
     title: 'Mythic Uchiro Champion Account',
     description: 'Grand prize! Mythical max-tier gaming account transferred securely with 14-day warranty guarantee',
     rarity: 'MYTHICAL',
-    probability_percent: 1.5,
+    probability_percent: 0.5,
     delivery_mode: 'manual_review',
     reward_type: 'item',
     reward_data: { item_name: 'Mythic Uchiro Champion Account' },
@@ -404,7 +404,7 @@ const initialGachaPrizes: GachaPrize[] = [
     title: 'MM2 Darkbringer Gun Voucher (Standby)',
     description: 'Standby draft prize for Slot 4. Automatically promotes when Current prize hits 0 stock.',
     rarity: 'LEGENDARY',
-    probability_percent: 6.5,
+    probability_percent: 2.5,
     delivery_mode: 'instant_code',
     reward_type: 'code',
     reward_data: { code: 'DARKBRINGER-VOUCHER-991' },
@@ -422,7 +422,7 @@ const initialGachaPrizes: GachaPrize[] = [
     title: 'Blox Fruits Perm Dragon Fruit Gift (Standby)',
     description: 'Standby draft prize for Slot 5. Automatically promotes when Current prize hits 0 stock.',
     rarity: 'MYTHICAL',
-    probability_percent: 1.5,
+    probability_percent: 0.5,
     delivery_mode: 'manual_review',
     reward_type: 'item',
     reward_data: { item_name: 'Blox Fruits Perm Dragon Fruit' },
@@ -1004,7 +1004,9 @@ export class DataStore {
       stock: calculatedStock,
       delivery_mode: deliveryMode,
       product_type: product.product_type || (deliveryMode === 'auto_account' ? 'account' : deliveryMode === 'manual_service' ? 'gift' : deliveryMode === 'trade_item' ? 'trade' : 'digital_code'),
-      warranty_days: product.warranty_days !== undefined ? product.warranty_days : 14,
+      warranty_days: (deliveryMode === 'auto_account' || product.product_type === 'account')
+        ? (product.warranty_days !== undefined ? product.warranty_days : 14)
+        : 0,
       authenticator_enabled: product.authenticator_enabled !== undefined ? Boolean(product.authenticator_enabled) : Boolean(product.require_authenticator_protection),
       requires_roblox_username: requiresRobloxUsername,
       requires_roblox_verification: requiresRobloxVerification,
@@ -1521,30 +1523,34 @@ export class DataStore {
       return { isValid: false, discountAmount: 0, error: 'COUPON_NOT_VALID_FOR_USER' };
     }
 
-    if (subtotal < coupon.min_order_amount) {
+    const subtotalCents = Math.round(subtotal * 100);
+    const minOrderCents = Math.round((coupon.min_order_amount || 0) * 100);
+
+    if (subtotalCents < minOrderCents) {
       return {
         isValid: false,
         discountAmount: 0,
-        error: `Order subtotal must be at least $${coupon.min_order_amount.toFixed(2)}`,
+        error: `Order subtotal must be at least $${(minOrderCents / 100).toFixed(2)}`,
       };
     }
 
-    let discount = 0;
+    let discountCents = 0;
     if (coupon.discount_type === 'percentage') {
-      discount = (subtotal * coupon.discount_value) / 100;
+      discountCents = Math.round((subtotalCents * coupon.discount_value) / 100);
       if (coupon.max_discount_amount) {
-        discount = Math.min(discount, coupon.max_discount_amount);
+        discountCents = Math.min(discountCents, Math.round(coupon.max_discount_amount * 100));
       }
     } else {
-      discount = coupon.discount_value;
+      discountCents = Math.round(coupon.discount_value * 100);
     }
 
-    discount = Math.min(discount, subtotal);
+    discountCents = Math.min(discountCents, subtotalCents);
+    const discountAmount = discountCents / 100;
 
     return {
       isValid: true,
       coupon,
-      discountAmount: Number(discount.toFixed(2)),
+      discountAmount,
     };
   }
 
@@ -2021,16 +2027,18 @@ export class DataStore {
       return { success: false, error: 'ROBLOX_USERNAME_REQUIRED' };
     }
 
-    // Age confirmation check (Minors under 18 blocked; unconfirmed blocked)
-    if (data.buyerUnder18 === true) {
-      return { success: false, error: 'UNDER_18_PURCHASE_BLOCKED' };
-    }
-    const isRobuxProduct = product.category_id === 'robux' || (product.product_type as string) === 'robux';
-    if (isRobuxProduct && data.buyerConfirmedAge18 !== true) {
-      return { success: false, error: 'AGE_CONFIRMATION_REQUIRED' };
-    }
-    if (product.requires_roblox_username && data.buyerConfirmedAge18 === false) {
-      return { success: false, error: 'AGE_CONFIRMATION_REQUIRED' };
+    // Age confirmation check (Applicable strictly and only to Robux products)
+    const isRobuxProduct =
+      product.category_id === 'robux' ||
+      (product.product_type as string) === 'robux' ||
+      (product.delivery_mode as string) === 'robux';
+    if (isRobuxProduct) {
+      if (data.buyerUnder18 === true) {
+        return { success: false, error: 'UNDER_18_PURCHASE_BLOCKED' };
+      }
+      if (data.buyerConfirmedAge18 !== true) {
+        return { success: false, error: 'AGE_CONFIRMATION_REQUIRED' };
+      }
     }
 
     const orderId = uuidv4();
@@ -2134,7 +2142,8 @@ export class DataStore {
       validation.coupon.used_at = new Date().toISOString();
     }
 
-    const total = Math.max(0.1, Number((subtotal - discount).toFixed(2)));
+    const totalCents = Math.max(10, Math.round(subtotal * 100) - Math.round(discount * 100));
+    const total = totalCents / 100;
 
     const order: Order = {
       id: orderId,
@@ -2154,11 +2163,17 @@ export class DataStore {
       delivery_credentials: null,
       fulfillment_notes: null,
       delivered_at: null,
-      warranty_days: this.storeSettings.default_warranty_days || 14,
-      warranty_status: 'pending',
+      warranty_days: (product.delivery_mode === 'auto_account' || (product as any).product_type === 'account')
+        ? (product.warranty_days || this.storeSettings.default_warranty_days || 14)
+        : 0,
+      warranty_status: (product.delivery_mode === 'auto_account' || (product as any).product_type === 'account')
+        ? 'pending'
+        : 'none',
       warranty_starts_at: null,
       warranty_expires_at: null,
-      warranty_notes: 'Warranty starts automatically upon verified payment.',
+      warranty_notes: (product.delivery_mode === 'auto_account' || (product as any).product_type === 'account')
+        ? 'Warranty starts automatically upon verified payment.'
+        : null,
       idempotency_key: data.idempotencyKey || null,
       admin_notified: false,
       created_at: new Date().toISOString(),
@@ -2300,7 +2315,11 @@ export class DataStore {
   }
 
   static getOrderById(orderId: string): Order | null {
-    return this.orders.find((o) => o.id === orderId) || null;
+    return this.orders.find((o) => o.id === orderId || o.order_number === orderId) || null;
+  }
+
+  static getOrderByNumber(orderNumber: string): Order | null {
+    return this.orders.find((o) => o.order_number === orderNumber || o.id === orderNumber) || null;
   }
 
   static saveOrder(order: Order): Order {
@@ -3825,6 +3844,7 @@ export class DataStore {
   ): {
     success: boolean;
     coupon?: Coupon;
+    newBalance?: number;
     error?: string;
   } {
     if (!this.storeSettings.coupon_redemption_enabled) {
@@ -3835,24 +3855,27 @@ export class DataStore {
       return { success: false, error: 'INVALID_COUPON_TIER' };
     }
 
-    // Determine tier values
+    // Determine tier values using integer cents arithmetic
     let cost = 100;
-    let discount = 1.0;
-    let minOrder = 3.0;
+    let discountCents = 100;
+    let minOrderCents = 300;
 
     if (tierPoints === 50) {
       cost = 50;
-      discount = this.storeSettings.coupon_tier_50_value || 0.5;
-      minOrder = this.storeSettings.coupon_tier_50_min_order || 1.5;
+      discountCents = Math.round((this.storeSettings.coupon_tier_50_value ?? 0.5) * 100);
+      minOrderCents = Math.round((this.storeSettings.coupon_tier_50_min_order ?? 1.5) * 100);
     } else if (tierPoints === 200) {
       cost = 200;
-      discount = this.storeSettings.coupon_tier_200_value || 2.0;
-      minOrder = this.storeSettings.coupon_tier_200_min_order || 5.0;
+      discountCents = Math.round((this.storeSettings.coupon_tier_200_value ?? 2.0) * 100);
+      minOrderCents = Math.round((this.storeSettings.coupon_tier_200_min_order ?? 5.0) * 100);
     } else {
       cost = 100;
-      discount = this.storeSettings.coupon_tier_100_value || 1.0;
-      minOrder = this.storeSettings.coupon_tier_100_min_order || 3.0;
+      discountCents = Math.round((this.storeSettings.coupon_tier_100_value ?? 1.0) * 100);
+      minOrderCents = Math.round((this.storeSettings.coupon_tier_100_min_order ?? 3.0) * 100);
     }
+
+    const discount = discountCents / 100;
+    const minOrder = minOrderCents / 100;
 
     const profile = this.profiles.get(telegramId);
     if (!profile || profile.points < cost) {
@@ -3886,7 +3909,7 @@ export class DataStore {
       is_active: true,
     });
 
-    return { success: true, coupon };
+    return { success: true, coupon, newBalance: profile.points };
   }
 
   // ================= STORE SETTINGS =================
@@ -4458,9 +4481,7 @@ export class DataStore {
     if (currentInSlot) {
       currentInSlot.is_active = false;
       currentInSlot.slot_status = 'archived';
-      if (!draft.probability_percent || draft.probability_percent === 0) {
-        draft.probability_percent = currentInSlot.probability_percent;
-      }
+      draft.probability_percent = currentInSlot.probability_percent;
     }
 
     draft.slot_status = 'current';
@@ -4856,6 +4877,9 @@ export class DataStore {
     const order = this.orders.find((o) => o.id === orderId);
     if (!order) return null;
 
+    const isAccount = order.delivery_mode === 'auto_account' || (order as any).product_type === 'account';
+    if (!isAccount) return null;
+
     order.warranty_status = 'active';
     order.warranty_notes = replacementNotes;
     if (credentials && credentials.length > 0) {
@@ -4868,6 +4892,9 @@ export class DataStore {
   static invalidateWarranty(orderId: string, reason: string): Order | null {
     const order = this.orders.find((o) => o.id === orderId);
     if (!order) return null;
+
+    const isAccount = order.delivery_mode === 'auto_account' || (order as any).product_type === 'account';
+    if (!isAccount) return null;
 
     order.warranty_status = 'invalidated';
     order.warranty_invalidation_reason = reason;

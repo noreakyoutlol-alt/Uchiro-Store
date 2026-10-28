@@ -14,6 +14,7 @@ import { paymentRouter } from './routes/payment.routes';
 import { gachaRouter } from './routes/gacha.routes';
 import { supportRouter } from './routes/support.routes';
 import { adminRouter } from './routes/admin.routes';
+import { uploadRouter } from './routes/upload.routes';
 import { requireAdminSession } from './auth/admin-session';
 import { adminAuthRouter } from './routes/admin-auth.routes';
 import { webhookSecretGuard, registerBotWebhooks } from './bots/webhook-security';
@@ -116,6 +117,7 @@ app.use('/admin', ipBlockGuard);
 // 1. Admin API (/api/admin/*)
 app.use('/api', adminAuthRouter);
 app.use('/api/admin', requireAdminSession);
+app.use('/api/admin', uploadRouter);
 app.use('/api/admin', adminRouter);
 
 // 2. Store API (/api/*)

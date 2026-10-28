@@ -184,9 +184,18 @@ export class AdminService {
     replacementNotes: string,
     credentials?: any[]
   ): Order {
+    const order = DataStore.getOrderById(orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+    const isAccount = order.delivery_mode === 'auto_account' || (order as any).product_type === 'account';
+    if (!isAccount) {
+      throw new Error('Warranty replacement applies to purchased Roblox Accounts only');
+    }
+
     const updated = DataStore.replaceWarrantyOrder(orderId, replacementNotes, credentials);
     if (!updated) {
-      throw new Error('Order not found');
+      throw new Error('Failed to process warranty replacement');
     }
     DataStore.logAdminAction(adminTelegramId, 'WARRANTY_REPLACEMENT', {
       orderId,
@@ -212,9 +221,18 @@ export class AdminService {
     orderId: string,
     reason: string
   ): Order {
+    const order = DataStore.getOrderById(orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+    const isAccount = order.delivery_mode === 'auto_account' || (order as any).product_type === 'account';
+    if (!isAccount) {
+      throw new Error('Warranty operations apply to purchased Roblox Accounts only');
+    }
+
     const updated = DataStore.invalidateWarranty(orderId, reason);
     if (!updated) {
-      throw new Error('Order not found');
+      throw new Error('Failed to invalidate warranty');
     }
     DataStore.logAdminAction(adminTelegramId, 'WARRANTY_INVALIDATED', {
       orderId,

@@ -1,10 +1,11 @@
-export type DeliveryMode = 'auto_account' | 'manual_service' | 'trade_item' | 'digital_code';
+export type DeliveryMode = 'auto_account' | 'manual_service' | 'trade_item' | 'digital_code' | 'robux';
 
 export const DELIVERY_MODE_LABELS: Record<DeliveryMode, string> = {
   auto_account: 'Instant Account Delivery',
   manual_service: 'Roblox Gift Delivery',
   trade_item: 'In-Game Trade',
   digital_code: 'Instant Digital Key',
+  robux: 'Robux Top-Up Delivery',
 };
 
 export function formatDeliveryMode(mode?: string | DeliveryMode | null): string {
@@ -18,6 +19,8 @@ export function formatDeliveryMode(mode?: string | DeliveryMode | null): string 
       return 'In-Game Trade';
     case 'digital_code':
       return 'Instant Digital Key';
+    case 'robux':
+      return 'Robux Top-Up Delivery';
     default:
       return mode.replace(/_/g, ' ');
   }
@@ -170,7 +173,7 @@ export interface Order {
   delivery_credentials: Record<string, any>[] | null;
   fulfillment_notes: string | null;
   warranty_days?: number;
-  warranty_status?: 'active' | 'warning' | 'expired' | 'invalidated' | 'replaced';
+  warranty_status?: 'none' | 'active' | 'warning' | 'expired' | 'invalidated' | 'replaced';
   warranty_starts_at?: string | null;
   warranty_expires_at?: string | null;
   warranty_notes?: string | null;
@@ -324,12 +327,18 @@ export interface CouponValidationResult {
   error?: string;
 }
 
+export type RobloxAccountType = 'standard' | 'kids' | 'select' | 'unverified';
+
 export interface RobloxProfile {
   id: number;
   name: string;
   displayName: string;
   avatarUrl: string;
   isVerified: boolean;
+  accountType?: RobloxAccountType;
+  isAgeVerified?: boolean;
+  isEligible?: boolean;
+  ineligibilityReason?: string;
 }
 
 export interface CustomerDeliveryResult {

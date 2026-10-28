@@ -46,7 +46,14 @@ paymentRouter.post('/create-qr', orderCreationLimiter, requireTelegramAuth, asyn
       parsedQuantity = Math.floor(num);
     }
 
-    if (buyerUnder18 === true) {
+    const product = productId ? DataStore.getProductById(productId) : null;
+    const isRobuxProduct =
+      product &&
+      (product.category_id === 'robux' ||
+        (product.product_type as string) === 'robux' ||
+        (product.delivery_mode as string) === 'robux');
+
+    if (isRobuxProduct && buyerUnder18 === true) {
       throw new AppError('Buyers under 18 years of age are not permitted to complete purchases.', 403, 'UNDER_18_PURCHASE_BLOCKED');
     }
 

@@ -12,6 +12,7 @@ import { RobuxService } from '../../services/robux.service';
 import { BatchAnnouncementService } from '../../services/batch-announcement.service';
 import { DataStore } from '../../database/data-store';
 import { NotificationService } from '../../services/notification.service';
+import { OrderService } from '../../services/order.service';
 
 export function isAuthorizedAdmin(telegramId: string | number): boolean {
   const id = String(telegramId).trim();
@@ -358,6 +359,74 @@ adminBot.on('callback_query', async (ctx) => {
     } catch {}
     try { await ctx.answerCbQuery('Ticket marked closed.'); } catch {}
     return;
+  }
+
+  // Handle Admin Manual Delivery / Confirmation Trigger for Gift, Gamepass & Trade Orders
+  if (data.startsWith('admin_fulfill_order:') || data.startsWith('admin_deliver_order:')) {
+    const rawId = data.startsWith('admin_fulfill_order:')
+      ? data.slice('admin_fulfill_order:'.length).trim()
+      : data.slice('admin_deliver_order:'.length).trim();
+
+    const order = DataStore.getOrderById(rawId) || DataStore.getOrderByNumber(rawId);
+    if (!order) {
+      try { await ctx.answerCbQuery('Order not found.', { show_alert: true }); } catch {}
+      return;
+    }
+
+    if (order.status === 'delivered' || order.status === 'completed') {
+      try { await ctx.answerCbQuery('Order is already marked as delivered.', { show_alert: true }); } catch {}
+      return;
+    }
+
+    try {
+      await OrderService.fulfillManualOrder(order.id, {
+        fulfillment_notes: `Confirmed and delivered by Admin @${from.username || from.id} via Telegram Admin Bot`,
+        admin_telegram_id: from.id,
+      });
+
+      try { await ctx.answerCbQuery('✅ Order marked delivered & customer notified!'); } catch {}
+
+      const productTitle = order.product_title || order.items?.[0]?.product_title || 'Gift Product';
+      return ctx.reply(
+        `✅ <b>GIFT / ORDER MARKED AS DELIVERED</b>\n\n` +
+        `📦 <b>Product:</b> ${productTitle}\n` +
+        `🆔 <b>Order:</b> <code>#${order.order_number || order.id}</code>\n` +
+        (order.roblox_username ? `👤 <b>Recipient:</b> <code>${order.roblox_username}</code>\n` : '') +
+        `👤 <b>Confirmed by Admin:</b> <code>${from.username ? `@${from.username}` : from.id}</code>\n\n` +
+        `Status successfully updated to <b>DELIVERED</b> in store database.\n` +
+        `The customer has been notified via Store Bot!`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err: any) {
+      try { await ctx.answerCbQuery(`Error: ${err?.message || 'Failed to fulfill'}`, { show_alert: true }); } catch {}
+      return;
+    }
+  }
+
+  // Handle Expired QR Fulfill Trigger from Admin Bot
+  if (data.startsWith('admin_fulfill_expired:')) {
+    const orderId = data.slice('admin_fulfill_expired:'.length);
+    const order = DataStore.getOrderById(orderId);
+    if (!order) {
+      try { await ctx.answerCbQuery('Order not found.', { show_alert: true }); } catch {}
+      return;
+    }
+
+    try {
+      await OrderService.fulfillManualOrder(orderId, {
+        fulfillment_notes: 'Confirmed and fulfilled by admin via Admin Bot (Expired QR payment)',
+        admin_telegram_id: from.id,
+      });
+      try { await ctx.answerCbQuery('✅ Order fulfilled and customer notified!'); } catch {}
+      return ctx.reply(
+        `✅ <b>ORDER FULFILLED</b>\n\n` +
+        `Order <b>#${order.order_number || order.id}</b> has been fulfilled and the customer notified.`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err: any) {
+      try { await ctx.answerCbQuery(`Error: ${err?.message || 'Failed to fulfill'}`, { show_alert: true }); } catch {}
+      return;
+    }
   }
 
   const view = await handleAdminCallback(data, ctx.callbackQuery.from, STORE_URL, adminPortalUrl);

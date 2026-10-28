@@ -52,8 +52,8 @@ export interface Category {
   updated_at: string;
 }
 
-export type DeliveryMode = 'auto_account' | 'manual_service' | 'trade_item' | 'digital_code';
-export type ProductType = 'account' | 'gift' | 'trade' | 'digital_code';
+export type DeliveryMode = 'auto_account' | 'manual_service' | 'trade_item' | 'digital_code' | 'robux';
+export type ProductType = 'account' | 'gift' | 'trade' | 'digital_code' | 'robux';
 
 export interface ProductGame {
   id?: string;
@@ -245,7 +245,7 @@ export type OrderStatus =
   | 'expired'
   | 'failed';
 
-export type WarrantyStatus = 'pending' | 'active' | 'warning' | 'expired' | 'invalidated';
+export type WarrantyStatus = 'none' | 'pending' | 'active' | 'warning' | 'expired' | 'invalidated' | 'replaced';
 
 export interface Order {
   id: string;
@@ -503,12 +503,18 @@ export interface SupportTicket {
   updated_at: string;
 }
 
+export type RobloxAccountType = 'standard' | 'kids' | 'select' | 'unverified';
+
 export interface RobloxProfile {
   id: number;
   name: string;
   displayName: string;
   avatarUrl: string | null;
   isVerified: boolean;
+  accountType?: RobloxAccountType;
+  isAgeVerified?: boolean;
+  isEligible?: boolean;
+  ineligibilityReason?: string;
 }
 
 export interface TelegramAuthSession {

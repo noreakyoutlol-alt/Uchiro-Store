@@ -167,10 +167,10 @@ describe('Uchiro Store - Delivery Modes End-to-End Audit', () => {
         expect(capturedPayload.status).toBe('awaiting_fulfillment');
         expect(capturedPayload.timestamp).toBeDefined();
 
-        // 5. Customer delivery view before fulfillment
+        // 5. Customer delivery view before fulfillment (Warranty applies to accounts only)
         const deliveryPending = await OrderService.getOrderDelivery(order.id, customerTelegramId);
         expect(deliveryPending.delivery_mode).toBe('manual_service');
-        expect(deliveryPending.warranty_days).toBe(14);
+        expect(deliveryPending.warranty_days).toBe(0);
 
         // 6. Admin fulfills order in admin panel
         await OrderService.fulfillManualOrder(order.id, {
@@ -221,11 +221,11 @@ describe('Uchiro Store - Delivery Modes End-to-End Audit', () => {
       // 3. Pay order
       await OrderService.processPaymentSuccess(order.id, 'Bakong KHQR', 'TX-TRADE-303');
 
-      // 4. Delivery response
+      // 4. Delivery response (Warranty applies to accounts only)
       const delivery = await OrderService.getOrderDelivery(order.id, customerTelegramId);
       expect(delivery.delivery_mode).toBe('trade_item');
       expect(delivery.order_number).toBe(order.order_number);
-      expect(delivery.warranty_days).toBe(14);
+      expect(delivery.warranty_days).toBe(0);
 
       // 5. Receipt verification
       const receipt = await OrderService.getOrderReceipt(order.id, customerTelegramId);
@@ -282,12 +282,12 @@ describe('Uchiro Store - Delivery Modes End-to-End Audit', () => {
       expect(consumedItem?.status).toBe('consumed');
       expect(consumedItem?.order_id).toBe(order.id);
 
-      // 5. Retrieve delivery credentials
+      // 5. Retrieve delivery credentials (Warranty applies to accounts only)
       const delivery = await OrderService.getOrderDelivery(order.id, customerTelegramId);
       expect(delivery.delivery_mode).toBe('digital_code');
       expect(delivery.digital_code).toBe(testCode);
-      expect(delivery.warranty_days).toBe(14);
-      expect(delivery.warranty_status).toBe('active');
+      expect(delivery.warranty_days).toBe(0);
+      expect(delivery.warranty_status).toBe('none');
 
       // 6. Receipt specifies Instant Digital Key
       const receipt = await OrderService.getOrderReceipt(order.id, customerTelegramId);

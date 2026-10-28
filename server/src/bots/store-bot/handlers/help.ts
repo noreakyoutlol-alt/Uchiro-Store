@@ -1,4 +1,5 @@
 import { Context } from 'telegraf';
+import { DataStore } from '../../../database/data-store';
 import { resolveStoreUrl } from '../../../config/app-url';
 import {
   buildMainHelpKeyboard,
@@ -19,19 +20,32 @@ export async function handleMainHelp(ctx: Context, supportUsername: string = 'Uc
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `❓ <b>HELP CENTER &amp; FAQ</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `Frequently asked questions and guides:\n\n` +
-    `1️⃣ <b>How to log into an account with 2FA:</b>\n` +
-    `• Go to <b>🎒 My Vault</b> -> Select account -> Tap <b>🔑 Request Live 2FA OTP</b> to get your 6-digit code.\n\n` +
-    `2️⃣ <b>KHQR / Bakong Payments:</b>\n` +
-    `• Scan payment QR with any Bakong-enabled banking app -> Verified automatically within 5 seconds.\n\n` +
-    `3️⃣ <b>Need Assistance?</b>\n` +
-    `• Contact our 24/7 Support team below for instant human help!\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
-  const keyboard = buildMainHelpKeyboard(supportUsername, 'en');
+  const text =
+    lang === 'km'
+      ? `❓ <b>មជ្ឈមណ្ឌលជំនួយ និងសំណួរញឹកញាប់ (HELP CENTER)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `ការណែនាំ និងចម្លើយចំពោះសំណួរញឹកញាប់៖\n\n` +
+        `1️⃣ <b>របៀបចូលប្រើគណនីដែលមាន 2FA៖</b>\n` +
+        `• ចូលទៅកាន់ <b>🎒 My Vault</b> -> ជ្រើសរើសគណនី -> ចុច <b>🔑 Request Live 2FA OTP</b> ដើម្បីទទួលបានលេខកូដ ៦ ខ្ទង់។\n\n` +
+        `2️⃣ <b>ការទូទាត់ប្រាក់តាម KHQR / Bakong៖</b>\n` +
+        `• ស្កេន QR កូដទូទាត់ជាមួយកម្មវិធីធនាគារណាមួយដែលគាំទ្រ Bakong -> ផ្ទៀងផ្ទាត់ដោយស្វ័យប្រវត្តិក្នុ​ងរយៈពេល ៥ វិនាទី។\n\n` +
+        `3️⃣ <b>ត្រូវការជំនួយបន្ថែម?</b>\n` +
+        `• ទាក់ទងមកកាន់ផ្នែកបម្រើអតិថិជន 24/7 របស់យើងខាងក្រោម ដើម្បីទទួលបានជំនួយភ្លាមៗ!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `❓ <b>HELP CENTER &amp; FAQ</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Frequently asked questions and guides:\n\n` +
+        `1️⃣ <b>How to log into an account with 2FA:</b>\n` +
+        `• Go to <b>🎒 My Vault</b> -> Select account -> Tap <b>🔑 Request Live 2FA OTP</b> to get your 6-digit code.\n\n` +
+        `2️⃣ <b>KHQR / Bakong Payments:</b>\n` +
+        `• Scan payment QR with any Bakong-enabled banking app -> Verified automatically within 5 seconds.\n\n` +
+        `3️⃣ <b>Need Assistance?</b>\n` +
+        `• Contact our 24/7 Support team below for instant human help!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildMainHelpKeyboard(supportUsername, lang);
 
   try {
     if (ctx.callbackQuery) {
@@ -56,24 +70,39 @@ export async function handleMainHelp(ctx: Context, supportUsername: string = 'Uc
  * Handle 2FA Authenticator Guide (cb_guide_2fa)
  */
 export async function handleGuide2fa(ctx: Context, _supportUsername: string = 'UchiroSupport'): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `🔑 <b>2FA AUTHENTICATOR USER GUIDE</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `<b>Step 1:</b>\n` +
-    `• Open <b>🎒 My Vault</b> in this bot or the Mini App.\n\n` +
-    `<b>Step 2:</b>\n` +
-    `• Tap on your purchased account and select <b>🔑 Request Live 2FA OTP</b>.\n\n` +
-    `<b>Step 3:</b>\n` +
-    `• The bot generates your current 6-digit code (valid for 30s).\n` +
-    `• Enter this code on the game login screen to log in immediately!\n\n` +
-    `💡 <i>Tip: You can also copy the 2FA secret key into Google Authenticator or 2FAS app.</i>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
-  const keyboard = buildSubHelpKeyboard('en');
+  const text =
+    lang === 'km'
+      ? `🔑 <b>ការណែនាំអំពីការប្រើប្រាស់ 2FA AUTHENTICATOR</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<b>ជំហានទី ១៖</b>\n` +
+        `• បើក <b>🎒 My Vault</b> នៅក្នុង Bot នេះ ឬក្នុង Mini App។\n\n` +
+        `<b>ជំហានទី ២៖</b>\n` +
+        `• ចុចលើគណនីដែលអ្នកបានទិញ រួចជ្រើសរើស <b>🔑 Request Live 2FA OTP</b>។\n\n` +
+        `<b>ជំហានទី ៣៖</b>\n` +
+        `• Bot នឹងផ្ញើលេខកូដសម្ងាត់ ៦ ខ្ទង់ថ្មី (មានសុពលភាព ៣០ វិនាទី)។\n` +
+        `• យកលេខកូដនេះទៅបំពេញលើផ្ទាំង Login ហ្គេម ដើម្បីចូលប្រើប្រាស់ភ្លាមៗ!\n\n` +
+        `💡 <i>ចំណាំ៖ អ្នកក៏អាចចម្លងលេខកូដ 2FA Secret Key ទៅដាក់ក្នុង Google Authenticator ឬកម្មវិធី 2FAS ក៏បាន។</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🔑 <b>2FA AUTHENTICATOR USER GUIDE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<b>Step 1:</b>\n` +
+        `• Open <b>🎒 My Vault</b> in this bot or the Mini App.\n\n` +
+        `<b>Step 2:</b>\n` +
+        `• Tap on your purchased account and select <b>🔑 Request Live 2FA OTP</b>.\n\n` +
+        `<b>Step 3:</b>\n` +
+        `• The bot generates your current 6-digit code (valid for 30s).\n` +
+        `• Enter this code on the game login screen to log in immediately!\n\n` +
+        `💡 <i>Tip: You can also copy the 2FA secret key into Google Authenticator or 2FAS app.</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubHelpKeyboard(_supportUsername, lang);
 
   try {
     await ctx.editMessageText(text, {
@@ -91,24 +120,39 @@ export async function handleGuide2fa(ctx: Context, _supportUsername: string = 'U
  * Handle Payment Guide (cb_guide_payment)
  */
 export async function handleGuidePayment(ctx: Context, _supportUsername: string = 'UchiroSupport'): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `💳 <b>HOW TO PAY VIA KHQR</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `<b>Step 1:</b>\n` +
-    `• Open the Mini App store, select your item, and tap <b>Buy Now</b>.\n\n` +
-    `<b>Step 2:</b>\n` +
-    `• A standardized Bakong KHQR code will be displayed with the exact USD amount.\n\n` +
-    `<b>Step 3:</b>\n` +
-    `• Open your bank app (ABA, Bakong, ACLEDA, Wing, etc.) and scan the QR code.\n\n` +
-    `<b>Step 4:</b>\n` +
-    `• Payment verifies automatically within <b>5 seconds</b>, and credentials are instantly delivered to your <b>🎒 Vault</b>!\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
-  const keyboard = buildSubHelpKeyboard('en');
+  const text =
+    lang === 'km'
+      ? `💳 <b>របៀបទូទាត់ប្រាក់តាម KHQR</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<b>ជំហានទី ១៖</b>\n` +
+        `• បើកកម្មវិធី Mini App ជ្រើសរើសទំនិញដែលចង់បាន រួចចុច <b>Buy Now</b>។\n\n` +
+        `<b>ជំហានទី ២៖</b>\n` +
+        `• ផ្ទាំង QR កូដស្ដង់ដារ Bakong KHQR នឹងបង្ហាញទឹកប្រាក់ដុល្លារដែលត្រូវបង់យ៉ាងជាក់លាក់។\n\n` +
+        `<b>ជំហានទី ៣៖</b>\n` +
+        `• បើកកម្មវិធីធនាគាររបស់អ្នក (ABA, Bakong, ACLEDA, Wing...) រួចស្កេនទូទាត់។\n\n` +
+        `<b>ជំហានទី ៤៖</b>\n` +
+        `• ប្រព័ន្ធនឹងផ្ទៀងផ្ទាត់ដោយស្វ័យប្រវត្តិក្នុ​ងរយៈពេល <b>៥ វិនាទី</b> ហើយគណនី/កូដនឹងត្រូវបញ្ជូនភ្លាមៗទៅកាន់ <b>🎒 Vault</b> របស់អ្នក!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `💳 <b>HOW TO PAY VIA KHQR</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<b>Step 1:</b>\n` +
+        `• Open the Mini App store, select your item, and tap <b>Buy Now</b>.\n\n` +
+        `<b>Step 2:</b>\n` +
+        `• A standardized Bakong KHQR code will be displayed with the exact USD amount.\n\n` +
+        `<b>Step 3:</b>\n` +
+        `• Open your bank app (ABA, Bakong, ACLEDA, Wing, etc.) and scan the QR code.\n\n` +
+        `<b>Step 4:</b>\n` +
+        `• Payment verifies automatically within <b>5 seconds</b>, and credentials are instantly delivered to your <b>🎒 Vault</b>!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildSubHelpKeyboard(_supportUsername, lang);
 
   try {
     await ctx.editMessageText(text, {
