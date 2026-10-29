@@ -406,8 +406,8 @@ export class StoreBotService {
       await handleCancelRobux(ctx);
     });
 
-    // Step 3: Mandatory Buyer Age Confirmation (18+ Self-Declaration)
-    this.bot.action('cb_rbx_age_18_plus', async (ctx) => {
+    // Step 3: Mandatory Buyer Age Confirmation (18+ Self-Declaration & Account Tiers)
+    this.bot.action(['cb_rbx_confirm_age', 'cb_rbx_age_18_plus'], async (ctx) => {
       try { await ctx.answerCbQuery(); } catch {}
       await handleRobuxAgeConfirmed(ctx);
     });

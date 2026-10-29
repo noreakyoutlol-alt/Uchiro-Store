@@ -184,7 +184,7 @@ export async function handleWarrantyPolicy(ctx: Context): Promise<void> {
 
   const text =
     lang === 'km'
-      ? `🔐 <b>គោលការណ៍ធានារយៈពេល ១៤ ថ្ងៃពេញ</b>\n` +
+      ? `🛡️ <b>គោលការណ៍ធានារយៈពេល ១៤ ថ្ងៃពេញ</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `🛡️ <b>ការការពារ ១០០%៖</b>\n` +
         `• រាល់គណនីទាំងអស់ត្រូវបានធានាប្រឆាំងនឹងការទាញយកមកវិញ (Recovery) និងការជាប់សោរ (Lock) រយៈពេល ១៤ ថ្ងៃគិតចាប់ពីពេលប្រគល់ជូន។\n\n` +
@@ -193,7 +193,7 @@ export async function handleWarrantyPolicy(ctx: Context): Promise<void> {
         `2. ប្រព័ន្ធត្រួតពិនិត្យដោយស្វ័យប្រវត្តិនឹងផ្ទៀងផ្ទាត់ស្ថានភាពគណនី។\n` +
         `3. ទទួលបានគណនីថ្មីជំនួសភ្លាមៗ ឬសងប្រាក់វិញ ១០០%។\n` +
         `━━━━━━━━━━━━━━━━━━━━━━`
-      : `🔐 <b>14-DAY FULL WARRANTY POLICY</b>\n` +
+      : `🛡️ <b>14-DAY FULL WARRANTY POLICY</b>\n` +
         `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `🛡️ <b>100% Protection:</b>\n` +
         `• All accounts are guaranteed against recovery and lockouts for 14 days from delivery.\n\n` +
@@ -229,18 +229,31 @@ export async function handlePaymentDeliveryPolicy(ctx: Context): Promise<void> {
   const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
-    `📦 <b>PAYMENT &amp; DELIVERY POLICY</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `💳 <b>Accepted Payment Methods:</b>\n` +
-    `• Bakong KHQR (USD &amp; KHR - Instant Scan &amp; Pay)\n` +
-    `• Supported Cambodian Banking Apps via KHQR (ABA, Wing, ACLEDA, and Bakong member banks)\n\n` +
-    `🚚 <b>Delivery Methods:</b>\n` +
-    `• Instant Digital Delivery to Telegram &amp; Mini App Vault\n` +
-    `• Credentials unlocked automatically upon verified payment confirmation\n\n` +
-    `⏱️ <b>Delivery Timeframe:</b>\n` +
-    `• Automated Accounts &amp; Codes: Instant (&lt; 3 seconds)\n` +
-    `• Robux &amp; Services: Processed following verified payment\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `📦 <b>គោលការណ៍ទូទាត់ប្រាក់ និងការប្រគល់ទំនិញ</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💳 <b>មធ្យោបាយទូទាត់ប្រាក់ដែលទទួលស្គាល់៖</b>\n` +
+        `• Bakong KHQR (USD &amp; KHR - ស្កេន និងទូទាត់ភ្លាមៗ)\n` +
+        `• កម្មវិធីធនាគារក្នុងប្រទេសកម្ពុជាទាំងអស់តាមរយៈ KHQR (ABA, Wing, ACLEDA និងធនាគារជាសមាជិក Bakong ទាំងអស់)\n\n` +
+        `🚚 <b>វិធីសាស្ត្រប្រគល់ទំនិញ៖</b>\n` +
+        `• ប្រគល់ទំនិញឌីជីថលភ្លាមៗទៅកាន់ Telegram &amp; Mini App Vault\n` +
+        `• ព័ត៌មានគណនី និងលេខសម្ងាត់ត្រូវបានបើកជូនដោយស្វ័យប្រវត្តិក្នុ​ងពេលទូទាត់ប្រាក់ជោគជ័យ\n\n` +
+        `⏱️ <b>រយៈពេលនៃការប្រគល់ជូន៖</b>\n` +
+        `• គណនី និងកូដស្វ័យប្រវត្តិ៖ ភ្លាមៗ (ក្រោម ៣ វិនាទី)\n` +
+        `• Robux និងសេវាកម្មផ្សេងៗ៖ ដំណើរការភ្លាមៗក្រោយផ្ទៀងផ្ទាត់ការទូទាត់រួចរាល់\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `📦 <b>PAYMENT &amp; DELIVERY POLICY</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💳 <b>Accepted Payment Methods:</b>\n` +
+        `• Bakong KHQR (USD &amp; KHR - Instant Scan &amp; Pay)\n` +
+        `• Supported Cambodian Banking Apps via KHQR (ABA, Wing, ACLEDA, and Bakong member banks)\n\n` +
+        `🚚 <b>Delivery Methods:</b>\n` +
+        `• Instant Digital Delivery to Telegram &amp; Mini App Vault\n` +
+        `• Credentials unlocked automatically upon verified payment confirmation\n\n` +
+        `⏱️ <b>Delivery Timeframe:</b>\n` +
+        `• Automated Accounts &amp; Codes: Instant (&lt; 3 seconds)\n` +
+        `• Robux &amp; Services: Processed following verified payment\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildSubRulesKeyboard(lang);
 
@@ -268,18 +281,31 @@ export async function handleRefundPolicy(ctx: Context): Promise<void> {
   const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
-    `💰 <b>REFUND &amp; REPLACEMENT POLICY</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🛡️ <b>Eligible for 100% Refund / Replacement:</b>\n` +
-    `• Account locked or credentials invalid upon initial delivery\n` +
-    `• Account reclaimed or recovered within the 14-day warranty period\n` +
-    `• In-game items or ranks not matching catalog description\n` +
-    `• System payment failure or duplicate charge\n\n` +
-    `⚠️ <b>Non-Refundable Circumstances:</b>\n` +
-    `• User violation of third-party game TOS (e.g. cheating, scripting)\n` +
-    `• Password sharing or compromised personal devices\n` +
-    `• Voluntary change of mind after credentials revealed\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `💰 <b>គោលការណ៍បង្វិលប្រាក់ និងប្តូរទំនិញថ្មី</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>លក្ខខណ្ឌទទួលបានការបង្វិលប្រាក់ ១០០% ឬប្តូរថ្មី៖</b>\n` +
+        `• គណនីជាប់សោរ (Lock) ឬមិនត្រឹមត្រូវតាំងពីពេលប្រគល់ជូនដំបូង\n` +
+        `• គណនីត្រូវបានម្ចាស់ដើមទាញយកមកវិញ (Reclaimed) ក្នុងកំឡុងពេលធានា ១៤ ថ្ងៃ\n` +
+        `• របស់របរ ឬកម្រិតក្នុងហ្គេមមិនដូចការពិពណ៌នានៅក្នុងបញ្ជីទំនិញ\n` +
+        `• បញ្ហាប្រព័ន្ធទូទាត់ប្រាក់ខកខាន ឬមានការកាត់ប្រាក់ស្ទួន\n\n` +
+        `⚠️ <b>ករណីដែលមិនអាចបង្វិលប្រាក់វិញបាន៖</b>\n` +
+        `• អតិថិជនល្មើសលក្ខខណ្ឌរបស់ហ្គេម (ដូចជាការប្រើប្រាស់ Hack/Script ឬ Cheating)\n` +
+        `• ការចែករំលែកពាក្យសម្ងាត់ឱ្យអ្នកដទៃ ឬឧបករណ៍ផ្ទាល់ខ្លួនត្រូវរងការលួចចូល\n` +
+        `• ការផ្លាស់ប្តូរចិត្តផ្ទាល់ខ្លួនបន្ទាប់ពីបានទទួល និងមើលឃើញព័ត៌មានគណនីរួច\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `💰 <b>REFUND &amp; REPLACEMENT POLICY</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>Eligible for 100% Refund / Replacement:</b>\n` +
+        `• Account locked or credentials invalid upon initial delivery\n` +
+        `• Account reclaimed or recovered within the 14-day warranty period\n` +
+        `• In-game items or ranks not matching catalog description\n` +
+        `• System payment failure or duplicate charge\n\n` +
+        `⚠️ <b>Non-Refundable Circumstances:</b>\n` +
+        `• User violation of third-party game TOS (e.g. cheating, scripting)\n` +
+        `• Password sharing or compromised personal devices\n` +
+        `• Voluntary change of mind after credentials revealed\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildSubRulesKeyboard(lang);
 
@@ -307,20 +333,35 @@ export async function handlePointsCouponsPolicy(ctx: Context): Promise<void> {
   const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
-    `🏷️ <b>POINTS &amp; COUPONS POLICY</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🪙 <b>Points Earning Rules:</b>\n` +
-    `• <b>Daily Check-in:</b> +5 Pts daily (+20 Pts on Day 7 milestone)\n` +
-    `• <b>Shopping Rewards:</b> Earn points on every verified order\n\n` +
-    `🎟️ <b>Gacha Ticket Exchange:</b>\n` +
-    `• <b>100 Points:</b> 1x Mythical Gacha Ticket (Stackable, no expiration)\n\n` +
-    `🏷️ <b>Discount Coupon Exchange:</b>\n` +
-    `• <b>50 Points:</b> $0.50 Discount Voucher (Min. Order $1.50)\n` +
-    `• <b>100 Points:</b> $1.00 Discount Voucher (Min. Order $3.00)\n` +
-    `• <b>200 Points:</b> $2.00 Discount Voucher (Min. Order $5.00)\n\n` +
-    `🔒 <b>Usage Terms:</b>\n` +
-    `• 1 coupon per order, non-transferable, bound to your Telegram ID\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `🎟️ <b>គោលការណ៍ពិន្ទុ និងគូប៉ុងបញ្ចុះតម្លៃ</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>ច្បាប់នៃការទទួលបានពិន្ទុ (Points)៖</b>\n` +
+        `• <b>ចូលប្រចាំថ្ងៃ (Daily Check-in)៖</b> +5 Pts ជារៀងរាល់ថ្ងៃ (+20 Pts នៅថ្ងៃទី ៧)\n` +
+        `• <b>រង្វាន់ពីការទិញទំនិញ៖</b> ទទួលបានពិន្ទុរាល់ពេលបញ្ជាទិញជោគជ័យ\n\n` +
+        `🎟️ <b>ការប្តូរសំបុត្រកាឆា (Gacha Ticket)៖</b>\n` +
+        `• <b>100 Points៖</b> សំបុត្រ Mythical Gacha ចំនួន ១ (អាចសន្សំទុកបាន គ្មានថ្ងៃផុតកំណត់)\n\n` +
+        `🏷️ <b>ការប្តូរគូប៉ុងបញ្ចុះតម្លៃ (Discount Coupons)៖</b>\n` +
+        `• <b>50 Points៖</b> គូប៉ុង $0.50 (សម្រាប់ការទិញចាប់ពី $1.50 ឡើងទៅ)\n` +
+        `• <b>100 Points៖</b> គូប៉ុង $1.00 (សម្រាប់ការទិញចាប់ពី $3.00 ឡើងទៅ)\n` +
+        `• <b>200 Points៖</b> គូប៉ុង $2.00 (សម្រាប់ការទិញចាប់ពី $5.00 ឡើងទៅ)\n\n` +
+        `🔒 <b>លក្ខខណ្ឌនៃការប្រើប្រាស់៖</b>\n` +
+        `• គូប៉ុង ១ អាចប្រើបានតែម្តងក្នុង ១ ការបញ្ជាទិញ មិនអាចផ្ទេរបាន និងភ្ជាប់ជាមួយ Telegram ID របស់អ្នក\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🏷️ <b>POINTS &amp; COUPONS POLICY</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🪙 <b>Points Earning Rules:</b>\n` +
+        `• <b>Daily Check-in:</b> +5 Pts daily (+20 Pts on Day 7 milestone)\n` +
+        `• <b>Shopping Rewards:</b> Earn points on every verified order\n\n` +
+        `🎟️ <b>Gacha Ticket Exchange:</b>\n` +
+        `• <b>100 Points:</b> 1x Mythical Gacha Ticket (Stackable, no expiration)\n\n` +
+        `🏷️ <b>Discount Coupon Exchange:</b>\n` +
+        `• <b>50 Points:</b> $0.50 Discount Voucher (Min. Order $1.50)\n` +
+        `• <b>100 Points:</b> $1.00 Discount Voucher (Min. Order $3.00)\n` +
+        `• <b>200 Points:</b> $2.00 Discount Voucher (Min. Order $5.00)\n\n` +
+        `🔒 <b>Usage Terms:</b>\n` +
+        `• 1 coupon per order, non-transferable, bound to your Telegram ID\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildSubRulesKeyboard(lang);
 
@@ -348,17 +389,29 @@ export async function handleFaqHelp(ctx: Context): Promise<void> {
   const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
   const text =
-    `❓ <b>FREQUENTLY ASKED QUESTIONS (FAQ)</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `<b>Q: How quickly do I get my account?</b>\n` +
-    `A: Delivery is instant. Credentials and live 2FA OTP are immediately available in 🎒 My Vault.\n\n` +
-    `<b>Q: How do I generate live 2FA codes?</b>\n` +
-    `A: Go to 🎒 My Vault -> Tap 'Get Live 2FA Code' or use the in-bot button to receive a valid 6-digit OTP.\n\n` +
-    `<b>Q: What if the account stops working?</b>\n` +
-    `A: All accounts are covered by our 14-Day Warranty. Contact support for an immediate replacement or refund.\n\n` +
-    `<b>Q: Can I use coupons on any product?</b>\n` +
-    `A: Yes, as long as your cart meets the minimum order threshold.\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `❓ <b>សំណួរដែលសួរញឹកញាប់ (FAQ)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<b>សំណួរ៖ តើខ្ញុំទទួលបានគណនីលឿនប៉ុណ្ណា?</b>\n` +
+        `ចម្លើយ៖ ការប្រគល់ជូនគឺភ្លាមៗ (< ៣ វិនាទី)។ ព័ត៌មានគណនី និងកូដ 2FA នឹងបង្ហាញក្នុង 🎒 My Vault ភ្លាមៗ។\n\n` +
+        `<b>សំណួរ៖ តើខ្ញុំបង្កើតកូដ 2FA ដោយរបៀបណា?</b>\n` +
+        `ចម្លើយ៖ ចូលទៅកាន់ 🎒 My Vault -> ចុចលើ 'Get Live 2FA Code' ឬចុចប៊ូតុងក្នុង Bot ដើម្បីទទួលបានកូដ OTP ៦ ខ្ទង់។\n\n` +
+        `<b>សំណួរ៖ ចុះបើគណនីមានបញ្ហាមិនដំណើរការ?</b>\n` +
+        `ចម្លើយ៖ គ្រប់គណនីទាំងអស់មានការធានា ១៤ ថ្ងៃពេញ។ សូមទាក់ទងមកផ្នែកបម្រើអតិថិជនដើម្បីដូរថ្មី ឬសងប្រាក់វិញភ្លាមៗ។\n\n` +
+        `<b>សំណួរ៖ តើខ្ញុំអាចប្រើគូប៉ុងលើគ្រប់ទំនិញបានទេ?</b>\n` +
+        `ចម្លើយ៖ បាន ដោយគ្រាន់តែការបញ្ជាទិញរបស់អ្នកត្រូវតាមលក្ខខណ្ឌទឹកប្រាក់អប្បបរមា។\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `❓ <b>FREQUENTLY ASKED QUESTIONS (FAQ)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<b>Q: How quickly do I get my account?</b>\n` +
+        `A: Delivery is instant. Credentials and live 2FA OTP are immediately available in 🎒 My Vault.\n\n` +
+        `<b>Q: How do I generate live 2FA codes?</b>\n` +
+        `A: Go to 🎒 My Vault -> Tap 'Get Live 2FA Code' or use the in-bot button to receive a valid 6-digit OTP.\n\n` +
+        `<b>Q: What if the account stops working?</b>\n` +
+        `A: All accounts are covered by our 14-Day Warranty. Contact support for an immediate replacement or refund.\n\n` +
+        `<b>Q: Can I use coupons on any product?</b>\n` +
+        `A: Yes, as long as your cart meets the minimum order threshold.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildSubRulesKeyboard(lang);
 
@@ -378,28 +431,49 @@ export async function handleFaqHelp(ctx: Context): Promise<void> {
  * Handle Contact Support (cb_contact_support)
  */
 export async function handleContactSupport(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
+
   const text =
-    `💬 <b>CONTACT 24/7 SUPPORT</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🕐 <b>Support Availability:</b>\n` +
-    `• 24 Hours a Day, 7 Days a Week\n` +
-    `• Average response time: under 5 minutes\n\n` +
-    `📱 <b>Official Channels:</b>\n` +
-    `• <b>Telegram Support:</b> <a href="https://t.me/uchirosupport">@UchiroSupport</a> (https://t.me/uchirosupport)\n` +
-    `• <b>Email Support:</b> support@uchiro.store\n\n` +
-    `📋 <b>Information to Include:</b>\n` +
-    `• Your Order ID or Transaction Number\n` +
-    `• Clear description of the issue\n` +
-    `• Screenshots or video proof if applicable\n\n` +
-    `⚡ <b>Issues Handled:</b>\n` +
-    `• Warranty account replacements & refunds\n` +
-    `• 2FA authentication assistance\n` +
-    `• Payment confirmations\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `💬 <b>ផ្នែកបម្រើអតិថិជន ២៤/៧ (SUPPORT)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🕐 <b>ពេលវេលាបម្រើសេវា៖</b>\n` +
+        `• ២៤ ម៉ោងក្នុងមួយថ្ងៃ ៧ ថ្ងៃក្នុងមួយសប្តាហ៍\n` +
+        `• រយៈពេលឆ្លើយតបជាមធ្យម៖ ក្រោម ៥ នាទី\n\n` +
+        `📱 <b>ទំនាក់ទំនងផ្លូវការ៖</b>\n` +
+        `• <b>Telegram Support៖</b> <a href="https://t.me/uchirosupport">@UchiroSupport</a> (https://t.me/uchirosupport)\n` +
+        `• <b>Email Support៖</b> support@uchiro.store\n\n` +
+        `📋 <b>ព័ត៌មានដែលត្រូវភ្ជាប់មកជាមួយ៖</b>\n` +
+        `• លេខ Order ID ឬលេខប្រតិបត្តិការទូទាត់ប្រាក់របស់អ្នក\n` +
+        `• ការពិពណ៌នាអំពីបញ្ហាដែលបានជួបប្រទះ\n` +
+        `• រូបភាព Screenshot ឬវីដេអូបញ្ជាក់ប្រសិនបើមាន\n\n` +
+        `⚡ <b>បញ្ហាដែលទទួលដោះស្រាយ៖</b>\n` +
+        `• ការដូរគណនីថ្មីក្រោមការធានា និងការសងប្រាក់វិញ\n` +
+        `• ជំនួយលើការភ្ជាប់ និងទទួលកូដ 2FA\n` +
+        `• ការផ្ទៀងផ្ទាត់ការទូទាត់ប្រាក់\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `💬 <b>CONTACT 24/7 SUPPORT</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🕐 <b>Support Availability:</b>\n` +
+        `• 24 Hours a Day, 7 Days a Week\n` +
+        `• Average response time: under 5 minutes\n\n` +
+        `📱 <b>Official Channels:</b>\n` +
+        `• <b>Telegram Support:</b> <a href="https://t.me/uchirosupport">@UchiroSupport</a> (https://t.me/uchirosupport)\n` +
+        `• <b>Email Support:</b> support@uchiro.store\n\n` +
+        `📋 <b>Information to Include:</b>\n` +
+        `• Your Order ID or Transaction Number\n` +
+        `• Clear description of the issue\n` +
+        `• Screenshots or video proof if applicable\n\n` +
+        `⚡ <b>Issues Handled:</b>\n` +
+        `• Warranty account replacements & refunds\n` +
+        `• 2FA authentication assistance\n` +
+        `• Payment confirmations\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = Markup.inlineKeyboard([
     [urlBtn('Open @UchiroSupport', 'https://t.me/uchirosupport', 'SUPPORT')],
@@ -432,26 +506,42 @@ export async function handleContactSupport(ctx: Context): Promise<void> {
  * Handle Store Rules Menu (cb_rules_store) — a single store-rules entry point with source links
  */
 export async function handleStoreRules(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
+
   const text =
-    `📜 <b>UCHIRO STORE RULES &amp; POLICIES</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🛡️ <b>14-Day Warranty:</b>\n` +
-    `• Full replacement/refund guarantee on all orders.\n\n` +
-    `📦 <b>Delivery:</b>\n` +
-    `• Instant delivery to your Telegram or Mini App Vault.\n\n` +
-    `💳 <b>Payments:</b>\n` +
-    `• Bakong KHQR, local banking apps, cards & crypto accepted.\n\n` +
-    `⚡ <b>Info:</b>\n` +
-    `• Products: Shop Now | 🎰 Gacha | 💎 Daily Rewards | 🎒 Vault\n` +
-    `• Help: @UchiroSupport • 2FA Guide: cb_guide_2fa\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `📜 <b>គោលការណ៍ និងច្បាប់ទូទៅរបស់ UCHIRO STORE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>ការធានា ១៤ ថ្ងៃពេញ៖</b>\n` +
+        `• ធានាដូរថ្មី ឬសងប្រាក់វិញ ១០០% រាល់ការបញ្ជាទិញទាំងអស់។\n\n` +
+        `📦 <b>ការប្រគល់ទំនិញ៖</b>\n` +
+        `• ប្រគល់ជូនភ្លាមៗទៅកាន់ Telegram ឬ Mini App Vault របស់អ្នក។\n\n` +
+        `💳 <b>ការទូទាត់ប្រាក់៖</b>\n` +
+        `• ទទួលស្គាល់ Bakong KHQR និងកម្មវិធីធនាគារក្នុងប្រទេសកម្ពុជាទាំងអស់។\n\n` +
+        `⚡ <b>ព័ត៌មានបន្ថែម៖</b>\n` +
+        `• សេវាកម្ម៖ ទិញទំនិញ | 🎰 កាឆា | 💎 រង្វាន់ប្រចាំថ្ងៃ | 🎒 Vault\n` +
+        `• ជំនួយ៖ @UchiroSupport • មគ្គុទ្ទេសក៍ 2FA\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `📜 <b>UCHIRO STORE RULES &amp; POLICIES</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛡️ <b>14-Day Warranty:</b>\n` +
+        `• Full replacement/refund guarantee on all orders.\n\n` +
+        `📦 <b>Delivery:</b>\n` +
+        `• Instant delivery to your Telegram or Mini App Vault.\n\n` +
+        `💳 <b>Payments:</b>\n` +
+        `• Bakong KHQR, local banking apps, cards & crypto accepted.\n\n` +
+        `⚡ <b>Info:</b>\n` +
+        `• Products: Shop Now | 🎰 Gacha | 💎 Daily Rewards | 🎒 Vault\n` +
+        `• Help: @UchiroSupport • 2FA Guide: cb_guide_2fa\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = Markup.inlineKeyboard([
-    [cb('Gacha Rules', 'cb_gacha_rules', 'GAMEPAD')],
+    [cb('Gacha Rules', 'cb_gacha_rules', 'SLOT_MACHINE')],
     [cb('FAQ & Help', 'cb_faq_help', 'QUESTION')],
     [
       cb('Back Home', 'cb_main_menu', 'HOME'),

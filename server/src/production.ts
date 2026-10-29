@@ -29,6 +29,7 @@ import { KHPayService } from './services/khpay.service';
 import { checkSupabaseHealth } from './database/supabase';
 import { registerStaticRoutes } from './static-routes';
 import { initDatabase } from './database/postgres';
+import { DataStore } from './database/data-store';
 import { ipBlockGuard } from './middleware/ip-block.middleware';
 import { IpSecurityService } from './security/ip-security.service';
 
@@ -36,6 +37,7 @@ import { IpSecurityService } from './security/ip-security.service';
 async function initializeProductionServices(): Promise<void> {
   try {
     await initDatabase();
+    await DataStore.syncAllFromPostgres();
     await IpSecurityService.init();
   } catch (err: any) {
     console.error('[PRODUCTION] Startup initialization error:', err?.message);

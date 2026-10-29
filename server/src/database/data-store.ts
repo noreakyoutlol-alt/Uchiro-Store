@@ -3033,6 +3033,39 @@ export class DataStore {
       // DO NOT overwrite existingUser.points or existingUser.last_daily_claim_at
       this.saveToDisk();
 
+      if (isPostgresConfigured()) {
+        const tid = String(userData.telegram_id);
+        const isAdmin = env.ADMIN_TELEGRAM_USER_IDS.includes(userData.telegram_id);
+        pgPool.query(
+          `INSERT INTO users (
+             telegram_id, username, first_name, last_name, photo_url, language_code, role,
+             points, streak_count, gacha_tickets, created_at, updated_at
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+           ON CONFLICT (telegram_id) DO UPDATE SET
+             username = COALESCE(EXCLUDED.username, users.username),
+             first_name = COALESCE(EXCLUDED.first_name, users.first_name),
+             last_name = COALESCE(EXCLUDED.last_name, users.last_name),
+             photo_url = COALESCE(EXCLUDED.photo_url, users.photo_url),
+             language_code = COALESCE(EXCLUDED.language_code, users.language_code),
+             updated_at = NOW()`,
+          [
+            tid,
+            existingUser.username || null,
+            existingUser.first_name || 'Customer',
+            existingUser.last_name || null,
+            existingUser.photo_url || null,
+            existingUser.language_code || 'km',
+            isAdmin ? 'admin' : (existingUser as any).role || 'customer',
+            existingUser.points || 0,
+            (existingUser as any).streak_count || 0,
+            (existingUser as any).gacha_tickets || 0,
+          ]
+        ).catch((err) => {
+          console.warn('[DataStore] existingUser async persist warning:', err?.message);
+        });
+      }
+
       const returnObj = {
         user: existingUser,
         profile: profile!,
@@ -3091,6 +3124,39 @@ export class DataStore {
       this.profiles.set(userData.telegram_id, profile);
     }
     this.saveToDisk();
+
+    if (isPostgresConfigured()) {
+      const tid = String(userData.telegram_id);
+      const isAdmin = env.ADMIN_TELEGRAM_USER_IDS.includes(userData.telegram_id);
+      pgPool.query(
+        `INSERT INTO users (
+           telegram_id, username, first_name, last_name, photo_url, language_code, role,
+           points, streak_count, gacha_tickets, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+         ON CONFLICT (telegram_id) DO UPDATE SET
+           username = COALESCE(EXCLUDED.username, users.username),
+           first_name = COALESCE(EXCLUDED.first_name, users.first_name),
+           last_name = COALESCE(EXCLUDED.last_name, users.last_name),
+           photo_url = COALESCE(EXCLUDED.photo_url, users.photo_url),
+           language_code = COALESCE(EXCLUDED.language_code, users.language_code),
+           updated_at = NOW()`,
+        [
+          tid,
+          newUser.username || null,
+          newUser.first_name || 'Customer',
+          newUser.last_name || null,
+          newUser.photo_url || null,
+          newUser.language_code || 'km',
+          isAdmin ? 'admin' : 'customer',
+          newUser.points || 0,
+          (newUser as any).streak_count || 0,
+          (newUser as any).gacha_tickets || 0,
+        ]
+      ).catch((err) => {
+        console.warn('[DataStore] newUser async persist warning:', err?.message);
+      });
+    }
 
     const returnObj = {
       user: newUser,
@@ -3226,6 +3292,11 @@ export class DataStore {
     const numId = Number(row.telegram_id);
     if (!numId) return;
 
+    const pointsNum = Number(row.points ?? 0);
+    const streakNum = Number(row.streak_count ?? 0);
+    const ticketsNum = Number(row.gacha_tickets ?? (row.extra as any)?.gacha_tickets ?? 0);
+    const lastClaimIso = row.last_daily_claim_at ? new Date(row.last_daily_claim_at).toISOString() : null;
+
     let user = this.users.get(numId);
     if (!user) {
       user = {
@@ -3236,19 +3307,33 @@ export class DataStore {
         last_name: row.last_name || null,
         photo_url: row.photo_url || null,
         language_code: row.language_code || 'km',
-        language_preference: row.language_code || null,
+        language_preference: row.language_preference || row.language_code || null,
         is_bot: false,
-        points: row.points ?? 0,
-        reward_points: row.points ?? 0,
-        last_daily_claim_at: row.last_daily_claim_at || null,
+        points: pointsNum,
+        reward_points: pointsNum,
+        streak_count: streakNum,
+        gacha_tickets: ticketsNum,
+        last_daily_claim_at: lastClaimIso,
         created_at: row.created_at || new Date().toISOString(),
         updated_at: row.updated_at || new Date().toISOString(),
       };
+      if (row.role) (user as any).role = row.role;
       this.users.set(numId, user);
     } else {
-      user.points = row.points ?? user.points;
-      user.reward_points = row.points ?? user.reward_points;
-      user.last_daily_claim_at = row.last_daily_claim_at || user.last_daily_claim_at;
+      user.points = pointsNum;
+      user.reward_points = pointsNum;
+      user.streak_count = streakNum;
+      user.gacha_tickets = ticketsNum;
+      user.last_daily_claim_at = lastClaimIso || user.last_daily_claim_at;
+      if (row.username) user.username = row.username;
+      if (row.first_name) user.first_name = row.first_name;
+      if (row.last_name) user.last_name = row.last_name;
+      if (row.photo_url) user.photo_url = row.photo_url;
+      if (row.language_code) {
+        user.language_code = row.language_code;
+        user.language_preference = row.language_preference || row.language_code;
+      }
+      if (row.role) (user as any).role = row.role;
     }
 
     let profile = this.profiles.get(numId);
@@ -3256,25 +3341,36 @@ export class DataStore {
       profile = {
         id: row.id || uuidv4(),
         telegram_id: numId,
-        points: row.points ?? 0,
-        loyalty_points: row.points ?? 0,
-        reward_points: row.points ?? 0,
-        gacha_tickets: (row.extra as any)?.gacha_tickets ?? 0,
+        points: pointsNum,
+        loyalty_points: pointsNum,
+        reward_points: pointsNum,
+        gacha_tickets: ticketsNum,
+        streak_count: streakNum,
         total_spent: 0,
         total_orders: 0,
         gacha_spins_count: 0,
         referral_code: `UCH${numId.toString(36).toUpperCase()}`,
         referred_by: null,
-        last_daily_claim_at: row.last_daily_claim_at || null,
+        last_daily_claim_at: lastClaimIso,
         created_at: row.created_at || new Date().toISOString(),
         updated_at: row.updated_at || new Date().toISOString(),
       };
       this.profiles.set(numId, profile);
     } else {
-      profile.points = row.points ?? profile.points;
-      profile.loyalty_points = row.points ?? profile.loyalty_points;
-      profile.reward_points = row.points ?? profile.reward_points;
-      profile.last_daily_claim_at = row.last_daily_claim_at || profile.last_daily_claim_at;
+      profile.points = pointsNum;
+      profile.loyalty_points = pointsNum;
+      profile.reward_points = pointsNum;
+      profile.gacha_tickets = ticketsNum;
+      profile.streak_count = streakNum;
+      profile.last_daily_claim_at = lastClaimIso || profile.last_daily_claim_at;
+    }
+
+    if (lastClaimIso) {
+      this.dailyRewards.set(numId, {
+        streak: streakNum || 1,
+        lastClaimed: new Date(lastClaimIso).getTime(),
+        totalPoints: pointsNum,
+      });
     }
   }
 
@@ -3403,6 +3499,42 @@ export class DataStore {
         profile.last_daily_claim_at = user.last_daily_claim_at || null;
       }
       this.saveToDisk();
+
+      if (isPostgresConfigured()) {
+        const tid = String(user.telegram_id);
+        pgPool.query(
+          `INSERT INTO users (
+             telegram_id, username, first_name, last_name, photo_url, language_code, language_preference,
+             points, streak_count, gacha_tickets, last_daily_claim_at, updated_at
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+           ON CONFLICT (telegram_id) DO UPDATE SET
+             username = COALESCE(EXCLUDED.username, users.username),
+             first_name = COALESCE(EXCLUDED.first_name, users.first_name),
+             last_name = COALESCE(EXCLUDED.last_name, users.last_name),
+             photo_url = COALESCE(EXCLUDED.photo_url, users.photo_url),
+             language_code = COALESCE(EXCLUDED.language_code, users.language_code),
+             language_preference = COALESCE(EXCLUDED.language_preference, users.language_preference),
+             points = EXCLUDED.points,
+             streak_count = EXCLUDED.streak_count,
+             gacha_tickets = EXCLUDED.gacha_tickets,
+             last_daily_claim_at = EXCLUDED.last_daily_claim_at,
+             updated_at = NOW()`,
+          [
+            tid,
+            user.username || null,
+            user.first_name || 'Customer',
+            user.last_name || null,
+            user.photo_url || null,
+            user.language_code || 'km',
+            user.language_preference || null,
+            user.points || 0,
+            (user as any).streak_count || 0,
+            (user as any).gacha_tickets || 0,
+            user.last_daily_claim_at ? new Date(user.last_daily_claim_at) : null,
+          ]
+        ).catch((err) => console.warn('[DataStore] saveUser persist warning:', err?.message));
+      }
     }
   }
 
@@ -3415,6 +3547,17 @@ export class DataStore {
     user.language_preference = lang;
     user.updated_at = new Date().toISOString();
     this.saveToDisk();
+
+    if (isPostgresConfigured()) {
+      const tid = String(telegramId);
+      pgPool.query(
+        `UPDATE users
+         SET language_code = $1, language_preference = $1, updated_at = NOW()
+         WHERE telegram_id = $2`,
+        [lang, tid]
+      ).catch((err) => console.warn('[DataStore] setUserLanguagePreference persist warning:', err?.message));
+    }
+
     return user;
   }
 
@@ -3481,6 +3624,114 @@ export class DataStore {
 
   static getAllRegisteredUsers(): TelegramUser[] {
     return Array.from(this.users.values());
+  }
+
+  static getAdminUsers(): AdminUser[] {
+    return [...this.adminUsers];
+  }
+
+  /**
+   * Synchronizes durable data (users, admin users, seasonal theme) from PostgreSQL
+   * into DataStore on startup/deploy so no user or admin data is reset when the server restarts or deploys.
+   */
+  static async syncAllFromPostgres(): Promise<void> {
+    if (!isPostgresConfigured()) {
+      return;
+    }
+
+    try {
+      console.log('[DataStore] Loading durable state from PostgreSQL...');
+
+      // 1. Load users
+      try {
+        const { rows: userRows } = await pgPool.query(`
+          SELECT id, telegram_id, username, first_name, last_name, photo_url,
+                 language_code, language_preference, points, streak_count,
+                 gacha_tickets, last_daily_claim_at, role, is_blocked, blocked_reason,
+                 extra, created_at, updated_at
+          FROM users
+          ORDER BY created_at ASC
+        `);
+
+        for (const row of userRows) {
+          this.syncUserToMemory(row);
+        }
+        console.log(`[DataStore] Successfully loaded ${userRows.length} users from PostgreSQL.`);
+      } catch (uErr: any) {
+        console.warn('[DataStore] Warning loading users from PostgreSQL:', uErr?.message);
+      }
+
+      // 2. Load admin users
+      try {
+        const { rows: adminRows } = await pgPool.query(`
+          SELECT id, telegram_id, username, display_name, role, is_active, last_login_at, created_at
+          FROM admin_users
+          ORDER BY created_at ASC
+        `);
+
+        for (const row of adminRows) {
+          const numId = Number(row.telegram_id);
+          if (!numId) continue;
+          const existingIdx = this.adminUsers.findIndex((a) => a.telegram_id === numId);
+          const adminObj: AdminUser = {
+            id: String(row.id),
+            telegram_id: numId,
+            username: row.username || null,
+            display_name: row.display_name || row.username || `Admin ${numId}`,
+            role: (row.role as any) || 'admin',
+            is_active: Boolean(row.is_active),
+            last_login_at: row.last_login_at ? new Date(row.last_login_at).toISOString() : null,
+            created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+          };
+          if (existingIdx >= 0) {
+            this.adminUsers[existingIdx] = adminObj;
+          } else {
+            this.adminUsers.push(adminObj);
+          }
+        }
+
+        // Also check if any users in memory have role 'admin' or 'superadmin'
+        for (const user of this.users.values()) {
+          const uRole = (user as any).role;
+          if (uRole === 'admin' || uRole === 'superadmin') {
+            if (!this.adminUsers.some((a) => a.telegram_id === user.telegram_id)) {
+              this.adminUsers.push({
+                id: user.id,
+                telegram_id: user.telegram_id,
+                username: user.username,
+                display_name: user.first_name || user.username || `Admin ${user.telegram_id}`,
+                role: uRole,
+                is_active: true,
+                last_login_at: user.updated_at,
+                created_at: user.created_at,
+              });
+            }
+          }
+        }
+        console.log(`[DataStore] Total active admin users in memory: ${this.adminUsers.length}`);
+      } catch (aErr: any) {
+        console.warn('[DataStore] Warning loading admin users from PostgreSQL:', aErr?.message);
+      }
+
+      // 3. Load active seasonal theme
+      try {
+        const { rows: themeRows } = await pgPool.query(`
+          SELECT value FROM app_settings WHERE key = 'active_seasonal_theme' LIMIT 1
+        `);
+        if (themeRows.length > 0 && themeRows[0].value?.active_theme) {
+          const theme = themeRows[0].value.active_theme;
+          if (ALLOWED_SEASONAL_THEMES.includes(theme)) {
+            this.storeSettings.seasonal_theme = theme;
+            this.storeSettings.seasonal_theme_updated_at = themeRows[0].value.updated_at || new Date().toISOString();
+            this.storeSettings.seasonal_theme_updated_by = themeRows[0].value.updated_by || 'system';
+          }
+        }
+      } catch (tErr: any) {
+        console.warn('[DataStore] Warning loading seasonal theme from PostgreSQL:', tErr?.message);
+      }
+    } catch (err: any) {
+      console.error('[DataStore] syncAllFromPostgres error:', err?.message || err);
+    }
   }
 
   // ================= ADMIN AUDIT & TICKETS =================

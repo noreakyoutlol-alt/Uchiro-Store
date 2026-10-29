@@ -134,7 +134,8 @@ describe('Robux Age Flow, Checkout Safety & Navigation Integrity', () => {
 
       // Must show the age confirmation screen, NOT the final checkout/policy gate
       expect(session.state).toBe('awaiting_age_confirm');
-      expect(messageContent).toContain('BUYER AGE CONFIRMATION (MANDATORY SELF-DECLARATION)');
+      expect(messageContent).toContain('BUYER AGE CONFIRMATION');
+      expect(messageContent).toContain('Account Tiers Overview');
       expect(messageContent).not.toContain('roblox.com/upgrades/robux'); // Final gate not reached
     });
 
@@ -280,16 +281,20 @@ describe('Robux Age Flow, Checkout Safety & Navigation Integrity', () => {
 
       // Khmer message content
       expect(sentText).toContain('ការបញ្ជាក់អាយុរបស់អ្នកទិញ');
-      expect(sentText).toContain('អ្នកទិញត្រូវតែមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅ');
+      expect(sentText).toContain('Account Tiers Overview');
+      expect(sentText).toContain('Roblox Kids');
+      expect(sentText).toContain('Roblox Select');
+      expect(sentText).toContain('Roblox Standard');
+      expect(sentText).toContain('Unchecked Accounts');
+      expect(sentText).toContain('No Refund');
 
-      // Button labels must remain English
+      // Button labels must remain English: Confirm and Back Home only
       const flatButtons = sentExtra?.reply_markup?.inline_keyboard?.flat() || [];
       const buttonLabels = flatButtons.map((b: any) => b.text);
 
-      expect(buttonLabels.some((l: string) => l.includes('I am 18 or older'))).toBe(true);
-      expect(buttonLabels.some((l: string) => l.includes('I am under 18'))).toBe(true);
-      expect(buttonLabels.some((l: string) => l.includes('Back to Packages'))).toBe(true);
-      expect(buttonLabels.some((l: string) => l.includes('Cancel'))).toBe(true);
+      expect(buttonLabels.some((l: string) => l.includes('Confirm'))).toBe(true);
+      expect(buttonLabels.some((l: string) => l.includes('Back Home'))).toBe(true);
+      expect(buttonLabels.length).toBe(2);
     });
 
     it('produces English message content with English button labels when English is selected', async () => {
@@ -318,14 +323,20 @@ describe('Robux Age Flow, Checkout Safety & Navigation Integrity', () => {
 
       // English message content
       expect(sentText).toContain('BUYER AGE CONFIRMATION');
-      expect(sentText).toContain('Buyers must be at least 18 years of age');
+      expect(sentText).toContain('Account Tiers Overview');
+      expect(sentText).toContain('Roblox Kids');
+      expect(sentText).toContain('Roblox Select');
+      expect(sentText).toContain('Roblox Standard');
+      expect(sentText).toContain('Unchecked Accounts');
+      expect(sentText).toContain('No Refund');
 
-      // Button labels must be English
+      // Button labels must be English: Confirm and Back Home only
       const flatButtons = sentExtra?.reply_markup?.inline_keyboard?.flat() || [];
       const buttonLabels = flatButtons.map((b: any) => b.text);
 
-      expect(buttonLabels.some((l: string) => l.includes('I am 18 or older'))).toBe(true);
-      expect(buttonLabels.some((l: string) => l.includes('I am under 18'))).toBe(true);
+      expect(buttonLabels.some((l: string) => l.includes('Confirm'))).toBe(true);
+      expect(buttonLabels.some((l: string) => l.includes('Back Home'))).toBe(true);
+      expect(buttonLabels.length).toBe(2);
     });
 
     it('persists language selection across multiple interactions and sessions', async () => {

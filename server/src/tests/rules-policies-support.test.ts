@@ -100,8 +100,44 @@ describe('Rules, Policies & Official Support Verification Suite', () => {
           // Verify no repeated emojis like 🎰 🎰 or 📦 📦
           const matchDouble = btn.text.match(/^(\p{Emoji}+)\s*\1/u);
           expect(matchDouble).toBeNull();
+
+          // Verify that buttons with custom icon do not duplicate emoji in text
+          if ((btn as any).icon_custom_emoji_id) {
+            // When custom icon is assigned, button text should NOT start with any emoji
+            expect(btn.text).not.toMatch(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+          }
         }
       }
+    });
+
+    it('specifically validates single emoji & matching custom icons for Gacha, Payment, and Coupons buttons', () => {
+      const kb = buildMainRulesKeyboard('km');
+      const flat = kb.reply_markup.inline_keyboard.flat();
+
+      const gachaBtn = flat.find((b: any) => b.callback_data === 'cb_gacha_rules') as any;
+      expect(gachaBtn).toBeDefined();
+      expect(gachaBtn.text).toBe('Gacha Rules');
+      expect(gachaBtn.icon_custom_emoji_id).toBe('5235989279024373566'); // SLOT_MACHINE 🎰
+
+      const payBtn = flat.find((b: any) => b.callback_data === 'cb_payment_delivery') as any;
+      expect(payBtn).toBeDefined();
+      expect(payBtn.text).toBe('Payment & Delivery');
+      expect(payBtn.icon_custom_emoji_id).toBe('5854908544712707500'); // PACKAGE 📦
+
+      const ptsBtn = flat.find((b: any) => b.callback_data === 'cb_points_coupons') as any;
+      expect(ptsBtn).toBeDefined();
+      expect(ptsBtn.text).toBe('Points & Coupons');
+      expect(ptsBtn.icon_custom_emoji_id).toBe('5291994784980813319'); // TICKET 🎟️
+
+      const warrantyBtn = flat.find((b: any) => b.callback_data === 'cb_warranty_policy') as any;
+      expect(warrantyBtn).toBeDefined();
+      expect(warrantyBtn.text).toBe('14-Day Warranty Policy');
+      expect(warrantyBtn.icon_custom_emoji_id).toBe('5197288647275071607'); // SHIELD 🛡️
+
+      const homeBtn = flat.find((b: any) => b.callback_data === 'cb_main_menu') as any;
+      expect(homeBtn).toBeDefined();
+      expect(homeBtn.text).toBe('Back Home');
+      expect(homeBtn.icon_custom_emoji_id).toBe('5312486108309757006'); // HOME 🏠
     });
 
     it('builds Sub-Rules Keyboard with Back to Rules and Back Home navigation', () => {
@@ -237,6 +273,95 @@ describe('Rules, Policies & Official Support Verification Suite', () => {
       // Visible button text contains no Khmer characters
       const allText = rows.flatMap((r) => r.map((b) => b.text)).join(' ');
       expect(/[ក-៿]/.test(allText)).toBe(false);
+    });
+  });
+
+  describe('4. Khmer Localization for All Rules & Policies with 100% English Buttons', () => {
+    const kmUserId = 111222333;
+
+    beforeEach(() => {
+      DataStore.setUserLanguagePreference(kmUserId, 'km');
+    });
+
+    it('renders handleMainRules in Khmer while preserving English buttons', async () => {
+      const { ctx, edits } = createMockContext(kmUserId);
+      await handleMainRules(ctx);
+
+      expect(edits.length).toBe(1);
+      expect(edits[0].text).toContain('គោលការណ៍ទូទៅ និងការធានារបស់ UCHIRO STORE');
+      expect(edits[0].text).toContain('ការធានាគណនី (ធានាជូន ១៤ ថ្ងៃពេញ)');
+
+      const buttons = edits[0].options?.reply_markup?.inline_keyboard?.flat() || [];
+      const btnText = buttons.map((b: any) => b.text).join(' ');
+      expect(/[ក-៿]/.test(btnText)).toBe(false);
+      expect(btnText).toContain('Gacha Rules');
+      expect(btnText).toContain('Back Home');
+    });
+
+    it('renders handlePaymentDeliveryPolicy in Khmer while preserving English buttons', async () => {
+      const { ctx, edits } = createMockContext(kmUserId);
+      await handlePaymentDeliveryPolicy(ctx);
+
+      expect(edits.length).toBe(1);
+      expect(edits[0].text).toContain('គោលការណ៍ទូទាត់ប្រាក់ និងការប្រគល់ទំនិញ');
+      expect(edits[0].text).toContain('មធ្យោបាយទូទាត់ប្រាក់ដែលទទួលស្គាល់');
+      expect(edits[0].text).toContain('Bakong KHQR');
+
+      const buttons = edits[0].options?.reply_markup?.inline_keyboard?.flat() || [];
+      const btnText = buttons.map((b: any) => b.text).join(' ');
+      expect(/[ក-៿]/.test(btnText)).toBe(false);
+      expect(btnText).toContain('Back to Rules');
+      expect(btnText).toContain('Back Home');
+    });
+
+    it('renders handleRefundPolicy in Khmer while preserving English buttons', async () => {
+      const { ctx, edits } = createMockContext(kmUserId);
+      await handleRefundPolicy(ctx);
+
+      expect(edits.length).toBe(1);
+      expect(edits[0].text).toContain('គោលការណ៍បង្វិលប្រាក់ និងប្តូរទំនិញថ្មី');
+      expect(edits[0].text).toContain('លក្ខខណ្ឌទទួលបានការបង្វិលប្រាក់ ១០០%');
+
+      const buttons = edits[0].options?.reply_markup?.inline_keyboard?.flat() || [];
+      const btnText = buttons.map((b: any) => b.text).join(' ');
+      expect(/[ក-៿]/.test(btnText)).toBe(false);
+    });
+
+    it('renders handlePointsCouponsPolicy in Khmer while preserving English buttons', async () => {
+      const { ctx, edits } = createMockContext(kmUserId);
+      await handlePointsCouponsPolicy(ctx);
+
+      expect(edits.length).toBe(1);
+      expect(edits[0].text).toContain('គោលការណ៍ពិន្ទុ និងគូប៉ុងបញ្ចុះតម្លៃ');
+      expect(edits[0].text).toContain('ច្បាប់នៃការទទួលបានពិន្ទុ');
+
+      const buttons = edits[0].options?.reply_markup?.inline_keyboard?.flat() || [];
+      const btnText = buttons.map((b: any) => b.text).join(' ');
+      expect(/[ក-៿]/.test(btnText)).toBe(false);
+    });
+
+    it('renders handleFaqHelp in Khmer while preserving English buttons', async () => {
+      const { ctx, edits } = createMockContext(kmUserId);
+      await handleFaqHelp(ctx);
+
+      expect(edits.length).toBe(1);
+      expect(edits[0].text).toContain('សំណួរដែលសួរញឹកញាប់');
+
+      const buttons = edits[0].options?.reply_markup?.inline_keyboard?.flat() || [];
+      const btnText = buttons.map((b: any) => b.text).join(' ');
+      expect(/[ក-៿]/.test(btnText)).toBe(false);
+    });
+
+    it('renders handleContactSupport in Khmer while preserving English buttons', async () => {
+      const { ctx, edits } = createMockContext(kmUserId);
+      await handleContactSupport(ctx);
+
+      expect(edits.length).toBe(1);
+      expect(edits[0].text).toContain('ផ្នែកបម្រើអតិថិជន ២៤/៧');
+
+      const buttons = edits[0].options?.reply_markup?.inline_keyboard?.flat() || [];
+      const btnText = buttons.map((b: any) => b.text).join(' ');
+      expect(/[ក-៿]/.test(btnText)).toBe(false);
     });
   });
 });

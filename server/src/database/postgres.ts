@@ -1,9 +1,10 @@
 import pg, { Pool } from 'pg';
+import { env } from '../config/env';
 
 pg.types.setTypeParser(20, Number);
 pg.types.setTypeParser(1700, parseFloat);
 
-const connectionString = process.env.DATABASE_URL || '';
+const connectionString = process.env.DATABASE_URL || env.DATABASE_URL || '';
 const isInternal = connectionString.includes('railway.internal') || connectionString.includes('localhost');
 
 export const pgPool = new Pool({
@@ -14,7 +15,7 @@ export const pgPool = new Pool({
   max: 20,
 });
 
-export const isPostgresConfigured = (): boolean => Boolean(process.env.DATABASE_URL);
+export const isPostgresConfigured = (): boolean => Boolean(process.env.DATABASE_URL || env.DATABASE_URL);
 
 export async function initDatabase(): Promise<void> {
   if (!isPostgresConfigured()) {
@@ -77,10 +78,29 @@ export async function initDatabase(): Promise<void> {
         ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
 
         -- Additive column migrations for existing core tables
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS language_code TEXT DEFAULT 'km';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS language_preference TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS extra JSONB DEFAULT '{}'::jsonb;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS gacha_tickets INT DEFAULT 0 NOT NULL;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false NOT NULL;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
         CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);
+
+        -- Durable Admin Users Table
+        CREATE TABLE IF NOT EXISTS admin_users (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          telegram_id BIGINT UNIQUE NOT NULL,
+          username TEXT,
+          display_name TEXT NOT NULL,
+          role TEXT DEFAULT 'admin' NOT NULL,
+          is_active BOOLEAN DEFAULT true NOT NULL,
+          last_login_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_admin_users_telegram_id ON admin_users(telegram_id);
 
         CREATE INDEX IF NOT EXISTS idx_points_ledger_telegram_id ON points_ledger(telegram_id);
         CREATE INDEX IF NOT EXISTS idx_points_ledger_created_at ON points_ledger(created_at);
@@ -403,6 +423,48 @@ export async function initDatabase(): Promise<void> {
         )
         ON CONFLICT (key) DO NOTHING;
       `);
+
+      // Ensure configured admin accounts from environment exist in admin_users and users
+      const envAdminIds = new Set<number>();
+      const rawAdminSources = [
+        process.env.ADMIN_TELEGRAM_USER_IDS,
+        process.env.ADMIN_TELEGRAM_IDS,
+      ];
+      for (const src of rawAdminSources) {
+        if (!src) continue;
+        for (const part of src.split(',')) {
+          const num = Number(part.trim());
+          if (num > 0) envAdminIds.add(num);
+        }
+      }
+      if (Array.isArray(env.ADMIN_TELEGRAM_USER_IDS)) {
+        for (const num of env.ADMIN_TELEGRAM_USER_IDS) {
+          if (typeof num === 'number' && num > 0) envAdminIds.add(num);
+        }
+      }
+      if (Array.isArray(env.ADMIN_TELEGRAM_IDS)) {
+        for (const num of env.ADMIN_TELEGRAM_IDS) {
+          if (typeof num === 'number' && num > 0) envAdminIds.add(num);
+        }
+      }
+
+      for (const adminId of envAdminIds) {
+        const tidStr = String(adminId);
+        await client.query(
+          `INSERT INTO admin_users (telegram_id, username, display_name, role, is_active, created_at, updated_at)
+           VALUES ($1, 'uchiro_admin', 'Admin ' || $1, 'superadmin', true, NOW(), NOW())
+           ON CONFLICT (telegram_id) DO UPDATE SET is_active = true, updated_at = NOW()`,
+          [adminId]
+        );
+
+        await client.query(
+          `INSERT INTO users (telegram_id, username, first_name, role, points, streak_count, gacha_tickets, created_at, updated_at)
+           VALUES ($1, 'uchiro_admin', 'Admin ' || $1, 'superadmin', 0, 0, 0, NOW(), NOW())
+           ON CONFLICT (telegram_id) DO UPDATE SET role = 'superadmin', updated_at = NOW()`,
+          [tidStr]
+        );
+      }
+
       console.log('[Postgres] Schema verified and initialized successfully');
     } finally {
       client.release();

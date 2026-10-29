@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import { DataStore } from '../database/data-store';
 
 export interface VerifiedTelegramUser {
   id: string;
@@ -76,13 +77,32 @@ export function extractInitData(req: Request): string {
 }
 
 export function getAdminIds(): Set<string> {
-  const raw = process.env.ADMIN_TELEGRAM_IDS ?? '';
-  return new Set(
-    raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0),
-  );
+  const rawSources = [
+    process.env.ADMIN_TELEGRAM_IDS,
+    process.env.ADMIN_TELEGRAM_USER_IDS,
+  ];
+  const set = new Set<string>();
+  for (const raw of rawSources) {
+    if (!raw) continue;
+    for (const part of raw.split(',')) {
+      const trimmed = part.trim();
+      if (trimmed) set.add(trimmed);
+    }
+  }
+
+  // Also include durable admin users from DataStore (PostgreSQL admin_users)
+  try {
+    const dbAdmins = DataStore.getAdminUsers();
+    for (const admin of dbAdmins) {
+      if (admin.is_active && admin.telegram_id) {
+        set.add(String(admin.telegram_id));
+      }
+    }
+  } catch {
+    // DataStore not ready yet fallback
+  }
+
+  return set;
 }
 
 /** Sets res.locals.telegramUser or answers 401. */

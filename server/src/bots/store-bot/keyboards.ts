@@ -313,38 +313,38 @@ export function buildRedeemPointsKeyboard(lang: string = 'km') {
 
 /**
  * Store Rules Keyboard
+ * All button labels kept in English per Prompt requirement:
+ * "and in rules and policies If i select khmer all text translate to khmer all but keep all button is english"
  */
-export function buildMainRulesKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildMainRulesKeyboard(_lang: string = 'km') {
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_gacha_rules, 'cb_gacha_rules', 'GAMEPAD'),
-      cb(loc.btn_daily_rules, 'cb_daily_rules', 'GIFT'),
+      cb('Gacha Rules', 'cb_gacha_rules', 'SLOT_MACHINE'),
+      cb('Daily Streak Rules', 'cb_daily_rules', 'GIFT'),
     ],
     [
-      cb(loc.btn_warranty_policy, 'cb_warranty_policy', 'SHIELD'),
+      cb('14-Day Warranty Policy', 'cb_warranty_policy', 'SHIELD'),
     ],
     [
-      cb(loc.btn_payment_delivery, 'cb_payment_delivery', 'RECEIPT'),
-      cb(loc.btn_refund_policy, 'cb_refund_policy', 'MONEY_BAG'),
+      cb('Payment & Delivery', 'cb_payment_delivery', 'PACKAGE'),
+      cb('Refund Policy', 'cb_refund_policy', 'MONEY_BAG'),
     ],
     [
-      cb(loc.btn_points_coupons, 'cb_points_coupons', 'TICKET'),
-      cb(loc.btn_faq_help, 'cb_faq_help', 'QUESTION'),
+      cb('Points & Coupons', 'cb_points_coupons', 'TICKET'),
+      cb('FAQ & Help', 'cb_faq_help', 'QUESTION'),
     ],
     [
-      cb(loc.btn_contact_support, 'cb_contact_support', 'SUPPORT'),
-      cb(loc.btn_back_home, 'cb_main_menu', 'BACK'),
+      cb('Contact Support', 'cb_contact_support', 'SUPPORT'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }
 
-export function buildSubRulesKeyboard(lang: string = 'km') {
-  const loc = getLocale(lang);
+export function buildSubRulesKeyboard(_lang: string = 'km') {
   return Markup.inlineKeyboard([
     [
-      cb(loc.btn_back_to_rules, 'cb_main_rules', 'BACK'),
-      cb(loc.btn_back_home_short, 'cb_main_menu', 'HOME'),
+      cb('Back to Rules', 'cb_main_rules', 'BACK'),
+      cb('Back Home', 'cb_main_menu', 'HOME'),
     ],
   ]);
 }

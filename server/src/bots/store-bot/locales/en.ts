@@ -25,7 +25,7 @@ export const en: LocaleStrings = {
   // Rules Buttons
   btn_gacha_rules: '🎰 Gacha Rules',
   btn_daily_rules: '🎁 Daily Streak Rules',
-  btn_warranty_policy: '🔐 14-Day Warranty Policy',
+  btn_warranty_policy: '🛡️ 14-Day Warranty Policy',
   btn_back_to_rules: '🔙 Back to Rules',
 
   // Help Buttons
@@ -35,7 +35,7 @@ export const en: LocaleStrings = {
   btn_back_to_help: '🔙 Back to Help',
   btn_payment_delivery: '📦 Payment & Delivery',
   btn_refund_policy: '💰 Refund Policy',
-  btn_points_coupons: '🏷️ Points & Coupons',
+  btn_points_coupons: '🎟️ Points & Coupons',
   btn_faq_help: '❓ FAQ & Help',
   btn_contact_support: '💬 Contact Support',
 

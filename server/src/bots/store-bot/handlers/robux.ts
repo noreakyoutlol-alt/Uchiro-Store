@@ -119,14 +119,30 @@ const I18N = {
     paymentDisabledNotice:
       '🛡️ <b>Payment Notice:</b> Please complete your payment using the generated KHQR code or visit official Roblox channels at roblox.com/upgrades/robux.',
     cancelledNotice: 'Robux request cancelled.',
-    ageConfirmTitle: 'BUYER AGE CONFIRMATION (MANDATORY SELF-DECLARATION)',
+    ageConfirmTitle: 'BUYER AGE CONFIRMATION',
     ageConfirmDesc: (amount: number, username: string) =>
       `👤 <b>Confirmed Recipient:</b> <code>${username}</code>\n` +
       `💎 <b>Robux Package:</b> ${amount.toLocaleString()} R$\n\n` +
-      `🛡️ <b>Age Requirement Notice:</b>\n` +
-      `Buyers must be at least 18 years of age to purchase products on Uchiro Store.\n` +
-      `<i>Note: This is an explicit self-declaration by the buyer and does not claim independent third-party legal age verification.</i>\n\n` +
-      `Please confirm your age to proceed to final checkout:`,
+      `🛡️ <b>Account Tiers Overview:</b>\n\n` +
+      `• <b>Roblox Kids (Ages 5–8 / Under 9)</b>\n` +
+      `    • Content Access: Limited to Minimal or Mild rated games.\n` +
+      `    • Chat: Off by default; can be enabled by a parent for age-checked users.\n` +
+      `    • Interface: Features a distinct kid-friendly background/blue theme.\n` +
+      `    • Controls: Full suite of parental controls available.\n` +
+      `• <b>Roblox Select (Ages 9–15)</b>\n` +
+      `    • Content Access: Limited to Minimal, Mild, or Moderate rated games.\n` +
+      `    • Chat: Gradually introduced with safeguards for age-checked users.\n` +
+      `    • Controls: Full parental controls through age 12, with visibility settings through age 15.\n` +
+      `• <b>Roblox Standard (Ages 16+ / Age-Verified)</b>\n` +
+      `    • Content Access: All rated content except 18+ Restricted content.\n` +
+      `    • Chat: On by default for age-checked users (where available).\n` +
+      `    • Verification: Requires ID verification or facial age estimation.\n` +
+      `• <b>Unchecked Accounts</b>\n` +
+      `    • Definition: Assigned to users who have not completed an age check or ID/facial verification.\n` +
+      `    • Content Access: Can play Minimal, Mild, and Moderate games, but blocked from 18+ Restricted games.\n\n` +
+      `⚠️ <b>Important Notice & Non-Refundable Policy:</b>\n` +
+      `If your account falls under any of the tiers above and you cannot claim or receive your Robux after purchase, orders are <b>strictly non-refundable (No Refund)</b>.\n\n` +
+      `Press <b>Confirm</b> to proceed to the safety & policy notice:`,
     under18BlockedTitle: 'UNDER-18 PURCHASE BLOCKED',
     under18BlockedDesc:
       '❌ <b>Purchase Restricted:</b>\n\n' +
@@ -180,14 +196,30 @@ const I18N = {
     paymentDisabledNotice:
       '🛡️ <b>សេចក្តីជូនដំណឹងអំពីការទូទាត់:</b> សូមបំពេញការទូទាត់តាមរយៈកូដ KHQR ឬទិញតាមបណ្តាញផ្លូវការ roblox.com/upgrades/robux។',
     cancelledNotice: 'បានបោះបង់ការស្នើសុំ Robux។',
-    ageConfirmTitle: 'ការបញ្ជាក់អាយុរបស់អ្នកទិញ (ការប្រកាសផ្ទាល់ខ្លួន)',
+    ageConfirmTitle: 'ការបញ្ជាក់អាយុរបស់អ្នកទិញ',
     ageConfirmDesc: (amount: number, username: string) =>
       `👤 <b>គណនីទទួល:</b> <code>${username}</code>\n` +
       `💎 <b>កញ្ចប់ Robux:</b> ${amount.toLocaleString()} R$\n\n` +
-      `🛡️ <b>សេចក្តីជូនដំណឹងអំពីលក្ខខណ្ឌអាយុ:</b>\n` +
-      `អ្នកទិញត្រូវតែមានអាយុយ៉ាងតិច ១៨ ឆ្នាំឡើងទៅដើម្បីធ្វើការបញ្ជាទិញនៅលើ Uchiro Store។\n` +
-      `<i>ចំណាំ៖ នេះជាការប្រកាសបញ្ជាក់ផ្ទាល់ខ្លួនរបស់អ្នកទិញ មិនមែនជាការផ្ទៀងផ្ទាត់ដោយភាគីទីបីឡើយ។</i>\n\n` +
-      `សូមបញ្ជាក់អាយុរបស់អ្នកដើម្បីបន្តទៅការទូទាត់ប្រាក់ចុងក្រោយ:`,
+      `🛡️ <b>Account Tiers Overview:</b>\n\n` +
+      `• <b>Roblox Kids (Ages 5–8 / Under 9)</b>\n` +
+      `    • Content Access: កំណត់ត្រឹមហ្គេមកម្រិត Minimal ឬ Mild។\n` +
+      `    • Chat: បិទ (Off) ជាស្តង់ដារ អាចបើកបានដោយអាណាព្យាបាលសម្រាប់អ្នកដែលបានផ្ទៀងផ្ទាត់អាយុ។\n` +
+      `    • Interface: មានផ្ទៃខាងក្រោយ Kid-Friendly/Blue Theme ជាក់លាក់។\n` +
+      `    • Controls: មានមុខងារគ្រប់គ្រងដោយអាណាព្យាបាលពេញលេញ។\n` +
+      `• <b>Roblox Select (Ages 9–15)</b>\n` +
+      `    • Content Access: កំណត់ត្រឹមហ្គេមកម្រិត Minimal, Mild ឬ Moderate។\n` +
+      `    • Chat: ត្រូវបានណែនាំជាបណ្តើរៗជាមួយនឹងការការពារសម្រាប់អ្នកដែលបានផ្ទៀងផ្ទាត់អាយុ។\n` +
+      `    • Controls: គ្រប់គ្រងដោយអាណាព្យាបាលពេញលេញរហូតដល់អាយុ 12 ឆ្នាំ និងការកំណត់ Visibility រហូតដល់អាយុ 15 ឆ្នាំ។\n` +
+      `• <b>Roblox Standard (Ages 16+ / Age-Verified)</b>\n` +
+      `    • Content Access: អាចលេងមាតិកាគ្រប់កម្រិត លើកលែងតែមាតិកាកំណត់ 18+ Restricted។\n` +
+      `    • Chat: បើក (On) ជាស្តង់ដារសម្រាប់អ្នកដែលបានផ្ទៀងផ្ទាត់អាយុ (កន្លែងដែលអាចប្រើបាន)។\n` +
+      `    • Verification: តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់អត្តសញ្ញាណប័ណ្ណ (ID) ឬការស្កេនផ្ទៃមុខ។\n` +
+      `• <b>Unchecked Accounts</b>\n` +
+      `    • Definition: គណនីដែលមិនទាន់បានឆ្លងកាត់ការពិនិត្យអាយុ ឬផ្ទៀងផ្ទាត់ ID/ផ្ទៃមុខ។\n` +
+      `    • Content Access: អាចលេងហ្គេមកម្រិត Minimal, Mild និង Moderate ប៉ុន្តែត្រូវបានរារាំងពីហ្គេមកម្រិត 18+ Restricted។\n\n` +
+      `⚠️ <b>សេចក្តីបញ្ជាក់សំខាន់អំពីការទិញ និងមិនបង្វិលប្រាក់ (No Refund):</b>\n` +
+      `រាល់ប្រភេទគណនីទាំងអស់នេះ ប្រសិនបើអតិថិជនធ្វើការបញ្ជាទិញ ហើយមិនអាច Claim ឬទទួល Robux បាន ខាងយើងខ្ញុំ<b>មិនមានការបង្វិលប្រាក់សងវិញជាដាច់ខាត (No Refund)</b>។\n\n` +
+      `សូមចុច <b>Confirm</b> ដើម្បីបន្តទៅកាន់សេចក្តីជូនដំណឹងអំពីសុវត្ថិភាព:`,
     under18BlockedTitle: 'ការទិញត្រូវបានរារាំង (អាយុក្រោម ១៨ ឆ្នាំ)',
     under18BlockedDesc:
       '❌ <b>ការទិញត្រូវបានរារាំង:</b>\n\n' +
@@ -483,10 +515,8 @@ export async function handleSelectPack(ctx: Context, denomination: number) {
       `${t.ageConfirmDesc(denomination, session.robloxInfo.username)}`;
 
     const keyboard = Markup.inlineKeyboard([
-      [cb('I am 18 or older (Self-Declaration)', 'cb_rbx_age_18_plus', 'CHECK')],
-      [cb('I am under 18', 'cb_rbx_age_under_18', 'CROSS')],
-      [cb('Back to Packages', 'cb_rbx_back_packs', 'BACK')],
-      [cb('Cancel', 'cb_rbx_cancel', 'CROSS')],
+      [cb('Confirm', 'cb_rbx_confirm_age', 'CHECK')],
+      [cb('Back Home', 'cb_main_menu', 'HOME')],
     ]);
 
     await sendOrEditRobuxMessage(ctx, text, keyboard);
