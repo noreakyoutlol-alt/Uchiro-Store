@@ -562,7 +562,7 @@ export class NotificationService {
       : `https://www.roblox.com/search/users?keyword=${encodeURIComponent(robloxUsername)}`;
 
     const text =
-      `🎁 <b>ROBLOX GIFT CLAIM [ADMIN NOTIFICATION]</b>\n\n` +
+      `🎁 <b>ROBLOX GIFT CLAIM</b> [ADMIN NOTIFICATION]\n\n` +
       `👤 <b>Roblox Name:</b> <code>${robloxUsername}</code>\n` +
       `🔗 <b>Profile Link:</b> <a href="${profileUrl}">${profileUrl}</a>\n` +
       (extra?.itemTitle ? `📦 <b>Item:</b> <b>${extra.itemTitle}</b>\n` : '') +
@@ -617,7 +617,7 @@ export class NotificationService {
     }
 
     const text =
-      `🤝 <b>TRADE CLAIM [ADMIN NOTIFICATION]</b>\n\n` +
+      `🤝 <b>TRADE CLAIM</b> [ADMIN NOTIFICATION]\n\n` +
       `👤 <b>Roblox Name:</b> <code>${robloxUsername}</code>\n` +
       (extra?.telegramId ? `📱 <b>Customer TG ID:</b> <code>${extra.telegramId}</code>\n` : '') +
       (extra?.itemTitle ? `📦 <b>Item to Trade:</b> <b>${extra.itemTitle}</b>\n` : '') +

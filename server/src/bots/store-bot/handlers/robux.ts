@@ -110,9 +110,7 @@ const I18N = {
         `💎 <b>Selected Robux Package:</b> ${amount.toLocaleString()} Robux\n` +
         `💵 <b>Total Price:</b> $${p} USD\n\n` +
         `🛡️ <b>Robux Top-Up Policy & Safety Notice:</b>\n` +
-        `• This store delivers Robux top-ups directly to your verified Roblox account (<code>${username}</code>). This is NOT a Roblox account sale.\n` +
-        `• <b>Non-Refundable Policy:</b> Robux top-up orders are strictly non-refundable for incorrect usernames or unclaimable orders once processed, subject to applicable law.\n` +
-        `• Direct automated platform distribution is safely disabled in compliance with official Roblox Terms of Use (effective May 19, 2026; roblox.com/upgrades/robux).\n\n` +
+        `• This store delivers Robux top-ups directly to your verified Roblox account (<code>${username}</code>).\n\n` +
         `Press <b>Pay Now</b> to generate your secure KHQR payment code:`
       );
     },
@@ -123,25 +121,13 @@ const I18N = {
     ageConfirmDesc: (amount: number, username: string) =>
       `👤 <b>Confirmed Recipient:</b> <code>${username}</code>\n` +
       `💎 <b>Robux Package:</b> ${amount.toLocaleString()} R$\n\n` +
-      `🛡️ <b>Account Tiers Overview:</b>\n\n` +
-      `• <b>Roblox Kids (Ages 5–8 / Under 9)</b>\n` +
-      `    • Content Access: Limited to Minimal or Mild rated games.\n` +
-      `    • Chat: Off by default; can be enabled by a parent for age-checked users.\n` +
-      `    • Interface: Features a distinct kid-friendly background/blue theme.\n` +
-      `    • Controls: Full suite of parental controls available.\n` +
-      `• <b>Roblox Select (Ages 9–15)</b>\n` +
-      `    • Content Access: Limited to Minimal, Mild, or Moderate rated games.\n` +
-      `    • Chat: Gradually introduced with safeguards for age-checked users.\n` +
-      `    • Controls: Full parental controls through age 12, with visibility settings through age 15.\n` +
-      `• <b>Roblox Standard (Ages 16+ / Age-Verified)</b>\n` +
-      `    • Content Access: All rated content except 18+ Restricted content.\n` +
-      `    • Chat: On by default for age-checked users (where available).\n` +
-      `    • Verification: Requires ID verification or facial age estimation.\n` +
-      `• <b>Unchecked Accounts</b>\n` +
-      `    • Definition: Assigned to users who have not completed an age check or ID/facial verification.\n` +
-      `    • Content Access: Can play Minimal, Mild, and Moderate games, but blocked from 18+ Restricted games.\n\n` +
-      `⚠️ <b>Important Notice & Non-Refundable Policy:</b>\n` +
-      `If your account falls under any of the tiers above and you cannot claim or receive your Robux after purchase, orders are <b>strictly non-refundable (No Refund)</b>.\n\n` +
+      `🛡️ <b>Account Tiers Overview:</b>\n` +
+      `• <b>Roblox Kids (Ages 5–8 / Under 9)</b>: Cannot purchase\n` +
+      `• <b>Roblox Select (Ages 9–15)</b>: Cannot purchase\n` +
+      `• <b>Unchecked Accounts</b>: Cannot purchase\n` +
+      `• <b>Roblox Standard (Ages 16+ / Age-Verified)</b>: Eligible to purchase\n\n` +
+      `⚠️ <b>Important Notice (No Refund):</b>\n` +
+      `If your account falls under an ineligible tier and you buy wrong, orders are <b>strictly non-refundable (No Refund)</b>.\n\n` +
       `Press <b>Confirm</b> to proceed to the safety & policy notice:`,
     under18BlockedTitle: 'UNDER-18 PURCHASE BLOCKED',
     under18BlockedDesc:
@@ -187,9 +173,7 @@ const I18N = {
         `💎 <b>កញ្ចប់ Robux:</b> ${amount.toLocaleString()} Robux\n` +
         `💵 <b>តម្លៃសរុប:</b> $${p} USD\n\n` +
         `🛡️ <b>គោលការណ៍បញ្ចូល Robux Top-Up:</b>\n` +
-        `• ហាងនេះផ្តល់សេវាបញ្ចូលទឹកប្រាក់ Robux ទៅកាន់គណនី Roblox របស់អ្នកដោយផ្ទាល់ (<code>${username}</code>)។ នេះមិនមែនជាការលក់គណនី Roblox ឡើយ។\n` +
-        `• រាល់ការបញ្ចូល Robux មិនអាចបង្វិលប្រាក់វិញបានទេបន្ទាប់ពីបានដំណើរការ។\n` +
-        `• ការផ្ទេរដោយគ្មានការអនុញ្ញាតត្រូវបាន safely disabled ស្របតាមលក្ខខណ្ឌផ្លូវការរបស់ Roblox (ចូលជាធរមាន 19 ឧសភា 2026; roblox.com/upgrades/robux)។\n\n` +
+        `• ហាងនេះផ្តល់សេវាបញ្ចូលទឹកប្រាក់ Robux ទៅកាន់គណនី Roblox របស់អ្នកដោយផ្ទាល់ (<code>${username}</code>)។\n\n` +
         `សូមចុច <b>Pay Now</b> ដើម្បីបង្កើតកូដទូទាត់ KHQR:`
       );
     },
@@ -201,24 +185,12 @@ const I18N = {
       `👤 <b>គណនីទទួល:</b> <code>${username}</code>\n` +
       `💎 <b>កញ្ចប់ Robux:</b> ${amount.toLocaleString()} R$\n\n` +
       `🛡️ <b>Account Tiers Overview:</b>\n\n` +
-      `• <b>Roblox Kids (Ages 5–8 / Under 9)</b>\n` +
-      `    • Content Access: កំណត់ត្រឹមហ្គេមកម្រិត Minimal ឬ Mild។\n` +
-      `    • Chat: បិទ (Off) ជាស្តង់ដារ អាចបើកបានដោយអាណាព្យាបាលសម្រាប់អ្នកដែលបានផ្ទៀងផ្ទាត់អាយុ។\n` +
-      `    • Interface: មានផ្ទៃខាងក្រោយ Kid-Friendly/Blue Theme ជាក់លាក់។\n` +
-      `    • Controls: មានមុខងារគ្រប់គ្រងដោយអាណាព្យាបាលពេញលេញ។\n` +
-      `• <b>Roblox Select (Ages 9–15)</b>\n` +
-      `    • Content Access: កំណត់ត្រឹមហ្គេមកម្រិត Minimal, Mild ឬ Moderate។\n` +
-      `    • Chat: ត្រូវបានណែនាំជាបណ្តើរៗជាមួយនឹងការការពារសម្រាប់អ្នកដែលបានផ្ទៀងផ្ទាត់អាយុ។\n` +
-      `    • Controls: គ្រប់គ្រងដោយអាណាព្យាបាលពេញលេញរហូតដល់អាយុ 12 ឆ្នាំ និងការកំណត់ Visibility រហូតដល់អាយុ 15 ឆ្នាំ។\n` +
-      `• <b>Roblox Standard (Ages 16+ / Age-Verified)</b>\n` +
-      `    • Content Access: អាចលេងមាតិកាគ្រប់កម្រិត លើកលែងតែមាតិកាកំណត់ 18+ Restricted។\n` +
-      `    • Chat: បើក (On) ជាស្តង់ដារសម្រាប់អ្នកដែលបានផ្ទៀងផ្ទាត់អាយុ (កន្លែងដែលអាចប្រើបាន)។\n` +
-      `    • Verification: តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់អត្តសញ្ញាណប័ណ្ណ (ID) ឬការស្កេនផ្ទៃមុខ។\n` +
-      `• <b>Unchecked Accounts</b>\n` +
-      `    • Definition: គណនីដែលមិនទាន់បានឆ្លងកាត់ការពិនិត្យអាយុ ឬផ្ទៀងផ្ទាត់ ID/ផ្ទៃមុខ។\n` +
-      `    • Content Access: អាចលេងហ្គេមកម្រិត Minimal, Mild និង Moderate ប៉ុន្តែត្រូវបានរារាំងពីហ្គេមកម្រិត 18+ Restricted។\n\n` +
-      `⚠️ <b>សេចក្តីបញ្ជាក់សំខាន់អំពីការទិញ និងមិនបង្វិលប្រាក់ (No Refund):</b>\n` +
-      `រាល់ប្រភេទគណនីទាំងអស់នេះ ប្រសិនបើអតិថិជនធ្វើការបញ្ជាទិញ ហើយមិនអាច Claim ឬទទួល Robux បាន ខាងយើងខ្ញុំ<b>មិនមានការបង្វិលប្រាក់សងវិញជាដាច់ខាត (No Refund)</b>។\n\n` +
+      `• <b>Roblox Kids (Ages 5–8 / Under 9)</b>: មិនអាចទិញបានទេ\n` +
+      `• <b>Roblox Select (Ages 9–15)</b>: មិនអាចទិញបានទេ\n` +
+      `• <b>Unchecked Accounts</b>: មិនអាចទិញបានទេ\n` +
+      `• <b>Roblox Standard (Ages 16+ / Age-Verified)</b>: អាចទិញបាន\n\n` +
+      `⚠️ <b>សេចក្តីបញ្ជាក់សំខាន់ (No Refund):</b>\n` +
+      `ប្រភេទគណនីដែលមិនអាចទិញបាន ប្រសិនបើអ្នកទិញខុស ខាងយើងខ្ញុំ<b>មិនមានការបង្វិលប្រាក់សងវិញជាដាច់ខាត (No Refund)</b>។\n\n` +
       `សូមចុច <b>Confirm</b> ដើម្បីបន្តទៅកាន់សេចក្តីជូនដំណឹងអំពីសុវត្ថិភាព:`,
     under18BlockedTitle: 'ការទិញត្រូវបានរារាំង (អាយុក្រោម ១៨ ឆ្នាំ)',
     under18BlockedDesc:
@@ -338,8 +310,17 @@ export async function handleRobuxUsernameInput(ctx: Context, text: string): Prom
   const check = tgEmoji('CHECK', '✅');
   const eligibility = RobuxService.checkEligibility(account);
   const eligibilityNotice = eligibility.isEligible
-    ? `• <b>Eligibility:</b> ✅ Eligible (Age-Verified Standard Account)\n`
-    : `• <b>Eligibility:</b> ❌ Ineligible (${eligibility.reason})\n`;
+    ? (lang === 'km'
+        ? `• <b>សិទ្ធិទិញ៖</b> ✅ អាចទិញបាន (គណនីស្តង់ដារផ្ទៀងផ្ទាត់អាយុ)\n`
+        : `• <b>Eligibility:</b> ✅ Eligible (Age-Verified Standard Account)\n`)
+    : (lang === 'km'
+        ? `• <b>សិទ្ធិទិញ៖</b> ❌ មិនអាចទិញបាន (${eligibility.reason})\n`
+        : `• <b>Eligibility:</b> ❌ Ineligible (${eligibility.reason})\n`);
+
+  const confirmationNotice =
+    lang === 'km'
+      ? `\n☑️ <b>ការបញ្ជាក់៖</b> [ មិនទាន់ធីក ]\n<i>ខ្ញុំបញ្ជាក់ថានេះពិតជាគណនីទទួលរបស់ខ្ញុំពិតប្រាកដ ហើយយល់ព្រមថាការបញ្ចូល Robux មិនអាចបង្វិលប្រាក់វិញបានទេបន្ទាប់ពីបានប្រគល់រួច។</i>\n\n`
+      : `\n☑️ <b>Confirmation:</b> [ UNCHECKED ]\n<i>I confirm this is my exact recipient account and understand Robux top-ups are non-refundable once delivered, subject to applicable law.</i>\n\n`;
 
   const caption =
     `${check} <b>${t.profileReviewTitle}</b>\n\n` +
@@ -348,8 +329,7 @@ export async function handleRobuxUsernameInput(ctx: Context, text: string): Prom
     `• ${t.userIdLabel}: <code>${account.userId}</code>\n` +
     (createdStr ? `• ${t.createdDateLabel}: <b>${createdStr}</b>\n` : '') +
     eligibilityNotice +
-    `\n☑️ <b>Confirmation:</b> [ UNCHECKED ]\n` +
-    `<i>I confirm this is my exact recipient account and understand Robux top-ups are non-refundable once delivered, subject to applicable law.</i>\n\n` +
+    confirmationNotice +
     `${t.confirmNotice}`;
 
   // The account-confirmation screen has exactly two buttons: Confirm and Back Home

@@ -142,11 +142,15 @@ export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
   await DataStore.syncUserFromPostgres(numId);
   const res = await claimDailyReward(numId);
 
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+
   if (!res.success) {
     const remSec = res.seconds_remaining || (res as any).remainingMs ? Math.ceil(((res as any).remainingMs || 0) / 1000) : 0;
     try {
       await ctx.answerCbQuery(
-        `⏳ You have already claimed today! Please wait: ${formatCooldownSeconds(remSec)}`,
+        lang === 'km'
+          ? `⏳ អ្នកបានទទួលរង្វាន់ថ្ងៃនេះរួចហើយ! សូមរង់ចាំ៖ ${formatCooldownSeconds(remSec)}`
+          : `⏳ You have already claimed today! Please wait: ${formatCooldownSeconds(remSec)}`,
         { show_alert: true }
       );
     } catch {}
@@ -161,7 +165,9 @@ export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
   // Alert Popup
   try {
     await ctx.answerCbQuery(
-      `🎉 Successfully claimed +${pointsAwarded} Pts!\n🔥 Streak: ${newStreak}/7 Days (Total: ${totalPoints} Pts)`,
+      lang === 'km'
+        ? `🎉 ទទួលបាន +${pointsAwarded} Pts ដោយជោគជ័យ!\n🔥 Streak: ${newStreak}/7 ថ្ងៃ (សរុប៖ ${totalPoints} Pts)`
+        : `🎉 Successfully claimed +${pointsAwarded} Pts!\n🔥 Streak: ${newStreak}/7 Days (Total: ${totalPoints} Pts)`,
       { show_alert: true }
     );
   } catch {}
@@ -172,17 +178,30 @@ export async function handleClaimDailyInstant(ctx: Context): Promise<void> {
   daily.streak_count = newStreak;
   daily.points = totalPoints;
 
-  const text =
-    `🎁 <b>DAILY REWARD &amp; STREAK DASHBOARD</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🔥 <b>Current Streak:</b> <code>${daily.streak_count}</code> / 7 Days\n` +
-    `💎 <b>Total Points:</b> <code>${daily.points}</code> Pts\n` +
-    `⚡ <b>Next Reward:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
-    `⏳ <b>Status:</b> ⏳ <b>Cooldown Remaining:</b> <code>${daily.cooldown_str}</code>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `<i>Check in every 24 hours to keep your streak multiplier active!</i>`;
+  const statusText =
+    lang === 'km'
+      ? `⏳ <b>ពេលវេលារង់ចាំ (Cooldown)៖</b> <code>${daily.cooldown_str}</code>`
+      : `⏳ <b>Cooldown Remaining:</b> <code>${daily.cooldown_str}</code>`;
 
-  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+  const text =
+    lang === 'km'
+      ? `🎁 <b>ផ្ទាំងគ្រប់គ្រងរង្វាន់ប្រចាំថ្ងៃ (DAILY REWARD &amp; STREAK)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🔥 <b>ចំនួនថ្ងៃជាប់គ្នា (Streak)៖</b> <code>${daily.streak_count}</code> / 7 ថ្ងៃ\n` +
+        `💎 <b>ពិន្ទុសរុបរបស់អ្នក៖</b> <code>${daily.points}</code> Pts\n` +
+        `⚡ <b>រង្វាន់លើកក្រោយ៖</b> <b>+${daily.next_pts} Pts</b>\n\n` +
+        `⏳ <b>ស្ថានភាព៖</b> ${statusText}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<i>ចូលមកទទួលរង្វាន់រៀងរាល់ ២៤ ម៉ោង ដើម្បីរក្សាពិន្ទុគុណ Streak របស់អ្នក!</i>`
+      : `🎁 <b>DAILY REWARD &amp; STREAK DASHBOARD</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🔥 <b>Current Streak:</b> <code>${daily.streak_count}</code> / 7 Days\n` +
+        `💎 <b>Total Points:</b> <code>${daily.points}</code> Pts\n` +
+        `⚡ <b>Next Reward:</b> <b>+${daily.next_pts} Pts</b>\n\n` +
+        `⏳ <b>Status:</b> ${statusText}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `<i>Check in every 24 hours to keep your streak multiplier active!</i>`;
+
   const keyboard = buildDailyKeyboard(false, lang);
 
   try {

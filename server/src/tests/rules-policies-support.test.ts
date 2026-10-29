@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DataStore } from '../database/data-store';
+import { NotificationService } from '../services/notification.service';
 import {
   buildMainRulesKeyboard,
   buildSubRulesKeyboard,
@@ -362,6 +363,62 @@ describe('Rules, Policies & Official Support Verification Suite', () => {
       const buttons = edits[0].options?.reply_markup?.inline_keyboard?.flat() || [];
       const btnText = buttons.map((b: any) => b.text).join(' ');
       expect(/[ក-៿]/.test(btnText)).toBe(false);
+    });
+  });
+
+  describe('5. Customer Support Admin Reply & Gacha Top Prize Verification', () => {
+    it('dispatches admin support reply directly to customer via Store Bot and updates ticket', async () => {
+      const customerId = 'cust-test-support-77';
+      const customerTgId = 77889900;
+
+      const ticket = DataStore.createSupportTicket({
+        customerId,
+        telegramId: customerTgId,
+        subject: 'Account Replacement Request',
+        message: 'My login credentials expired under warranty.',
+        category: 'warranty',
+      });
+
+      expect(ticket).toBeDefined();
+      expect(ticket.status).toBe('open');
+
+      const sendStoreBotSpy = vi.spyOn(NotificationService, 'sendStoreBotMessage').mockResolvedValue(true);
+
+      const replyText = 'Hello! We verified your warranty and have sent updated credentials to your vault.';
+      const updated = DataStore.replySupportTicket(ticket.id, replyText, 'resolved');
+
+      expect(updated).toBeDefined();
+      expect(updated?.status).toBe('resolved');
+      expect(updated?.admin_reply).toBe(replyText);
+
+      await NotificationService.notifyCustomerTicketReply(
+        ticket.telegram_id,
+        ticket.ticket_number,
+        ticket.subject,
+        replyText
+      );
+
+      expect(sendStoreBotSpy).toHaveBeenCalledWith(
+        customerTgId,
+        expect.stringContaining(replyText)
+      );
+    });
+
+    it('ensures in gacha pools the Grand Prize is always the top prize', () => {
+      const activePool = DataStore.getActiveGachaPool();
+      expect(activePool).toBeDefined();
+      expect(activePool.prizes).toBeDefined();
+
+      // Top prize in active pool is Mythical or Legendary
+      const topPrize =
+        activePool.prizes.find((p: any) => p.rarity === 'MYTHICAL') ||
+        activePool.prizes.find((p: any) => p.rarity === 'LEGENDARY');
+
+      expect(topPrize).toBeDefined();
+      // currentPrize must be the top/grand prize, NOT a common 50 points prize
+      expect(activePool.currentPrize).toBeDefined();
+      expect(activePool.currentPrize.rarity).not.toBe('COMMON');
+      expect(activePool.currentPrize.id).toBe(topPrize.id);
     });
   });
 });

@@ -117,16 +117,31 @@ export class FulfillmentService {
   /**
    * Generates the Main Delivery Card HTML markup.
    */
-  public static getMainDeliveryCardText(orderId: string): string {
+  public static getMainDeliveryCardText(orderId: string, lang: string = 'km'): string {
     const { username, password, twoFactorSecret, productTitle, amount } =
       this.getOrderAccountCredentials(orderId);
 
-    const safeSecret = twoFactorSecret || 'None (Standard Password Login)';
+    const safeSecret = twoFactorSecret || (lang === 'km' ? 'គ្មាន (ចូលដោយពាក្យសម្ងាត់ធម្មតា)' : 'None (Standard Password Login)');
 
     const pkgEmoji = renderTgEmoji('PACKAGE');
     const userEmoji = renderTgEmoji('USER');
     const keyEmoji = renderTgEmoji('KEY');
     const lockEmoji = renderTgEmoji('LOCK');
+
+    if (lang === 'km') {
+      return (
+        `🎉 <b>ការប្រគល់គណនី — UCHIRO STORE</b>\n\n` +
+        `${pkgEmoji} <b>ផលិតផល៖</b> ${productTitle}\n` +
+        `🆔 <b>លេខបញ្ជាទិញ៖</b> #${orderId}\n` +
+        `💵 <b>តម្លៃបានទូទាត់៖</b> $${amount.toFixed(2)} USD\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `${userEmoji} <b>ឈ្មោះគណនី៖</b> <code>${username}</code>\n` +
+        `${keyEmoji} <b>ពាក្យសម្ងាត់៖</b> <code>${password}</code>\n` +
+        `${lockEmoji} <b>កូដសម្ងាត់ 2FA Secret៖</b> <code>${safeSecret}</code>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `💡 <i>ចុចលើព័ត៌មានណាមួយដើម្បីចម្លង។ ប្រើប៊ូតុងខាងក្រោមដើម្បីបង្កើតកូដ 2FA Live, មើល QR ឬពិនិត្យការធានា។</i>`
+      );
+    }
 
     return (
       `🎉 <b>ACCOUNT DELIVERY — UCHIRO STORE</b>\n\n` +
@@ -182,7 +197,7 @@ export class FulfillmentService {
   /**
    * Generates the Live 2FA Sub-Screen HTML and inline keyboard.
    */
-  public static async get2FaSubScreen(orderId: string): Promise<{
+  public static async get2FaSubScreen(orderId: string, lang: string = 'km'): Promise<{
     text: string;
     keyboard: any;
     code: string;
@@ -191,14 +206,17 @@ export class FulfillmentService {
 
     const userEmoji = renderTgEmoji('USER');
     const alertEmoji = renderTgEmoji('ALERT');
-    const keyEmoji = renderTgEmoji('KEY');
 
     if (!twoFactorSecret) {
       return {
         text:
-          `🔢 <b>LIVE 2FA AUTHENTICATOR</b>\n\n` +
-          `${userEmoji} <b>Account:</b> <code>${username}</code>\n\n` +
-          `${alertEmoji} <i>This account does not have 2-Factor Authentication enabled. You can log in directly using your username and password.</i>`,
+          lang === 'km'
+            ? `🔢 <b>ប្រព័ន្ធបង្កើតកូដ 2FA LIVE</b>\n\n` +
+              `${userEmoji} <b>គណនី៖</b> <code>${username}</code>\n\n` +
+              `${alertEmoji} <i>គណនីនេះមិនបានបើកប្រព័ន្ធ 2-Factor Authentication ទេ។ អ្នកអាចចូលប្រើប្រាស់ដោយផ្ទាល់ជាមួយឈ្មោះគណនី និងពាក្យសម្ងាត់។</i>`
+            : `🔢 <b>LIVE 2FA AUTHENTICATOR</b>\n\n` +
+              `${userEmoji} <b>Account:</b> <code>${username}</code>\n\n` +
+              `${alertEmoji} <i>This account does not have 2-Factor Authentication enabled. You can log in directly using your username and password.</i>`,
         keyboard: {
           inline_keyboard: [
             [makeFulfillmentButton({ text: 'Back to Delivery', callbackData: `sub_main:${orderId}`, iconKey: 'BACK' })],
@@ -218,9 +236,13 @@ export class FulfillmentService {
     } catch {
       return {
         text:
-          `🔢 <b>LIVE 2FA AUTHENTICATOR</b>\n\n` +
-          `${userEmoji} <b>Account:</b> <code>${username}</code>\n\n` +
-          `${alertEmoji} <i>Invalid 2FA authenticator secret format for this account. Please contact support for assistance.</i>`,
+          lang === 'km'
+            ? `🔢 <b>ប្រព័ន្ធបង្កើតកូដ 2FA LIVE</b>\n\n` +
+              `${userEmoji} <b>គណនី៖</b> <code>${username}</code>\n\n` +
+              `${alertEmoji} <i>ទម្រង់កូដសម្ងាត់ 2FA Secret មិនត្រឹមត្រូវសម្រាប់គណនីនេះ។ សូមទាក់ទងមកផ្នែកបម្រើអតិថិជន។</i>`
+            : `🔢 <b>LIVE 2FA AUTHENTICATOR</b>\n\n` +
+              `${userEmoji} <b>Account:</b> <code>${username}</code>\n\n` +
+              `${alertEmoji} <i>Invalid 2FA authenticator secret format for this account. Please contact support for assistance.</i>`,
         keyboard: {
           inline_keyboard: [
             [makeFulfillmentButton({ text: 'Back to Delivery', callbackData: `sub_main:${orderId}`, iconKey: 'BACK' })],
@@ -238,11 +260,17 @@ export class FulfillmentService {
     );
 
     const text =
-      `🔢 <b>LIVE 2FA AUTHENTICATOR</b>\n\n` +
-      `${userEmoji} <b>Account:</b> <code>${username}</code>\n` +
-      `🔢 <b>Live Code:</b> <code>${code}</code>\n` +
-      `⏳ <b>Expires in:</b> <b>${secondsRemaining} seconds</b>\n\n` +
-      `💡 <i>Tap code to copy. Tap refresh to fetch the latest rotating token.</i>`;
+      lang === 'km'
+        ? `🔢 <b>ប្រព័ន្ធបង្កើតកូដ 2FA LIVE</b>\n\n` +
+          `${userEmoji} <b>គណនី៖</b> <code>${username}</code>\n` +
+          `🔢 <b>កូដ Live៖</b> <code>${code}</code>\n` +
+          `⏳ <b>ផុតកំណត់ក្នុងរយៈពេល៖</b> <b>${secondsRemaining} វិនាទី</b>\n\n` +
+          `💡 <i>ចុចលើកូដដើម្បីចម្លង។ ចុច Refresh ដើម្បីទទួលបានកូដថ្មីចុងក្រោយ។</i>`
+        : `🔢 <b>LIVE 2FA AUTHENTICATOR</b>\n\n` +
+          `${userEmoji} <b>Account:</b> <code>${username}</code>\n` +
+          `🔢 <b>Live Code:</b> <code>${code}</code>\n` +
+          `⏳ <b>Expires in:</b> <b>${secondsRemaining} seconds</b>\n\n` +
+          `💡 <i>Tap code to copy. Tap refresh to fetch the latest rotating token.</i>`;
 
     const keyboard = {
       inline_keyboard: [
@@ -264,7 +292,7 @@ export class FulfillmentService {
   /**
    * Generates the Warranty Sub-Screen HTML and inline keyboard.
    */
-  public static getWarrantySubScreen(orderId: string): {
+  public static getWarrantySubScreen(orderId: string, lang: string = 'km'): {
     text: string;
     keyboard: any;
   } {
@@ -286,16 +314,27 @@ export class FulfillmentService {
     const alertEmoji = renderTgEmoji('ALERT');
 
     const text =
-      `${shieldEmoji} <b>WARRANTY & REVERT PROTECTION</b>\n\n` +
-      `${pkgEmoji} <b>Product:</b> ${productTitle}\n` +
-      `🆔 <b>Order:</b> #${orderId}\n` +
-      `⏱️ <b>Active Period:</b> ${warrantyDays} Days Official Coverage\n` +
-      `📅 <b>Expires on:</b> ${expiryDateStr}\n\n` +
-      `<b>STRICT COVERAGE TERMS:</b>\n` +
-      `${successEmoji} Warranty active while 2FA/Email remain untouched.\n` +
-      `❌ NO WARRANTY if 2FA is removed or original security email is changed.\n` +
-      `${alertEmoji} If you encounter login failure or account revert during warranty, contact Support immediately.\n\n` +
-      `<i>Your purchase is backed by Uchiro Store automated fraud & revert guarantee.</i>`;
+      lang === 'km'
+        ? `${shieldEmoji} <b>ការធានា និងការការពារគណនី</b>\n\n` +
+          `${pkgEmoji} <b>ផលិតផល៖</b> ${productTitle}\n` +
+          `🆔 <b>លេខបញ្ជាទិញ៖</b> #${orderId}\n` +
+          `⏱️ <b>រយៈពេលធានា៖</b> ការធានាផ្លូវការ ${warrantyDays} ថ្ងៃពេញ\n` +
+          `📅 <b>ផុតកំណត់នៅថ្ងៃ៖</b> ${expiryDateStr}\n\n` +
+          `<b>លក្ខខណ្ឌនៃការធានាយ៉ាងតឹងរ៉ឹង៖</b>\n` +
+          `${successEmoji} ការធានានៅតែមានសុពលភាពដរាបណា 2FA/Email នៅរក្សាដដែល។\n` +
+          `❌ មិនមានការធានាទេ ប្រសិនបើ 2FA ត្រូវបានដកចេញ ឬ Email សុវត្ថិភាពដើមត្រូវបានផ្លាស់ប្តូរ។\n` +
+          `${alertEmoji} ប្រសិនបើអ្នកជួបបញ្ហាមិនអាច Login បាន ឬគណនីត្រូវបាន Revert ក្នុងអំឡុងពេលធានា សូមទាក់ទងមកកាន់ផ្នែកបម្រើអតិថិជនភ្លាមៗ។\n\n` +
+          `<i>ការទិញរបស់អ្នកត្រូវបានការពារដោយប្រព័ន្ធធានាសុវត្ថិភាពស្វ័យប្រវត្តិនៃ Uchiro Store។</i>`
+        : `${shieldEmoji} <b>WARRANTY & REVERT PROTECTION</b>\n\n` +
+          `${pkgEmoji} <b>Product:</b> ${productTitle}\n` +
+          `🆔 <b>Order:</b> #${orderId}\n` +
+          `⏱️ <b>Active Period:</b> ${warrantyDays} Days Official Coverage\n` +
+          `📅 <b>Expires on:</b> ${expiryDateStr}\n\n` +
+          `<b>STRICT COVERAGE TERMS:</b>\n` +
+          `${successEmoji} Warranty active while 2FA/Email remain untouched.\n` +
+          `❌ NO WARRANTY if 2FA is removed or original security email is changed.\n` +
+          `${alertEmoji} If you encounter login failure or account revert during warranty, contact Support immediately.\n\n` +
+          `<i>Your purchase is backed by Uchiro Store automated fraud & revert guarantee.</i>`;
 
     const keyboard = {
       inline_keyboard: [

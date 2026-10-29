@@ -668,6 +668,7 @@ const StoreAppContent: React.FC = () => {
           onClose={() => {
             setActivePayment(null);
             setActivePaymentOrder(null);
+            setActiveTab('home');
           }}
         />
       )}

@@ -107,6 +107,10 @@ export async function initDatabase(): Promise<void> {
 
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB DEFAULT '[]'::jsonb;
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_amount NUMERIC(10, 2) DEFAULT 0;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal NUMERIC(10, 2) DEFAULT 0;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10, 2) DEFAULT 0;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS quantity INT DEFAULT 1;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_id TEXT;
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'USD';
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_provider TEXT DEFAULT 'khpay';
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_ref TEXT;
@@ -115,6 +119,13 @@ export async function initDatabase(): Promise<void> {
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS roblox_username TEXT;
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS roblox_display_name TEXT;
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS roblox_user_id TEXT;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_mode TEXT;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_credentials JSONB;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS fulfillment_notes TEXT;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS warranty_days INT DEFAULT 0;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS warranty_status TEXT;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS warranty_notes TEXT;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
         CREATE INDEX IF NOT EXISTS idx_orders_telegram_id ON orders(telegram_id);
         CREATE INDEX IF NOT EXISTS idx_orders_order_code ON orders(order_code);
@@ -238,6 +249,27 @@ export async function initDatabase(): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS idx_security_incidents_ip ON security_incidents(ip_address);
         CREATE INDEX IF NOT EXISTS idx_security_incidents_created_at ON security_incidents(created_at);
+
+        -- 4b. Durable Customer Support Tickets
+        CREATE TABLE IF NOT EXISTS support_tickets (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          ticket_number TEXT UNIQUE NOT NULL,
+          customer_id TEXT,
+          telegram_id BIGINT NOT NULL,
+          order_id TEXT,
+          category TEXT DEFAULT 'general',
+          subject TEXT NOT NULL,
+          message TEXT NOT NULL,
+          messages JSONB DEFAULT '[]'::jsonb,
+          status TEXT DEFAULT 'open' NOT NULL,
+          admin_reply TEXT,
+          resolved_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_support_tickets_telegram_id ON support_tickets(telegram_id);
+        CREATE INDEX IF NOT EXISTS idx_support_tickets_ticket_number ON support_tickets(ticket_number);
+        CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
 
         -- 5. Durable Robux Shared Pool, Ledger, Orders, and Reservations
         CREATE TABLE IF NOT EXISTS robux_stock (

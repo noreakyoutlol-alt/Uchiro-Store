@@ -74,6 +74,43 @@ describe('Postgres Deploy No Reset & Durable User/Admin State', () => {
       },
     ];
 
+    const mockOrders = [
+      {
+        id: 'ord-uuid-1',
+        order_code: 'UCH-ORD-9001',
+        telegram_id: '12345678',
+        customer_id: 'cust-12345678',
+        product_title: 'Blox Fruits Account',
+        amount: 15.0,
+        total_amount: 15.0,
+        subtotal: 15.0,
+        discount_amount: 0,
+        quantity: 1,
+        status: 'delivered',
+        delivery_mode: 'auto_account',
+        delivery_credentials: JSON.stringify([{ username: 'robloxuser1', password: 'pass123' }]),
+        items: JSON.stringify([{ id: 'it-1', product_title: 'Blox Fruits Account', price: 15.0, quantity: 1 }]),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
+    const mockTickets = [
+      {
+        id: 'tick-uuid-1',
+        ticket_number: 'TICK-8844',
+        customer_id: 'cust-12345678',
+        telegram_id: '12345678',
+        category: 'account',
+        subject: 'Need 2FA Help',
+        message: 'Where is my 2FA code?',
+        messages: JSON.stringify([{ sender: 'customer', text: 'Where is my 2FA code?' }]),
+        status: 'open',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
     vi.spyOn(pgPool, 'query').mockImplementation(async (queryText: any) => {
       const sql = typeof queryText === 'string' ? queryText : queryText?.text || '';
       if (sql.includes('FROM users')) {
@@ -81,6 +118,12 @@ describe('Postgres Deploy No Reset & Durable User/Admin State', () => {
       }
       if (sql.includes('FROM admin_users')) {
         return { rows: mockAdmins } as any;
+      }
+      if (sql.includes('FROM orders')) {
+        return { rows: mockOrders } as any;
+      }
+      if (sql.includes('FROM support_tickets')) {
+        return { rows: mockTickets } as any;
       }
       if (sql.includes('app_settings')) {
         return { rows: [{ value: { active_theme: 'gaming' } }] } as any;
@@ -90,6 +133,17 @@ describe('Postgres Deploy No Reset & Durable User/Admin State', () => {
 
     // Run the startup sync
     await DataStore.syncAllFromPostgres();
+
+    // Verify orders and tickets are safely loaded into memory
+    const loadedOrder = DataStore.getOrderByNumber('UCH-ORD-9001');
+    expect(loadedOrder).toBeDefined();
+    expect(loadedOrder?.total_amount).toBe(15.0);
+    expect(loadedOrder?.status).toBe('delivered');
+
+    const loadedTicket = DataStore.getSupportTicketById('TICK-8844');
+    expect(loadedTicket).toBeDefined();
+    expect(loadedTicket?.subject).toBe('Need 2FA Help');
+    expect(loadedTicket?.telegram_id).toBe(12345678);
 
     // Verify customer 1 is loaded with points intact
     const user1 = DataStore.getTelegramUser(12345678);
@@ -164,6 +218,7 @@ describe('Postgres Deploy No Reset & Durable User/Admin State', () => {
     expect(ddl).toContain('CREATE TABLE IF NOT EXISTS orders');
     expect(ddl).toContain('CREATE TABLE IF NOT EXISTS products');
     expect(ddl).toContain('CREATE TABLE IF NOT EXISTS inventory');
+    expect(ddl).toContain('CREATE TABLE IF NOT EXISTS support_tickets');
 
     // Verify additive column migrations for users
     expect(ddl).toContain('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT');

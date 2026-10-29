@@ -130,12 +130,12 @@ export async function handleGachaMenu(
     if (ctx.callbackQuery) {
       await ctx.editMessageText(enrichWithTgEmojis(text), {
         parse_mode: 'HTML',
-        ...buildSubGachaKeyboard(),
+        ...buildSubGachaKeyboard(storeUrl, lang),
       });
     } else {
       await ctx.reply(enrichWithTgEmojis(text), {
         parse_mode: 'HTML',
-        ...buildSubGachaKeyboard(),
+        ...buildSubGachaKeyboard(storeUrl, lang),
       });
     }
   } catch (err: any) {
@@ -157,27 +157,47 @@ export async function handleGachaPrizes(
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
   const liveInfo = await fetchGachaLiveInfo(telegramId);
 
   const text =
-    `🏆 <b>UCHIRO GACHA PRIZE POOL</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🍭 <b>Common Items:</b>\n` +
-    `  • 50 Uchiro Points\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🏷️ <b>Rare Items:</b>\n` +
-    `  • $1.00 Uchiro Store Coupon\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚡ <b>Epic Items:</b>\n` +
-    `  • Uchiro 2x EXP Booster Pass\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚔️ <b>Legendary Items:</b>\n` +
-    `  • Shadow Katana V2 Game Voucher\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🌟 <b>Mythical Items:</b>\n` +
-    `  • Mythic Uchiro Champion Account (Jackpot)\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `💰 <b>Odds:</b> Common 70.0% | Rare 20.0% | Epic 7.0% | Legendary 2.5% | Mythical 0.5%\n`;
+    lang === 'km'
+      ? `🏆 <b>បញ្ជីរង្វាន់កាឆា UCHIRO GACHA POOL</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🍭 <b>រង្វាន់ Common (ធម្មតា)៖</b>\n` +
+        `  • 50 Uchiro Points\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏷️ <b>រង្វាន់ Rare (កម្រ)៖</b>\n` +
+        `  • $1.00 Uchiro Store Coupon\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚡ <b>រង្វាន់ Epic (ពិសេស)៖</b>\n` +
+        `  • Uchiro 2x EXP Booster Pass\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚔️ <b>រង្វាន់ Legendary (កម្រអស្ចារ្យ)៖</b>\n` +
+        `  • Shadow Katana V2 Game Voucher\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🌟 <b>រង្វាន់ Mythical (រង្វាន់ធំ Jackpot)៖</b>\n` +
+        `  • Mythic Uchiro Champion Account (Jackpot)\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💰 <b>ឱកាសឈ្នះ៖</b> Common 70.0% | Rare 20.0% | Epic 7.0% | Legendary 2.5% | Mythical 0.5%\n`
+      : `🏆 <b>UCHIRO GACHA PRIZE POOL</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🍭 <b>Common Items:</b>\n` +
+        `  • 50 Uchiro Points\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏷️ <b>Rare Items:</b>\n` +
+        `  • $1.00 Uchiro Store Coupon\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚡ <b>Epic Items:</b>\n` +
+        `  • Uchiro 2x EXP Booster Pass\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚔️ <b>Legendary Items:</b>\n` +
+        `  • Shadow Katana V2 Game Voucher\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🌟 <b>Mythical Items:</b>\n` +
+        `  • Mythic Uchiro Champion Account (Jackpot)\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💰 <b>Odds:</b> Common 70.0% | Rare 20.0% | Epic 7.0% | Legendary 2.5% | Mythical 0.5%\n`;
 
   try {
     if (ctx.callbackQuery) {
@@ -210,24 +230,41 @@ export async function handleGachaOdds(
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
   const liveInfo = await fetchGachaLiveInfo(telegramId);
 
   const text =
-    `📊 <b>UCHIRO GACHA DROP RATES</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `📦 <b>Item Rarity Distribution:</b>\n` +
-    `  • Common: 70.0% (50 Uchiro Points)\n` +
-    `  • Rare: 20.0% ($1.00 Store Coupon)\n` +
-    `  • Epic: 7.0% (2x EXP Booster Pass)\n` +
-    `  • Legendary: 2.5% (Shadow Katana V2)\n` +
-    `  • Mythical: 0.5% (Mythic Uchiro Champion Account)\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎯 <b>Current Focus:</b>\n` +
-    `  • Mythical Drop Rate: ${liveInfo.mythical_drop_rate}%\n` +
-    `  • Guaranteed Single Spin Server Enforcement\n` +
-    `  • Jackpot Reset: None (Progressive)\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `💡 <b>Tip:</b> Save tickets for rate-up events!\n`;
+    lang === 'km'
+      ? `📊 <b>តារាងឱកាសឈ្នះរង្វាន់កាឆា (DROP RATES)</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📦 <b>ការបែងចែកកម្រិតរង្វាន់៖</b>\n` +
+        `  • Common: 70.0% (50 Uchiro Points)\n` +
+        `  • Rare: 20.0% ($1.00 Store Coupon)\n` +
+        `  • Epic: 7.0% (2x EXP Booster Pass)\n` +
+        `  • Legendary: 2.5% (Shadow Katana V2)\n` +
+        `  • Mythical: 0.5% (Mythic Uchiro Champion Account)\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎯 <b>ព័ត៌មានបន្ថែម៖</b>\n` +
+        `  • ឱកាសឈ្នះ Mythical Jackpot៖ ${liveInfo.mythical_drop_rate}%\n` +
+        `  • ប្រព័ន្ធធានាបង្វិលម្តងក្នុងមួយសកម្មភាព (Server Enforcement)\n` +
+        `  • រង្វាន់ធំ Jackpot មិនកំណត់ឡើងវិញទេ (Progressive)\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💡 <b>គន្លឹះ៖</b> សន្សំសំបុត្រទុកសម្រាប់ព្រឹត្តិការណ៍ Rate-up!\n`
+      : `📊 <b>UCHIRO GACHA DROP RATES</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `📦 <b>Item Rarity Distribution:</b>\n` +
+        `  • Common: 70.0% (50 Uchiro Points)\n` +
+        `  • Rare: 20.0% ($1.00 Store Coupon)\n` +
+        `  • Epic: 7.0% (2x EXP Booster Pass)\n` +
+        `  • Legendary: 2.5% (Shadow Katana V2)\n` +
+        `  • Mythical: 0.5% (Mythic Uchiro Champion Account)\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎯 <b>Current Focus:</b>\n` +
+        `  • Mythical Drop Rate: ${liveInfo.mythical_drop_rate}%\n` +
+        `  • Guaranteed Single Spin Server Enforcement\n` +
+        `  • Jackpot Reset: None (Progressive)\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `💡 <b>Tip:</b> Save tickets for rate-up events!\n`;
 
   try {
     if (ctx.callbackQuery) {
@@ -260,6 +297,7 @@ export async function handleBuyGachaTicket(
   const telegramId = ctx.from?.id;
   if (!telegramId) return;
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
   const tid = String(telegramId);
   const numId = Number(telegramId);
 
@@ -272,7 +310,9 @@ export async function handleBuyGachaTicket(
   if (currentPoints < ticketCost) {
     try {
       await ctx.answerCbQuery(
-        `⚠️ You need at least ${ticketCost} Points to buy 1 Ticket! (You have: ${currentPoints} Pts)`,
+        lang === 'km'
+          ? `⚠️ អ្នកត្រូវការយ៉ាងហោចណាស់ ${ticketCost} Points ដើម្បីប្តូរយកសំបុត្រ ១! (អ្នកមាន៖ ${currentPoints} Pts)`
+          : `⚠️ You need at least ${ticketCost} Points to buy 1 Ticket! (You have: ${currentPoints} Pts)`,
         { show_alert: true }
       );
     } catch {}
@@ -284,7 +324,9 @@ export async function handleBuyGachaTicket(
   if (!result.success) {
     try {
       await ctx.answerCbQuery(
-        `⚠️ Failed to exchange ticket: ${result.error || 'INSUFFICIENT_POINTS'}`,
+        lang === 'km'
+          ? `⚠️ បរាជ័យក្នុងការប្តូរសំបុត្រ៖ ${result.error || 'ពិន្ទុមិនគ្រប់គ្រាន់'}`
+          : `⚠️ Failed to exchange ticket: ${result.error || 'INSUFFICIENT_POINTS'}`,
         { show_alert: true }
       );
     } catch {}
@@ -297,7 +339,9 @@ export async function handleBuyGachaTicket(
   // Success Alert Popup
   try {
     await ctx.answerCbQuery(
-      `🎉 Successfully exchanged ${ticketCost} Points for 1 Gacha Ticket! (Remaining: ${newBalance} Pts, Tickets: ${newTickets})`,
+      lang === 'km'
+        ? `🎉 បានប្តូរ ${ticketCost} Points យកសំបុត្រកាឆា ១ ដោយជោគជ័យ! (នៅសល់៖ ${newBalance} Pts, សំបុត្រ៖ ${newTickets})`
+        : `🎉 Successfully exchanged ${ticketCost} Points for 1 Gacha Ticket! (Remaining: ${newBalance} Pts, Tickets: ${newTickets})`,
       { show_alert: true }
     );
   } catch {}
@@ -309,27 +353,40 @@ export async function handleBuyGachaTicket(
 
   const cooldownText =
     gacha.cooldown_seconds > 0
-      ? `⏳ ${Math.floor(gacha.cooldown_seconds / 60)}m ${gacha.cooldown_seconds % 60}s (Wait for cooldown)`
-      : `✅ Ready to spin`;
+      ? `⏳ ${Math.floor(gacha.cooldown_seconds / 60)}m ${gacha.cooldown_seconds % 60}s (${lang === 'km' ? 'រង់ចាំ Cooldown' : 'Wait for cooldown'})`
+      : (lang === 'km' ? `✅ រួចរាល់ក្នុងការបង្វិល` : `✅ Ready to spin`);
 
   const text =
-    `🎰 <b>${escapeHtml(gacha.pool_name.toUpperCase())} — LIVE OVERVIEW</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎫 <b>Your Tickets:</b> ${gacha.tickets}\n` +
-    `💎 <b>Your Points:</b> ${gacha.points} Pts\n` +
-    `💰 <b>Ticket Price:</b> ${gacha.ticket_price_pts} Pts\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🏆 <b>Top Prizes:</b>\n` +
-    `  ${gacha.top_mythical_item}\n` +
-    `  ${gacha.top_legendary_item}\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `⚠️ <b>Mythical Drop Rate:</b> ${gacha.mythical_drop_rate}%\n` +
-    `⏱️ <b>Status:</b> ${cooldownText}\n`;
+    lang === 'km'
+      ? `🎰 <b>${escapeHtml(gacha.pool_name.toUpperCase())} — ព័ត៌មានបន្តផ្ទាល់</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎫 <b>សំបុត្ររបស់អ្នក៖</b> ${gacha.tickets}\n` +
+        `💎 <b>ពិន្ទុរបស់អ្នក៖</b> ${gacha.points} Pts\n` +
+        `💰 <b>តម្លៃសំបុត្រ៖</b> ${gacha.ticket_price_pts} Pts\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏆 <b>រង្វាន់កំពូល៖</b>\n` +
+        `  ${gacha.top_mythical_item}\n` +
+        `  ${gacha.top_legendary_item}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚠️ <b>ឱកាសឈ្នះ Mythical៖</b> ${gacha.mythical_drop_rate}%\n` +
+        `⏱️ <b>ស្ថានភាព៖</b> ${cooldownText}\n`
+      : `🎰 <b>${escapeHtml(gacha.pool_name.toUpperCase())} — LIVE OVERVIEW</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🎫 <b>Your Tickets:</b> ${gacha.tickets}\n` +
+        `💎 <b>Your Points:</b> ${gacha.points} Pts\n` +
+        `💰 <b>Ticket Price:</b> ${gacha.ticket_price_pts} Pts\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🏆 <b>Top Prizes:</b>\n` +
+        `  ${gacha.top_mythical_item}\n` +
+        `  ${gacha.top_legendary_item}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚠️ <b>Mythical Drop Rate:</b> ${gacha.mythical_drop_rate}%\n` +
+        `⏱️ <b>Status:</b> ${cooldownText}\n`;
 
   try {
     await ctx.editMessageText(enrichWithTgEmojis(text), {
       parse_mode: 'HTML',
-      ...buildSubGachaKeyboard(),
+      ...buildSubGachaKeyboard(storeUrl, lang),
     });
   } catch (err: any) {
     if (isMessageNotModifiedError(err)) {

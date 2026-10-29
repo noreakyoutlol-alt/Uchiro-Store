@@ -415,14 +415,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
       <div
-        className="w-full max-w-md bg-[#0B0F1D] border border-white/10 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.12)] relative card-3d"
+        className="w-full max-w-md max-h-[92vh] sm:max-h-[88vh] bg-[#0B0F1D] border border-white/10 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.12)] relative card-3d flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Specular Rim */}
         <div className="absolute inset-x-8 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
 
         {/* Header */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-[#FFD166]" />
             <h3 className="font-black text-white text-base">
@@ -441,7 +441,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 space-y-4 flex-1 overflow-y-auto min-h-0">
           {/* Product Summary */}
           <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex gap-3 items-center">
             <img
@@ -867,7 +867,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         </div>
 
         {/* Footer / Action */}
-        <div className="p-4 bg-[#0A0D14] border-t border-white/10 space-y-2">
+        <div className="p-4 bg-[#0A0D14] border-t border-white/10 space-y-2 shrink-0">
           {/* For Robux on the confirm_account step, show "Confirm Account" button, not the payment button */}
           {isRobux && robuxReviewStep === 'confirm_account' ? (
             <>

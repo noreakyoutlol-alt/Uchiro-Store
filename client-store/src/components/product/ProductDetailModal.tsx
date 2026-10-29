@@ -724,6 +724,45 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Fixed Bottom Action Bar: Always accessible without scrolling */}
+        <div className="p-3 sm:p-4 bg-white/95 dark:bg-[#0B0F1D]/95 border-t border-slate-200 dark:border-white/10 shrink-0 backdrop-blur-md flex items-center justify-between gap-3 shadow-lg">
+          <div className="flex flex-col min-w-0">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Total Price</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg sm:text-xl font-black text-amber-500 dark:text-[#FFD166]">
+                ${totalPrice.toFixed(2)}
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">USD</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={!canProceed}
+            onClick={() => onProceedToCheckout(
+              product,
+              robloxUsername || undefined,
+              robloxProfile?.displayName || undefined,
+              String(robloxProfile?.id || '') || undefined,
+              currentQuantity,
+            )}
+            className={`flex-1 py-3 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wide uppercase transition-all shadow-md cursor-pointer ${
+              canProceed
+                ? 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
+                : 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
+            }`}
+          >
+            {isOutOfStock
+              ? 'SOLD OUT'
+              : product.requires_roblox_username && !robloxProfile
+              ? 'Verify Roblox Username'
+              : product.requires_roblox_username && !isAccountConfirmed
+              ? 'Confirm Account Above'
+              : currentQuantity > 1
+              ? `Buy Now (${currentQuantity})`
+              : 'Buy Now'}
+          </button>
+        </div>
       </div>
     </div>
   );

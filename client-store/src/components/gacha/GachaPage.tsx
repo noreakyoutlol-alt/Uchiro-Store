@@ -188,15 +188,20 @@ export const GachaPage: React.FC<GachaPageProps> = ({
     return activePool?.prizes || [];
   }, [activePool]);
 
-  // Featured Grand Prize: fallback to highest tier prize in active pool if currentPrize not provided
+  // Featured Grand Prize: The Grand prize is strictly the top prize (MYTHICAL -> LEGENDARY -> EPIC -> lowest drop rate)
   const featuredPrize = useMemo(() => {
-    if (currentPrize) return currentPrize;
-    if (poolPrizes.length === 0) return null;
-    return (
-      poolPrizes.find((p) => p.rarity === 'MYTHICAL') ||
-      poolPrizes.find((p) => p.rarity === 'LEGENDARY') ||
-      poolPrizes[0]
-    );
+    if (poolPrizes.length > 0) {
+      const top =
+        poolPrizes.find((p) => p.rarity === 'MYTHICAL') ||
+        poolPrizes.find((p) => p.rarity === 'LEGENDARY') ||
+        poolPrizes.find((p) => p.rarity === 'EPIC') ||
+        [...poolPrizes].sort((a, b) => (Number(a.probability_percent) || 0) - (Number(b.probability_percent) || 0))[0];
+      if (top) return top;
+    }
+    if (currentPrize && (currentPrize.rarity === 'MYTHICAL' || currentPrize.rarity === 'LEGENDARY')) {
+      return currentPrize;
+    }
+    return currentPrize || null;
   }, [currentPrize, poolPrizes]);
 
   // Load Status and Recent Winners

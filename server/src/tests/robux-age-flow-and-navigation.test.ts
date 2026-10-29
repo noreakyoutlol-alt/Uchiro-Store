@@ -433,10 +433,10 @@ describe('Robux Age Flow, Checkout Safety & Navigation Integrity', () => {
       expect(buttonCallbacks).toContain('cb_rbx_pay_now');
       expect(buttonCallbacks).toContain('cb_main_menu');
 
-      // Wording describes buying and receiving Robux, NOT buying a Roblox account
+      // Wording describes buying and receiving Robux
       expect(sentText).toContain('builderman');
       expect(sentText).toContain('Robux');
-      expect(sentText).toContain('NOT a Roblox account sale');
+      expect(sentText).toContain('Robux Top-Up Policy');
 
       // Step 9: Payable order and QR must NOT be created prematurely before Pay Now
       expect(session.orderCode).toBeUndefined();

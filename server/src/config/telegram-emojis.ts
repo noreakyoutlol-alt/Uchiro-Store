@@ -100,6 +100,8 @@ export const TELEGRAM_EMOJIS: Record<string, TelegramEmojiDef> = {
   POINT_RIGHT:   { fallback: '👉', customEmojiId: '5911124933563388348' },
   COMPASS:       { fallback: '🧭' },
   QUESTION:      { fallback: '❓' },
+  CLOCK:         { fallback: '⏳', customEmojiId: '5213452215527677338' },
+  CARD:          { fallback: '💳', customEmojiId: '6086818297452434600' },
 };
 
 export type TelegramEmojiKey = keyof typeof TELEGRAM_EMOJIS;

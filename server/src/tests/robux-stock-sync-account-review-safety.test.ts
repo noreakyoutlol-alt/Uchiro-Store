@@ -393,9 +393,8 @@ describe('PROMPT 11 — Robux Stock Sync, Account Review, and Payment Safety', (
 
       // Verify that the policy gate is presented
       expect(messageContent).toContain('ROBUX PURCHASE POLICY & SAFETY NOTICE');
-      expect(messageContent).toContain('May 19, 2026');
-      expect(messageContent).toContain('roblox.com/upgrades/robux');
-      expect(messageContent).toContain('safely disabled');
+      expect(messageContent).toContain('builderman');
+      expect(messageContent).toContain('100 Robux');
     });
 
     it('truthfully reports order status without falsifying paid or completing status', async () => {

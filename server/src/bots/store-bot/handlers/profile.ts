@@ -133,13 +133,17 @@ export async function handlePointsLedger(ctx: Context): Promise<void> {
   } catch {}
 
   const profile = await fetchUserProfileData(telegramId);
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   // Fetch recent ledger entries from DataStore
   const ledger = DataStore.getPointLedger(telegramId);
   let ledgerText = '';
 
   if (ledger.length === 0) {
-    ledgerText = `<i>No transaction history recorded yet.</i>\n`;
+    ledgerText =
+      lang === 'km'
+        ? `<i>មិនទាន់មានប្រវត្តិប្រតិបត្តិការនៅឡើយទេ។</i>\n`
+        : `<i>No transaction history recorded yet.</i>\n`;
   } else {
     const recent = ledger.slice(0, 5);
     ledgerText = recent
@@ -149,8 +153,6 @@ export async function handlePointsLedger(ctx: Context): Promise<void> {
       })
       .join('\n');
   }
-
-  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
 
   const text =
     lang === 'km'
@@ -312,16 +314,26 @@ export async function handleRedeemCommand(ctx: Context, storeUrl: string): Promi
 
   const result = await RedeemCodeService.redeem(telegramId, code);
 
+  const lang = DataStore.getUserLanguagePreference(telegramId) || 'km';
+
   if (!result.success) {
-    let errDesc = 'Failed to redeem code. Please verify and try again.';
-    if (result.error_code === 'INVALID_CODE') errDesc = 'Invalid or unrecognized redeem code.';
-    else if (result.error_code === 'CODE_EXPIRED') errDesc = 'This redeem code has expired.';
-    else if (result.error_code === 'CODE_DISABLED') errDesc = 'This redeem code is currently inactive.';
-    else if (result.error_code === 'CODE_EXHAUSTED') errDesc = 'This redeem code has reached its maximum redemption limit.';
-    else if (result.error_code === 'MEMBER_LIMIT_REACHED') errDesc = 'You have already redeemed this code.';
+    let errDesc = lang === 'km' ? 'មិនអាចប្តូរកូដបានទេ។ សូមពិនិត្យ ហើយព្យាយាមម្តងទៀត។' : 'Failed to redeem code. Please verify and try again.';
+    if (result.error_code === 'INVALID_CODE') {
+      errDesc = lang === 'km' ? 'កូដមិនត្រឹមត្រូវ ឬរកមិនឃើញក្នុងប្រព័ន្ធ។' : 'Invalid or unrecognized redeem code.';
+    } else if (result.error_code === 'CODE_EXPIRED') {
+      errDesc = lang === 'km' ? 'កូដនេះបានផុតកំណត់ហើយ។' : 'This redeem code has expired.';
+    } else if (result.error_code === 'CODE_DISABLED') {
+      errDesc = lang === 'km' ? 'កូដនេះត្រូវបានផ្អាកដំណើរការជាបណ្តោះអាសន្ន។' : 'This redeem code is currently inactive.';
+    } else if (result.error_code === 'CODE_EXHAUSTED') {
+      errDesc = lang === 'km' ? 'កូដនេះបានឈានដល់កម្រិតកំណត់នៃការប្តូរហើយ។' : 'This redeem code has reached its maximum redemption limit.';
+    } else if (result.error_code === 'MEMBER_LIMIT_REACHED') {
+      errDesc = lang === 'km' ? 'អ្នកបានប្តូរកូដនេះរួចហើយ។' : 'You have already redeemed this code.';
+    }
 
     await ctx.reply(
-      `❌ <b>REDEEM FAILED</b>\n\n${errDesc}`,
+      lang === 'km'
+        ? `❌ <b>ការប្តូរកូដមិនជោគជ័យ</b>\n\n${errDesc}`
+        : `❌ <b>REDEEM FAILED</b>\n\n${errDesc}`,
       { parse_mode: 'HTML' }
     );
     return;
@@ -330,19 +342,31 @@ export async function handleRedeemCommand(ctx: Context, storeUrl: string): Promi
   const profileWebUrl = storeUrl.includes('?') ? `${storeUrl}&tab=profile` : `${storeUrl}?tab=profile`;
   let rewardDetails = `🎁 <b>${result.reward_title}</b>\n${result.reward_description}\n\n`;
   if (result.reward_type === 'points') {
-    rewardDetails += `🪙 <b>Current Points:</b> <code>${result.points_balance?.toLocaleString()}</code> Pts`;
+    rewardDetails += lang === 'km'
+      ? `🪙 <b>ពិន្ទុបច្ចុប្បន្ន៖</b> <code>${result.points_balance?.toLocaleString()}</code> Pts`
+      : `🪙 <b>Current Points:</b> <code>${result.points_balance?.toLocaleString()}</code> Pts`;
   } else if (result.reward_type === 'gacha_tickets') {
-    rewardDetails += `🎟️ <b>Current Tickets:</b> <code>${result.tickets_balance}</code> Tickets`;
+    rewardDetails += lang === 'km'
+      ? `🎟️ <b>សំបុត្របច្ចុប្បន្ន៖</b> <code>${result.tickets_balance}</code> Tickets`
+      : `🎟️ <b>Current Tickets:</b> <code>${result.tickets_balance}</code> Tickets`;
   } else if (result.coupon) {
-    rewardDetails += `🏷️ <b>Coupon Code:</b> <code>${result.coupon.code}</code>\n<i>Ready to use at checkout!</i>`;
+    rewardDetails += lang === 'km'
+      ? `🏷️ <b>កូដគូប៉ុង៖</b> <code>${result.coupon.code}</code>\n<i>អាចប្រើប្រាស់បានភ្លាមៗពេលទូទាត់ប្រាក់!</i>`
+      : `🏷️ <b>Coupon Code:</b> <code>${result.coupon.code}</code>\n<i>Ready to use at checkout!</i>`;
   }
 
   const text =
-    `🎉 <b>CODE REDEEMED SUCCESSFULLY!</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `Code: <code>${result.code}</code>\n\n` +
-    rewardDetails + `\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `🎉 <b>បានប្តូរកូដដោយជោគជ័យ!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `កូដ៖ <code>${result.code}</code>\n\n` +
+        rewardDetails + `\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🎉 <b>CODE REDEEMED SUCCESSFULLY!</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Code: <code>${result.code}</code>\n\n` +
+        rewardDetails + `\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = Markup.inlineKeyboard([
     [createWebAppOrUrlButton('Open Store Profile', profileWebUrl, 'PACKAGE')],

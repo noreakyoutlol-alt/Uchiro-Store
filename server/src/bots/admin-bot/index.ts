@@ -227,6 +227,8 @@ adminBot.command('broadcast', async (ctx) => {
 
 // In-chat admin ticket reply sessions: adminId -> ticketId
 const adminTicketReplySessions = new Map<number, string>();
+// In-chat admin direct customer reply sessions: adminId -> customerTelegramId
+const adminDirectUserReplySessions = new Map<number, number>();
 
 // /cancel command for aborting active in-chat wizards & reply sessions
 adminBot.command('cancel', async (ctx) => {
@@ -234,9 +236,18 @@ adminBot.command('cancel', async (ctx) => {
   const senderId = ctx.from?.id;
   if (!senderId || !isAuthorizedAdmin(senderId)) return;
 
+  let cleared = false;
   if (adminTicketReplySessions.has(senderId)) {
     adminTicketReplySessions.delete(senderId);
-    return ctx.reply('Ticket reply cancelled.');
+    cleared = true;
+  }
+  if (adminDirectUserReplySessions.has(senderId)) {
+    adminDirectUserReplySessions.delete(senderId);
+    cleared = true;
+  }
+
+  if (cleared) {
+    return ctx.reply('Ticket/Customer reply cancelled.');
   }
 
   if (hasActiveBroadcastWizard(senderId)) {
@@ -244,6 +255,95 @@ adminBot.command('cancel', async (ctx) => {
     if (handled) return;
   }
   return ctx.reply('No active operation to cancel.');
+});
+
+// /reply command for direct support replies: /reply <ticket_or_customer_id> [message]
+adminBot.command(['reply', 'respond', 'send'], async (ctx) => {
+  if (ctx.chat?.type !== 'private') return;
+  const senderId = ctx.from?.id;
+  if (!senderId || !isAuthorizedAdmin(senderId)) {
+    return ctx.reply('⛔ Access denied. You are not an authorized admin.');
+  }
+
+  const rawText = (ctx.message as any)?.text || '';
+  const parts = rawText.trim().split(/\s+/);
+  const targetIdOrNumber = parts[1]?.trim();
+  const inlineMessage = parts.slice(2).join(' ').trim();
+
+  if (!targetIdOrNumber) {
+    return ctx.reply(
+      `ℹ️ <b>How to reply to customer support:</b>\n\n` +
+      `• <code>/reply &lt;customer_id&gt; &lt;message&gt;</code>\n` +
+      `• <code>/reply &lt;ticket_number&gt; &lt;message&gt;</code>\n\n` +
+      `<i>Or simply swipe to <b>Reply</b> directly to any support notification in this chat!</i>`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  // Check if target is a ticket number or numeric customer Telegram ID
+  let ticket = DataStore.getSupportTicketById(targetIdOrNumber);
+  let targetTgId: number | null = Number(targetIdOrNumber) || null;
+
+  if (ticket) {
+    targetTgId = ticket.telegram_id;
+  } else if (targetTgId) {
+    const userTickets = DataStore.getSupportTickets().filter((t) => t.telegram_id === targetTgId);
+    ticket = userTickets.find((t) => t.status === 'open' || t.status === 'in_progress') || userTickets[0] || null;
+  }
+
+  if (!targetTgId) {
+    return ctx.reply(`❌ Customer ID or Ticket <code>${targetIdOrNumber}</code> not found.`, { parse_mode: 'HTML' });
+  }
+
+  if (inlineMessage) {
+    if (ticket) {
+      DataStore.replySupportTicket(ticket.id, inlineMessage, 'resolved');
+      await NotificationService.notifyCustomerTicketReply(
+        ticket.telegram_id,
+        ticket.ticket_number,
+        ticket.subject,
+        inlineMessage
+      );
+    } else {
+      const lang = DataStore.getUserLanguagePreference(targetTgId) || 'km';
+      const msgText =
+        lang === 'km'
+          ? `💬 <b>សារពីក្រុមការងារជំនួយ — UCHIRO SUPPORT</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `${inlineMessage}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `<i>ប្រសិនបើអ្នកមានចម្ងល់បន្ថែម សូមផ្ញើសំបុត្រជំនួយក្នុង Store Mini App។</i>`
+          : `💬 <b>SUPPORT TEAM MESSAGE — UCHIRO STORE</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `${inlineMessage}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `<i>If you have any further questions, please reply in the Store Mini App under Support.</i>`;
+      await NotificationService.sendStoreBotMessage(targetTgId, msgText);
+    }
+
+    return ctx.reply(
+      `✅ <b>REPLY SENT TO CUSTOMER</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `<b>Customer:</b> <code>${targetTgId}</code>\n` +
+      (ticket ? `<b>Ticket:</b> #${ticket.ticket_number}\n` : '') +
+      `\n<b>Your Message:</b>\n${inlineMessage}`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  // Interactive reply session
+  if (ticket) {
+    adminTicketReplySessions.set(senderId, ticket.id);
+  } else {
+    adminDirectUserReplySessions.set(senderId, targetTgId);
+  }
+
+  return ctx.reply(
+    `✍️ <b>REPLY TO CUSTOMER <code>${targetTgId}</code></b>\n` +
+    (ticket ? `📌 <b>Ticket #${ticket.ticket_number}:</b> ${ticket.subject}\n` : '') +
+    `\n<i>Please type your reply text below and send it. Type /cancel to abort.</i>`,
+    { parse_mode: 'HTML' }
+  );
 });
 
 // /stockbatch command for authorized admins
@@ -498,6 +598,97 @@ adminBot.on('message', async (ctx) => {
       `<b>Your Reply:</b>\n${text}`,
       { parse_mode: 'HTML' }
     );
+  }
+
+  // Check if admin is currently in a direct customer reply session
+  if (adminDirectUserReplySessions.has(from.id)) {
+    const targetTgId = adminDirectUserReplySessions.get(from.id)!;
+    adminDirectUserReplySessions.delete(from.id);
+
+    const text = (ctx.message as any)?.text?.trim();
+    if (!text || text === '/cancel') {
+      return ctx.reply('Direct reply cancelled.');
+    }
+
+    const lang = DataStore.getUserLanguagePreference(targetTgId) || 'km';
+    const msgText =
+      lang === 'km'
+        ? `💬 <b>សារពីក្រុមការងារជំនួយ — UCHIRO SUPPORT</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `${text}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `<i>ប្រសិនបើអ្នកមានចម្ងល់បន្ថែម សូមផ្ញើសំបុត្រជំនួយក្នុង Store Mini App។</i>`
+        : `💬 <b>SUPPORT TEAM MESSAGE — UCHIRO STORE</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `${text}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `<i>If you have any further questions, please reply in the Store Mini App under Support.</i>`;
+    await NotificationService.sendStoreBotMessage(targetTgId, msgText);
+
+    return ctx.reply(
+      `✅ <b>REPLY SENT TO CUSTOMER</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `<b>Customer:</b> <code>${targetTgId}</code>\n` +
+      `\n<b>Your Message:</b>\n${text}`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  // Check if admin is replying directly to a Telegram notification via Telegram's native Reply feature
+  const replyTo = (ctx.message as any)?.reply_to_message;
+  if (replyTo) {
+    const repliedText = String(replyTo.text || replyTo.caption || '');
+    const idMatch = repliedText.match(/(?:Customer ID|Customer TG ID|Customer Telegram ID|Customer|User ID|telegram_id)[:\s]+(?:<code>)?(\d{6,14})(?:<\/code>)?/i);
+    const ticketMatch = repliedText.match(/TICKET\s*#?([A-Za-z0-9_-]+)/i);
+
+    if (idMatch || ticketMatch) {
+      let targetTgId = idMatch ? Number(idMatch[1]) : null;
+      let ticket = ticketMatch ? DataStore.getSupportTicketById(ticketMatch[1]) : null;
+      if (ticket && !targetTgId) {
+        targetTgId = ticket.telegram_id;
+      }
+      if (!ticket && targetTgId) {
+        const userTickets = DataStore.getSupportTickets().filter((t) => t.telegram_id === targetTgId);
+        ticket = userTickets.find((t) => t.status === 'open' || t.status === 'in_progress') || userTickets[0] || null;
+      }
+
+      const text = (ctx.message as any)?.text?.trim();
+      if (targetTgId && text && text !== '/cancel') {
+        if (ticket) {
+          DataStore.replySupportTicket(ticket.id, text, 'resolved');
+          await NotificationService.notifyCustomerTicketReply(
+            targetTgId,
+            ticket.ticket_number,
+            ticket.subject,
+            text
+          );
+        } else {
+          const lang = DataStore.getUserLanguagePreference(targetTgId) || 'km';
+          const msgText =
+            lang === 'km'
+              ? `💬 <b>សារពីក្រុមការងារជំនួយ — UCHIRO SUPPORT</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `${text}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `<i>ប្រសិនបើអ្នកមានចម្ងល់បន្ថែម សូមផ្ញើសំបុត្រជំនួយក្នុង Store Mini App។</i>`
+              : `💬 <b>SUPPORT TEAM MESSAGE — UCHIRO STORE</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `${text}\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `<i>If you have any further questions, please reply in the Store Mini App under Support.</i>`;
+          await NotificationService.sendStoreBotMessage(targetTgId, msgText);
+        }
+
+        return ctx.reply(
+          `✅ <b>REPLY SENT TO CUSTOMER</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `<b>Customer:</b> <code>${targetTgId}</code>\n` +
+          (ticket ? `<b>Ticket:</b> #${ticket.ticket_number}\n` : '') +
+          `\n<b>Your Reply:</b>\n${text}`,
+          { parse_mode: 'HTML' }
+        );
+      }
+    }
   }
 
   // Check if admin is currently in a broadcast wizard session

@@ -561,19 +561,29 @@ export async function handleOrdersTrack(
   ctx: Context,
   storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
-  const text =
-    `🔍 <b>TRACK YOUR ORDER</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `To track an order or check fulfillment status:\n\n` +
-    `• View your 10 most recent orders in <b>Order History</b> below.\n` +
-    `• Or contact our 24/7 Support with your Order ID (e.g. <code>ORD-123456</code>).\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
 
-  const keyboard = buildOrderHistoryKeyboard(storeUrl);
+  const text =
+    lang === 'km'
+      ? `🔍 <b>តាមដានការបញ្ជាទិញរបស់អ្នក</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `ដើម្បីតាមដាន ឬពិនិត្យមើលស្ថានភាពនៃការបញ្ជាទិញ៖\n\n` +
+        `• ចូលមើលការបញ្ជាទិញថ្មីៗទាំង ១០ នៅក្នុង <b>Order History</b> ខាងក្រោម។\n` +
+        `• ឬទាក់ទងមកកាន់ផ្នែកបម្រើអតិថិជន ២៤/៧ ជាមួយលេខ Order ID របស់អ្នក (ឧទាហរណ៍៖ <code>ORD-123456</code>)។\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `🔍 <b>TRACK YOUR ORDER</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `To track an order or check fulfillment status:\n\n` +
+        `• View your 10 most recent orders in <b>Order History</b> below.\n` +
+        `• Or contact our 24/7 Support with your Order ID (e.g. <code>ORD-123456</code>).\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const keyboard = buildOrderHistoryKeyboard(storeUrl, lang);
   const formattedHtml = enrichWithTgEmojis(text);
 
   try {

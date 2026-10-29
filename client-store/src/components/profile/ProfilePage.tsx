@@ -545,7 +545,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = React.memo(({
       {/* Confirmation Modal for Points Redemption */}
       {confirmingTier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-sm bg-[#121624] border border-[#FFD166]/30 rounded-3xl p-5 space-y-4 shadow-2xl">
+          <div className="w-full max-w-sm bg-[#121624] border border-[#FFD166]/30 rounded-3xl p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <Coins className="w-4 h-4 text-[#FFD166]" />

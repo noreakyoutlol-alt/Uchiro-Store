@@ -8,7 +8,7 @@ import { resolveStoreUrl, isValidUrl } from '../../config/app-url';
 export function stripLeadingEmoji(text: string): string {
   if (!text) return '';
   return text
-    .replace(/^([0-9#*]️?⃣|[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{00A9}\u{00AE}]+)+\s*/u, '')
+    .replace(/^((?:[0-9#*]️?⃣|[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{00A9}\u{00AE}])+\s*)+/u, '')
     .trim();
 }
 
@@ -47,15 +47,21 @@ export function makeButton(
   const cleanLabel = stripLeadingEmoji(label);
   const hasCustomId = Boolean(customId && customId.trim() !== '');
 
-  // A leading unicode emoji is only a *duplicate* when it matches the fallback of
-  // the custom emoji icon that Telegram renders beside the label. In that case it is
-  // stripped so the client shows the custom icon exactly once. A different leading
-  // emoji is intentional and must be preserved.
-  let buttonText = label;
-  if (hasCustomId && fallback && label.startsWith(fallback)) {
+  // When custom icon is active, Telegram renders the icon beside the button text.
+  // Button text must NOT contain any leading emoji, preventing double emojis.
+  let buttonText = cleanLabel;
+  if (hasCustomId) {
     buttonText = cleanLabel;
-  } else if (!hasCustomId && cleanLabel === label && fallback) {
-    buttonText = `${fallback} ${cleanLabel}`.trim();
+  } else {
+    // When custom icon is inactive, ensure exactly ONE leading unicode emoji.
+    const effectiveFallback =
+      fallback ||
+      (label !== cleanLabel
+        ? label.match(
+            /^([0-9#*]️?⃣|[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{00A9}\u{00AE}]+)/u
+          )?.[0] || ''
+        : '');
+    buttonText = effectiveFallback ? `${effectiveFallback} ${cleanLabel}`.trim() : cleanLabel;
   }
 
   let btn: any;
@@ -173,7 +179,7 @@ export function buildMainMenuKeyboard(
       urlBtn('💬 Chat with Admin / Support', supportUrl, 'SUPPORT'),
     ],
     [
-      cb('📜 Rules & Policies', 'cb_main_rules', 'DOCUMENT'),
+      cb('📜 Rules & Policies', 'cb_main_rules', 'SCROLL'),
       cb('🌐 Language', 'cb_lang_menu', 'GLOBE'),
     ],
   ]);

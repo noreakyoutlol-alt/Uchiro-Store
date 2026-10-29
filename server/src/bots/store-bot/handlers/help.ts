@@ -173,20 +173,33 @@ export async function handleHowToBuy(
   ctx: Context,
   storeUrl: string = resolveStoreUrl()
 ): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
+
   const text =
-    `🛒 <b>HOW TO BUY &amp; PAY AT UCHIRO STORE</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `Purchasing accounts, items, and tickets is fully automated 24/7:\n\n` +
-    `1️⃣ <b>Step 1:</b> Open the Store Mini App.\n` +
-    `2️⃣ <b>Step 2:</b> Select a product, package, or ticket and choose <b>Buy Now</b>.\n` +
-    `3️⃣ <b>Step 3:</b> Follow the KHQR / Bakong payment prompt on screen.\n` +
-    `4️⃣ <b>Step 4:</b> Wait for independent payment verification and automatic credential/order delivery in chat and in <b>My Orders &amp; Vault</b>!\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `👇 <i>Select a guide below:</i>`;
+    lang === 'km'
+      ? `🛒 <b>របៀបទិញ និងទូទាត់ប្រាក់នៅ UCHIRO STORE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `ការទិញគណនី, របស់របរក្នុងហ្គេម និងសំបុត្រ គឺដំណើរការដោយស្វ័យប្រវត្តិ ២៤/៧៖\n\n` +
+        `1️⃣ <b>ជំហានទី ១៖</b> បើក Store Mini App ក្នុង Telegram។\n` +
+        `2️⃣ <b>ជំហានទី ២៖</b> ជ្រើសរើសទំនិញ, កញ្ចប់ ឬសំបុត្រ រួចចុច <b>Buy Now</b>។\n` +
+        `3️⃣ <b>ជំហានទី ៣៖</b> ធ្វើតាមការណែនាំទូទាត់ប្រាក់តាម KHQR / Bakong លើអេក្រង់។\n` +
+        `4️⃣ <b>ជំហានទី ៤៖</b> ប្រព័ន្ធផ្ទៀងផ្ទាត់ដោយស្វ័យប្រវត្តិ ហើយប្រគល់ព័ត៌មានគណនីភ្លាមៗក្នុង Bot និងក្នុង <b>My Orders &amp; Vault</b>!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `👇 <i>សូមជ្រើសរើសមគ្គុទ្ទេសក៍ណែនាំខាងក្រោម៖</i>`
+      : `🛒 <b>HOW TO BUY &amp; PAY AT UCHIRO STORE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Purchasing accounts, items, and tickets is fully automated 24/7:\n\n` +
+        `1️⃣ <b>Step 1:</b> Open the Store Mini App.\n` +
+        `2️⃣ <b>Step 2:</b> Select a product, package, or ticket and choose <b>Buy Now</b>.\n` +
+        `3️⃣ <b>Step 3:</b> Follow the KHQR / Bakong payment prompt on screen.\n` +
+        `4️⃣ <b>Step 4:</b> Wait for independent payment verification and automatic credential/order delivery in chat and in <b>My Orders &amp; Vault</b>!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `👇 <i>Select a guide below:</i>`;
 
   const keyboard = buildHowToBuyKeyboard(storeUrl);
 
@@ -213,24 +226,41 @@ export async function handleHowToBuy(
  * Handle Step-by-Step Purchase Guide (cb_guide_step_by_step)
  */
 export async function handleGuideStepByStep(ctx: Context, _storeUrl?: string): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
+
   const text =
-    `📖 <b>STEP-BY-STEP PURCHASE GUIDE</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `1️⃣ <b>Step 1: Open the Store Mini App</b>\n` +
-    `• Tap <b>Open Store</b> from the main menu or click the store link.\n\n` +
-    `2️⃣ <b>Step 2: Select &amp; Buy Now</b>\n` +
-    `• Browse accounts, items, or tickets. Select your desired item and tap <b>Buy Now</b>.\n\n` +
-    `3️⃣ <b>Step 3: Follow KHQR / Bakong Payment</b>\n` +
-    `• A standardized Bakong KHQR code displays with the exact USD amount.\n` +
-    `• Scan with your bank app (ABA, ACLEDA, Wing, Canadia, etc.).\n\n` +
-    `4️⃣ <b>Step 4: Independent Verification &amp; Delivery</b>\n` +
-    `• Our system independently verifies payment within seconds.\n` +
-    `• Credentials and 2FA are delivered automatically here in chat and into <b>My Orders &amp; Vault</b>!\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `📖 <b>ការណែនាំអំពីការបញ្ជាទិញជាជំហានៗ</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `1️⃣ <b>ជំហានទី ១៖ បើក Store Mini App</b>\n` +
+        `• ចុចប៊ូតុង <b>Open Store</b> ពីម៉ឺនុយមេ ឬចុចលើតំណភ្ជាប់ហាង។\n\n` +
+        `2️⃣ <b>ជំហានទី ២៖ ជ្រើសរើសទំនិញ &amp; Buy Now</b>\n` +
+        `• រុករកមើលគណនី, របស់របរ ឬសំបុត្រ រួចជ្រើសរើសទំនិញដែលអ្នកចង់បាន ហើយចុច <b>Buy Now</b>។\n\n` +
+        `3️⃣ <b>ជំហានទី ៣៖ ទូទាត់ប្រាក់តាម KHQR / Bakong</b>\n` +
+        `• កូដស្ដង់ដារ Bakong KHQR នឹងបង្ហាញទឹកប្រាក់ដុល្លារដែលត្រូវបង់យ៉ាងជាក់លាក់។\n` +
+        `• ស្កេនជាមួយកម្មវិធីធនាគាររបស់អ្នក (ABA, ACLEDA, Wing, Canadia...)។\n\n` +
+        `4️⃣ <b>ជំហានទី ៤៖ ការផ្ទៀងផ្ទាត់ និងប្រគល់ទំនិញភ្លាមៗ</b>\n` +
+        `• ប្រព័ន្ធផ្ទៀងផ្ទាត់ការទូទាត់ត្រឹមតែប៉ុន្មានវិនាទីប៉ុណ្ណោះ។\n` +
+        `• ព័ត៌មានគណនី និងកូដ 2FA ត្រូវបានប្រគល់ជូនភ្លាមៗក្នុង Bot និងក្នុង <b>My Orders &amp; Vault</b>!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `📖 <b>STEP-BY-STEP PURCHASE GUIDE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `1️⃣ <b>Step 1: Open the Store Mini App</b>\n` +
+        `• Tap <b>Open Store</b> from the main menu or click the store link.\n\n` +
+        `2️⃣ <b>Step 2: Select &amp; Buy Now</b>\n` +
+        `• Browse accounts, items, or tickets. Select your desired item and tap <b>Buy Now</b>.\n\n` +
+        `3️⃣ <b>Step 3: Follow KHQR / Bakong Payment</b>\n` +
+        `• A standardized Bakong KHQR code displays with the exact USD amount.\n` +
+        `• Scan with your bank app (ABA, ACLEDA, Wing, Canadia, etc.).\n\n` +
+        `4️⃣ <b>Step 4: Independent Verification &amp; Delivery</b>\n` +
+        `• Our system independently verifies payment within seconds.\n` +
+        `• Credentials and 2FA are delivered automatically here in chat and into <b>My Orders &amp; Vault</b>!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildKhqrGuideKeyboard();
 
@@ -250,19 +280,31 @@ export async function handleGuideStepByStep(ctx: Context, _storeUrl?: string): P
  * Handle KHQR Payment Guide (cb_guide_khqr)
  */
 export async function handleGuideKhqr(ctx: Context): Promise<void> {
+  const telegramId = ctx.from?.id;
   try {
     await ctx.answerCbQuery();
   } catch {}
 
+  const lang = (telegramId ? DataStore.getUserLanguagePreference(telegramId) : null) || 'km';
+
   const text =
-    `💳 <b>HOW TO PAY VIA BAKONG KHQR ON A SINGLE PHONE</b>\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `If you are using a single phone, no need for a second device to scan:\n\n` +
-    `• 📸 <b>Step 1:</b> Take a screenshot of the QR Code.\n` +
-    `• 📲 <b>Step 2:</b> Open your mobile banking app (ABA / ACLEDA / Wing) and tap <b>Scan QR</b>.\n` +
-    `• 🖼️ <b>Step 3:</b> Tap the photo gallery icon and select your screenshot.\n` +
-    `• ✅ <b>Step 4:</b> Confirm payment and return to the bot; your items are delivered automatically!\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━`;
+    lang === 'km'
+      ? `💳 <b>របៀបទូទាត់ប្រាក់តាម BAKONG KHQR លើទូរស័ព្ទដៃតែមួយ</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `ប្រសិនបើអ្នកប្រើទូរស័ព្ទដៃតែមួយ ដោយមិនចាំបាច់មានទូរស័ព្ទមួយទៀតមកស្កេននោះទេ៖\n\n` +
+        `• 📸 <b>ជំហានទី ១៖</b> ថតរូបអេក្រង់ (Screenshot) កូដ QR ដែលបង្ហាញលើទូរស័ព្ទរបស់អ្នក។\n` +
+        `• 📲 <b>ជំហានទី ២៖</b> បើកកម្មវិធីធនាគាររបស់អ្នក (ABA / ACLEDA / Wing) រួចចុច <b>Scan QR</b>។\n` +
+        `• 🖼️ <b>ជំហានទី ៣៖</b> ចុចលើរូប Photo Gallery ជ្រើសរើសយករូប Screenshot ដែលបានថត។\n` +
+        `• ✅ <b>ជំហានទី ៤៖</b> ផ្ទៀងផ្ទាត់ និងបញ្ជាក់ការទូទាត់ រួចត្រឡប់មកកាន់ Bot វិញ ទំនិញនឹងត្រូវប្រគល់ជូនភ្លាមៗ!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`
+      : `💳 <b>HOW TO PAY VIA BAKONG KHQR ON A SINGLE PHONE</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `If you are using a single phone, no need for a second device to scan:\n\n` +
+        `• 📸 <b>Step 1:</b> Take a screenshot of the QR Code.\n` +
+        `• 📲 <b>Step 2:</b> Open your mobile banking app (ABA / ACLEDA / Wing) and tap <b>Scan QR</b>.\n` +
+        `• 🖼️ <b>Step 3:</b> Tap the photo gallery icon and select your screenshot.\n` +
+        `• ✅ <b>Step 4:</b> Confirm payment and return to the bot; your items are delivered automatically!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━`;
 
   const keyboard = buildKhqrGuideKeyboard();
 

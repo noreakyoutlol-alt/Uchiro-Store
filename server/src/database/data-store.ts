@@ -2186,19 +2186,69 @@ export class DataStore {
     (order as any).stock_deducted = false;
 
     this.orders.unshift(order);
+    this.persistOrderToPostgres(order).catch(() => {});
+    this.saveToDisk();
     return { success: true, order };
   }
 
+  private static readonly STATE_FILE = path.resolve(process.cwd(), 'data/store_state.json');
+
   public static saveToDisk(): void {
-    // Disk sync removed in V3 (ephemeral filesystem on Railway)
+    try {
+      const dir = path.dirname(this.STATE_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const state = {
+        users: Array.from(this.users.entries()),
+        profiles: Array.from(this.profiles.entries()),
+        orders: this.orders,
+        inventory: this.inventory,
+        supportTickets: this.supportTickets,
+        coupons: this.coupons,
+        redeemCodes: this.redeemCodes,
+        gachaPools: this.gachaPools,
+        gachaPrizes: this.gachaPrizes,
+        gachaClaims: this.gachaClaims,
+        saved_at: new Date().toISOString(),
+      };
+      fs.writeFileSync(this.STATE_FILE, JSON.stringify(state, null, 2), 'utf-8');
+    } catch {
+      // Ignore write errors on read-only environments
+    }
   }
 
   public static persistToDisk(): void {
-    // Disk sync removed in V3 (ephemeral filesystem on Railway)
+    this.saveToDisk();
   }
 
   public static loadFromDisk(): void {
-    // Disk sync removed in V3 (ephemeral filesystem on Railway)
+    try {
+      if (fs.existsSync(this.STATE_FILE)) {
+        const raw = fs.readFileSync(this.STATE_FILE, 'utf-8');
+        const state = JSON.parse(raw);
+        if (Array.isArray(state.users)) {
+          for (const [k, v] of state.users) this.users.set(Number(k), v);
+        }
+        if (Array.isArray(state.profiles)) {
+          for (const [k, v] of state.profiles) this.profiles.set(Number(k), v);
+        }
+        if (Array.isArray(state.orders) && state.orders.length > 0) {
+          this.orders = state.orders;
+        }
+        if (Array.isArray(state.supportTickets) && state.supportTickets.length > 0) {
+          this.supportTickets = state.supportTickets;
+        }
+        if (Array.isArray(state.inventory) && state.inventory.length > 0) {
+          this.inventory = state.inventory;
+        }
+        if (Array.isArray(state.coupons) && state.coupons.length > 0) {
+          this.coupons = state.coupons;
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
   }
 
   static shouldAlertLowStock(productId: string, currentStock: number): boolean {
@@ -2379,6 +2429,7 @@ export class DataStore {
       this.handleOrderInventoryDeduction(order);
     }
 
+    this.persistOrderToPostgres(order).catch(() => {});
     this.persistToDisk();
     return order;
   }
@@ -2457,7 +2508,12 @@ export class DataStore {
       .map((pool) => {
         const poolPrizes = this.gachaPrizes.filter((pr) => pr.pool_id === pool.id);
         const activePrizes = poolPrizes.filter((pr) => pr.is_active).map((pr) => this.formatPrizePayload(pr));
-        const currentPrize = activePrizes.find((p) => p.slot_status === 'current') || null;
+        // The Grand Prize is strictly the top prize (MYTHICAL -> LEGENDARY -> top tier)
+        const currentPrize =
+          activePrizes.find((p) => p.rarity === 'MYTHICAL') ||
+          activePrizes.find((p) => p.rarity === 'LEGENDARY') ||
+          activePrizes.find((p) => p.slot_status === 'current') ||
+          null;
         const rawDraft = poolPrizes.find((p) => p.slot_status === 'draft') || null;
         const nextPrize = rawDraft ? this.formatPrizePayload(rawDraft) : null;
         return {
@@ -2478,7 +2534,12 @@ export class DataStore {
     if (!pool) return null;
     const poolPrizes = this.gachaPrizes.filter((pr) => pr.pool_id === pool.id);
     const activePrizes = poolPrizes.filter((pr) => pr.is_active).map((pr) => this.formatPrizePayload(pr));
-    const currentPrize = activePrizes.find((p) => p.slot_status === 'current') || null;
+    // The Grand Prize is strictly the top prize (MYTHICAL -> LEGENDARY -> top tier)
+    const currentPrize =
+      activePrizes.find((p) => p.rarity === 'MYTHICAL') ||
+      activePrizes.find((p) => p.rarity === 'LEGENDARY') ||
+      activePrizes.find((p) => p.slot_status === 'current') ||
+      null;
     const rawDraft = poolPrizes.find((p) => p.slot_status === 'draft') || null;
     const nextPrize = rawDraft ? this.formatPrizePayload(rawDraft) : null;
     return {
@@ -3729,8 +3790,357 @@ export class DataStore {
       } catch (tErr: any) {
         console.warn('[DataStore] Warning loading seasonal theme from PostgreSQL:', tErr?.message);
       }
+
+      // 4. Load orders from PostgreSQL
+      try {
+        const { rows: orderRows } = await pgPool.query(`
+          SELECT id, order_code, telegram_id, customer_id, product_title, amount,
+                 total_amount, subtotal, discount_amount, quantity, currency, status,
+                 payment_provider, payment_ref, roblox_username, roblox_display_name,
+                 roblox_user_id, delivery_mode, delivery_credentials, fulfillment_notes,
+                 warranty_days, warranty_status, warranty_notes, items, delivered_at,
+                 created_at, updated_at
+          FROM orders
+          ORDER BY created_at DESC
+        `);
+
+        for (const row of orderRows) {
+          const numTgId = Number(row.telegram_id);
+          const rawItems = Array.isArray(row.items) ? row.items : (typeof row.items === 'string' ? JSON.parse(row.items) : []);
+          const existingIdx = this.orders.findIndex((o) => o.order_number === row.order_code || o.id === String(row.id));
+          const orderObj: Order = {
+            id: String(row.id),
+            order_number: row.order_code,
+            customer_id: row.customer_id || `cust-${row.telegram_id}`,
+            telegram_id: numTgId,
+            status: (row.status as any) || 'completed',
+            subtotal: Number(row.subtotal || row.amount || row.total_amount || 0),
+            discount_amount: Number(row.discount_amount || 0),
+            total_amount: Number(row.total_amount || row.amount || 0),
+            quantity: Number(row.quantity || 1),
+            coupon_id: row.coupon_id || null,
+            roblox_username: row.roblox_username || null,
+            roblox_display_name: row.roblox_display_name || null,
+            roblox_user_id: row.roblox_user_id || null,
+            delivery_mode: (row.delivery_mode as any) || 'auto_account',
+            delivery_credentials: row.delivery_credentials
+              ? typeof row.delivery_credentials === 'string'
+                ? JSON.parse(row.delivery_credentials)
+                : row.delivery_credentials
+              : null,
+            fulfillment_notes: row.fulfillment_notes || null,
+            delivered_at: row.delivered_at ? new Date(row.delivered_at).toISOString() : null,
+            warranty_days: Number(row.warranty_days || 0),
+            warranty_status: (row.warranty_status as any) || 'none',
+            warranty_starts_at: null,
+            warranty_expires_at: null,
+            warranty_notes: row.warranty_notes || null,
+            idempotency_key: null,
+            admin_notified: true,
+            created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+            updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
+            items: rawItems,
+          };
+          if (existingIdx >= 0) {
+            this.orders[existingIdx] = orderObj;
+          } else {
+            this.orders.push(orderObj);
+          }
+        }
+        console.log(`[DataStore] Successfully loaded ${orderRows.length} orders from PostgreSQL.`);
+      } catch (oErr: any) {
+        console.warn('[DataStore] Warning loading orders from PostgreSQL:', oErr?.message);
+      }
+
+      // 5. Load support tickets from PostgreSQL
+      try {
+        const { rows: ticketRows } = await pgPool.query(`
+          SELECT id, ticket_number, customer_id, telegram_id, order_id, category,
+                 subject, message, messages, status, admin_reply, resolved_at,
+                 created_at, updated_at
+          FROM support_tickets
+          ORDER BY created_at DESC
+        `);
+
+        for (const row of ticketRows) {
+          const rawMsgs = Array.isArray(row.messages) ? row.messages : (typeof row.messages === 'string' ? JSON.parse(row.messages) : []);
+          const existingIdx = this.supportTickets.findIndex((t) => t.ticket_number === row.ticket_number || t.id === String(row.id));
+          const ticketObj: SupportTicket = {
+            id: String(row.id),
+            ticket_number: row.ticket_number,
+            customer_id: row.customer_id || '',
+            telegram_id: Number(row.telegram_id),
+            order_id: row.order_id || null,
+            category: row.category || 'general',
+            subject: row.subject,
+            message: row.message,
+            messages: rawMsgs,
+            status: (row.status as any) || 'open',
+            admin_reply: row.admin_reply || null,
+            resolved_at: row.resolved_at ? new Date(row.resolved_at).toISOString() : null,
+            created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+            updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
+          };
+          if (existingIdx >= 0) {
+            this.supportTickets[existingIdx] = ticketObj;
+          } else {
+            this.supportTickets.push(ticketObj);
+          }
+        }
+        console.log(`[DataStore] Successfully loaded ${ticketRows.length} support tickets from PostgreSQL.`);
+      } catch (sErr: any) {
+        console.warn('[DataStore] Warning loading support tickets from PostgreSQL:', sErr?.message);
+      }
+
+      // 6. Load inventory from PostgreSQL
+      try {
+        const { rows: invRows } = await pgPool.query(`
+          SELECT id, product_id, data, status, is_sold, order_id, reserved_until, created_at, updated_at
+          FROM inventory
+          ORDER BY created_at ASC
+        `);
+        if (invRows.length > 0) {
+          for (const row of invRows) {
+            const existingIdx = this.inventory.findIndex((i) => i.id === String(row.id));
+            let parsedData: any = {};
+            try {
+              parsedData = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+            } catch {
+              parsedData = { raw: row.data };
+            }
+            const itemObj: InventoryItem = {
+              id: String(row.id),
+              product_id: String(row.product_id),
+              item_type: (parsedData.item_type || (parsedData.digital_code ? 'code' : 'account')) as any,
+              account_username: parsedData.account_username || null,
+              encrypted_account_password: parsedData.encrypted_account_password || parsedData.account_password || null,
+              encrypted_account_2fa: parsedData.encrypted_account_2fa || parsedData.two_factor_secret || null,
+              authenticator_enabled: Boolean(parsedData.authenticator_enabled),
+              authenticator_secret_ciphertext: parsedData.authenticator_secret_ciphertext || null,
+              email: parsedData.email || null,
+              encrypted_email_password: parsedData.encrypted_email_password || null,
+              encrypted_backup_codes: parsedData.encrypted_backup_codes || (Array.isArray(parsedData.backup_codes) ? JSON.stringify(parsedData.backup_codes) : null),
+              digital_code: parsedData.digital_code || null,
+              notes: parsedData.notes || null,
+              status: (row.status as any) || (row.is_sold ? 'sold' : 'available'),
+              is_sold: Boolean(row.is_sold),
+              order_id: row.order_id ? String(row.order_id) : null,
+              reserved_until: row.reserved_until ? new Date(row.reserved_until).toISOString() : null,
+              created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+              updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
+            };
+            if (existingIdx >= 0) {
+              this.inventory[existingIdx] = itemObj;
+            } else {
+              this.inventory.push(itemObj);
+            }
+          }
+          console.log(`[DataStore] Successfully loaded ${invRows.length} inventory items from PostgreSQL.`);
+        }
+      } catch (iErr: any) {
+        console.warn('[DataStore] Warning loading inventory from PostgreSQL:', iErr?.message);
+      }
+
+      // 7. Load coupons from PostgreSQL
+      try {
+        const { rows: couponRows } = await pgPool.query(`
+          SELECT id, code, discount_type, discount_value, min_order_amount, max_uses, used_count, is_active, expires_at, created_at, updated_at
+          FROM coupons
+        `);
+        for (const row of couponRows) {
+          const existingIdx = this.coupons.findIndex((c) => c.code === row.code || c.id === String(row.id));
+          const couponObj: Coupon = {
+            id: String(row.id),
+            code: row.code,
+            discount_type: (row.discount_type as any) || 'fixed',
+            discount_value: Number(row.discount_value || 0),
+            min_order_amount: Number(row.min_order_amount || 0),
+            max_discount_amount: null,
+            usage_limit: Number(row.max_uses || 100),
+            times_used: Number(row.used_count || 0),
+            per_user_limit: 1,
+            is_active: Boolean(row.is_active),
+            expires_at: row.expires_at ? new Date(row.expires_at).toISOString() : null,
+            created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+            updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
+          };
+          if (existingIdx >= 0) {
+            this.coupons[existingIdx] = couponObj;
+          } else {
+            this.coupons.push(couponObj);
+          }
+        }
+      } catch (cErr: any) {
+        console.warn('[DataStore] Warning loading coupons from PostgreSQL:', cErr?.message);
+      }
+
+      this.saveToDisk();
     } catch (err: any) {
       console.error('[DataStore] syncAllFromPostgres error:', err?.message || err);
+    }
+  }
+
+  static async persistOrderToPostgres(order: Order): Promise<void> {
+    if (!isPostgresConfigured() || !order) return;
+    try {
+      const tid = order.telegram_id ? String(order.telegram_id) : null;
+      await pgPool.query(
+        `INSERT INTO orders (
+           order_code, telegram_id, customer_id, product_title, amount, subtotal, discount_amount,
+           total_amount, quantity, coupon_id, currency, status, payment_provider, roblox_username,
+           roblox_display_name, roblox_user_id, delivery_mode, delivery_credentials, fulfillment_notes,
+           warranty_days, warranty_status, warranty_notes, delivered_at, items, metadata, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, NOW())
+         ON CONFLICT (order_code) DO UPDATE SET
+           status = EXCLUDED.status,
+           delivery_credentials = COALESCE(EXCLUDED.delivery_credentials, orders.delivery_credentials),
+           fulfillment_notes = COALESCE(EXCLUDED.fulfillment_notes, orders.fulfillment_notes),
+           warranty_status = COALESCE(EXCLUDED.warranty_status, orders.warranty_status),
+           warranty_notes = COALESCE(EXCLUDED.warranty_notes, orders.warranty_notes),
+           delivered_at = COALESCE(EXCLUDED.delivered_at, orders.delivered_at),
+           updated_at = NOW()`,
+        [
+          order.order_number || order.id,
+          tid,
+          order.customer_id || tid,
+          order.items?.[0]?.product_title || 'Gaming Order',
+          order.total_amount || 0,
+          order.subtotal || order.total_amount || 0,
+          order.discount_amount || 0,
+          order.total_amount || 0,
+          order.quantity || 1,
+          order.coupon_id || null,
+          'USD',
+          order.status || 'completed',
+          'khpay',
+          order.roblox_username || null,
+          order.roblox_display_name || null,
+          order.roblox_user_id || null,
+          order.delivery_mode || 'auto_account',
+          order.delivery_credentials ? JSON.stringify(order.delivery_credentials) : null,
+          order.fulfillment_notes || null,
+          order.warranty_days || 0,
+          order.warranty_status || 'none',
+          order.warranty_notes || null,
+          order.delivered_at ? new Date(order.delivered_at) : null,
+          JSON.stringify(order.items || []),
+          JSON.stringify({ idempotency_key: order.idempotency_key || null }),
+          order.created_at ? new Date(order.created_at) : new Date(),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[DataStore] persistOrderToPostgres error:', err?.message);
+    }
+  }
+
+  static async persistSupportTicketToPostgres(ticket: SupportTicket): Promise<void> {
+    if (!isPostgresConfigured() || !ticket) return;
+    try {
+      await pgPool.query(
+        `INSERT INTO support_tickets (
+           id, ticket_number, customer_id, telegram_id, order_id, category, subject,
+           message, messages, status, admin_reply, resolved_at, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+         ON CONFLICT (ticket_number) DO UPDATE SET
+           status = EXCLUDED.status,
+           admin_reply = COALESCE(EXCLUDED.admin_reply, support_tickets.admin_reply),
+           messages = COALESCE(EXCLUDED.messages, support_tickets.messages),
+           resolved_at = COALESCE(EXCLUDED.resolved_at, support_tickets.resolved_at),
+           updated_at = NOW()`,
+        [
+          ticket.id || uuidv4(),
+          ticket.ticket_number,
+          ticket.customer_id || String(ticket.telegram_id),
+          ticket.telegram_id,
+          ticket.order_id || null,
+          ticket.category || 'general',
+          ticket.subject,
+          ticket.message,
+          JSON.stringify(ticket.messages || []),
+          ticket.status || 'open',
+          ticket.admin_reply || null,
+          ticket.resolved_at ? new Date(ticket.resolved_at) : null,
+          ticket.created_at ? new Date(ticket.created_at) : new Date(),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[DataStore] persistSupportTicketToPostgres error:', err?.message);
+    }
+  }
+
+  static async persistInventoryToPostgres(item: InventoryItem): Promise<void> {
+    if (!isPostgresConfigured() || !item) return;
+    try {
+      const itemData = {
+        item_type: item.item_type,
+        account_username: item.account_username,
+        encrypted_account_password: item.encrypted_account_password,
+        encrypted_account_2fa: item.encrypted_account_2fa,
+        authenticator_enabled: item.authenticator_enabled,
+        authenticator_secret_ciphertext: item.authenticator_secret_ciphertext,
+        email: item.email,
+        encrypted_email_password: item.encrypted_email_password,
+        encrypted_backup_codes: item.encrypted_backup_codes,
+        digital_code: item.digital_code,
+        notes: item.notes,
+      };
+      await pgPool.query(
+        `INSERT INTO inventory (
+           id, product_id, data, status, is_sold, order_id, reserved_until, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           is_sold = EXCLUDED.is_sold,
+           order_id = COALESCE(EXCLUDED.order_id, inventory.order_id),
+           reserved_until = EXCLUDED.reserved_until,
+           updated_at = NOW()`,
+        [
+          item.id,
+          item.product_id,
+          JSON.stringify(itemData),
+          item.status || 'available',
+          Boolean(item.is_sold),
+          item.order_id || null,
+          item.reserved_until ? new Date(item.reserved_until) : null,
+          item.created_at ? new Date(item.created_at) : new Date(),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[DataStore] persistInventoryToPostgres error:', err?.message);
+    }
+  }
+
+  static async persistCouponToPostgres(coupon: Coupon): Promise<void> {
+    if (!isPostgresConfigured() || !coupon) return;
+    try {
+      await pgPool.query(
+        `INSERT INTO coupons (
+           id, code, discount_type, discount_value, min_order_amount, max_uses, used_count,
+           is_active, expires_at, created_at, updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+         ON CONFLICT (code) DO UPDATE SET
+           used_count = EXCLUDED.used_count,
+           is_active = EXCLUDED.is_active,
+           updated_at = NOW()`,
+        [
+          coupon.id || uuidv4(),
+          coupon.code,
+          coupon.discount_type || 'fixed',
+          coupon.discount_value || 0,
+          coupon.min_order_amount || 0,
+          coupon.usage_limit || 0,
+          coupon.times_used || 0,
+          Boolean(coupon.is_active && coupon.status !== 'USED'),
+          coupon.expires_at ? new Date(coupon.expires_at) : null,
+          coupon.created_at ? new Date(coupon.created_at) : new Date(),
+        ]
+      );
+    } catch (err: any) {
+      console.warn('[DataStore] persistCouponToPostgres error:', err?.message);
     }
   }
 
@@ -3781,6 +4191,8 @@ export class DataStore {
       updated_at: nowIso,
     };
     this.supportTickets.unshift(ticket);
+    this.persistSupportTicketToPostgres(ticket).catch(() => {});
+    this.saveToDisk();
     return ticket;
   }
 
@@ -3807,6 +4219,8 @@ export class DataStore {
       t.status = 'in_progress';
     }
     t.updated_at = new Date().toISOString();
+    this.persistSupportTicketToPostgres(t).catch(() => {});
+    this.saveToDisk();
     return t;
   }
 
@@ -3825,6 +4239,8 @@ export class DataStore {
     });
     t.resolved_at = new Date().toISOString();
     t.updated_at = new Date().toISOString();
+    this.persistSupportTicketToPostgres(t).catch(() => {});
+    this.saveToDisk();
     return t;
   }
 

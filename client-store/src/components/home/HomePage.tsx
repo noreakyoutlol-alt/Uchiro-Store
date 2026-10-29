@@ -16,6 +16,7 @@ import { Product } from '../../types';
 import { ProductCard } from '../product/ProductCard';
 import { useLanguage } from '../../context/LanguageContext';
 import { CollectionsGrid } from './CollectionsGrid';
+import { DailyRewardWidget } from './DailyRewardWidget';
 
 export interface HomePageProps {
   inStockProducts: Product[];
@@ -90,6 +91,9 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Daily Check-in Reward Strip: Claim directly on home screen without scrolling */}
+      <DailyRewardWidget />
 
       {/* ========================================================= */}
       {/* 2. COLLECTIONS */}

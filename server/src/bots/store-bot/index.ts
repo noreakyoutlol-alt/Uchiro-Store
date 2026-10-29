@@ -447,12 +447,24 @@ export class StoreBotService {
 
     this.bot.action(/^cb_rbx_check_(.+)$/, async (ctx) => {
       const orderCode = ctx.match[1];
+      const fromId = ctx.from?.id;
+      const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'km';
+      const isKm = lang === 'km';
+
       try {
-        await ctx.answerCbQuery(`Checking payment status for #${orderCode}...`);
+        await ctx.answerCbQuery(
+          isKm
+            ? `កំពុងពិនិត្យស្ថានភាពការទូទាត់ #${orderCode}...`
+            : `Checking payment status for #${orderCode}...`
+        );
       } catch {}
       const order = await RobuxService.getOrderByCode(orderCode);
       if (!order) {
-        const notFoundHtml = formatTelegramHtml(`❌ <b>Order #${orderCode} not found in Robux order records.</b>`);
+        const notFoundHtml = formatTelegramHtml(
+          isKm
+            ? `❌ <b>រកមិនឃើញការបញ្ជាទិញ #${orderCode} ក្នុងកំណត់ត្រា Robux ទេ។</b>`
+            : `❌ <b>Order #${orderCode} not found in Robux order records.</b>`
+        );
         const backKb = Markup.inlineKeyboard([[cb('Back to Main Menu', 'cb_main_menu', 'HOME')]]);
         try {
           return await ctx.editMessageText(notFoundHtml, {
@@ -467,16 +479,31 @@ export class StoreBotService {
         }
       }
       const statusText = order.status;
-      const statusHtml = formatTelegramHtml(
-        `📦 <b>Robux Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
-        `👤 <b>Recipient:</b> <code>@${order.roblox_username}</code>\n` +
-        `💎 <b>Amount:</b> ${order.robux_amount.toLocaleString()} Robux\n` +
-        `💵 <b>Total:</b> $${order.price_usd.toFixed(2)} USD\n\n` +
-        (statusText === 'completed'
-          ? '✅ <b>Delivered:</b> Robux top-up has been transferred to your Roblox account.'
+      const statusDesc =
+        statusText === 'completed'
+          ? (isKm
+              ? '✅ <b>បានប្រគល់ជូន៖</b> ការបញ្ចូល Robux ត្រូវបានផ្ទេរទៅគណនី Roblox របស់អ្នករួចរាល់ហើយ។'
+              : '✅ <b>Delivered:</b> Robux top-up has been transferred to your Roblox account.')
           : statusText === 'paid'
-          ? '⏳ <b>Payment Confirmed:</b> Robux delivery in progress.'
-          : '⏳ <b>Pending Payment:</b> Please scan the KHQR code to complete payment.')
+          ? (isKm
+              ? '⏳ <b>បានបញ្ជាក់ការទូទាត់៖</b> កំពុងដំណើរការប្រគល់ Robux ជូនអ្នក។'
+              : '⏳ <b>Payment Confirmed:</b> Robux delivery in progress.')
+          : (isKm
+              ? '⏳ <b>រង់ចាំការទូទាត់៖</b> សូមស្កេនកូដ KHQR ដើម្បីបញ្ចប់ការទូទាត់។'
+              : '⏳ <b>Pending Payment:</b> Please scan the KHQR code to complete payment.');
+
+      const statusHtml = formatTelegramHtml(
+        isKm
+          ? `📦 <b>ស្ថានភាពបញ្ជាទិញ Robux #${orderCode}៖</b> <code>${statusText.toUpperCase()}</code>\n\n` +
+            `👤 <b>គណនីទទួល៖</b> <code>@${order.roblox_username}</code>\n` +
+            `💎 <b>ចំនួន៖</b> ${order.robux_amount.toLocaleString()} Robux\n` +
+            `💵 <b>សរុប៖</b> $${order.price_usd.toFixed(2)} USD\n\n` +
+            statusDesc
+          : `📦 <b>Robux Order #${orderCode} Status:</b> <code>${statusText.toUpperCase()}</code>\n\n` +
+            `👤 <b>Recipient:</b> <code>@${order.roblox_username}</code>\n` +
+            `💎 <b>Amount:</b> ${order.robux_amount.toLocaleString()} Robux\n` +
+            `💵 <b>Total:</b> $${order.price_usd.toFixed(2)} USD\n\n` +
+            statusDesc
       );
       const statusKb = Markup.inlineKeyboard([
         [cb('🔄 Refresh Status', `cb_rbx_check_${orderCode}`, 'REFRESH')],
@@ -498,12 +525,15 @@ export class StoreBotService {
     });
 
     // Universal Back Home Navigation (cb_main_menu & aliases)
-    this.bot.action(['cb_main_menu', 'cb_back_home', 'menu_home', 'back_home'], async (ctx) => {
+    this.bot.action(['cb_main_menu', 'cb_back_home', 'menu_home', 'back_home', 'cb_home', 'home'], async (ctx) => {
       try {
         await ctx.answerCbQuery();
       } catch {}
 
       const fromId = ctx.from?.id;
+      if (fromId) {
+        clearRobuxSession(fromId);
+      }
       const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'en';
       const welcomeText = getWelcomeMessage(lang);
       const keyboard = buildMainMenuKeyboard(storeWebAppUrl, supportUsername);
@@ -514,9 +544,20 @@ export class StoreBotService {
           parse_mode: 'HTML',
           ...keyboard,
         });
-      } catch (err) {
-        if (!isMessageNotModifiedError(err)) {
-          console.warn('[cb_main_menu] Edit warning:', err);
+      } catch (err: any) {
+        if (isMessageNotModifiedError(err)) return;
+        // Fallback for photo messages (e.g. from Roblox account review or QR payment)
+        // or any messages that cannot be edited in place
+        try {
+          await ctx.deleteMessage();
+        } catch {}
+        try {
+          await ctx.reply(html, {
+            parse_mode: 'HTML',
+            ...keyboard,
+          });
+        } catch (replyErr) {
+          console.warn('[cb_main_menu] Fallback reply error:', replyErr);
         }
       }
     });
@@ -704,9 +745,12 @@ export class StoreBotService {
       try {
         const fromId = ctx.from?.id;
         if (fromId) {
+          const lang = DataStore.getUserLanguagePreference(fromId) || 'km';
           const daily = await fetchDailyLiveInfo(fromId);
           await ctx.answerCbQuery(
-            `⏳ ${daily.cooldown_str} remaining before next claim`,
+            lang === 'km'
+              ? `⏳ នៅសល់ ${daily.cooldown_str} ទៀត មុនពេលអាចចុចយករង្វាន់បន្ទាប់`
+              : `⏳ ${daily.cooldown_str} remaining before next claim`,
             { show_alert: true }
           );
         } else {
@@ -775,6 +819,10 @@ export class StoreBotService {
 
     this.bot.action(/^view_order:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const fromId = ctx.from?.id;
+      const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'km';
+      const isKm = lang === 'km';
+
       const auth = verifyCustomerOrderAccess(ctx, orderId);
       if (!auth.authorized) {
         try {
@@ -794,14 +842,23 @@ export class StoreBotService {
       const amountStr = `$${Number(order.total_amount || 0).toFixed(2)}`;
 
       const text =
-        `📦 <b>ORDER DETAILS #${escapeHtml(order.order_number || order.id)}</b>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `🎮 <b>Product:</b> ${escapeHtml(productTitle)}\n` +
-        `📊 <b>Status:</b> <code>${statusBadge}</code>\n` +
-        `💰 <b>Total Amount:</b> <b>${amountStr}</b>\n` +
-        `🗓️ <b>Date:</b> <i>${orderDate}</i>\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `Tap below to open full receipt and delivery in the Mini App:`;
+        isKm
+          ? `📦 <b>ព័ត៌មានលម្អិតនៃការបញ្ជាទិញ #${escapeHtml(order.order_number || order.id)}</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🎮 <b>ផលិតផល៖</b> ${escapeHtml(productTitle)}\n` +
+            `📊 <b>ស្ថានភាព៖</b> <code>${statusBadge}</code>\n` +
+            `💰 <b>តម្លៃសរុប៖</b> <b>${amountStr}</b>\n` +
+            `🗓️ <b>កាលបរិច្ឆេទ៖</b> <i>${orderDate}</i>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `សូមចុចខាងក្រោមដើម្បីបើកមើលវិក្កយបត្រ និងការប្រគល់ទំនិញពេញលេញក្នុង Mini App៖`
+          : `📦 <b>ORDER DETAILS #${escapeHtml(order.order_number || order.id)}</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🎮 <b>Product:</b> ${escapeHtml(productTitle)}\n` +
+            `📊 <b>Status:</b> <code>${statusBadge}</code>\n` +
+            `💰 <b>Total Amount:</b> <b>${amountStr}</b>\n` +
+            `🗓️ <b>Date:</b> <i>${orderDate}</i>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Tap below to open full receipt and delivery in the Mini App:`;
 
       const buttons: any[] = [
         [createWebAppOrUrlButton('📱 Open in Mini App', webAppUrl, 'PACKAGE')],
@@ -832,6 +889,9 @@ export class StoreBotService {
 
     this.bot.action(/^sub_2fa:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const fromId = ctx.from?.id;
+      const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'km';
+
       const auth = verifyCustomerOrderAccess(ctx, orderId);
       if (!auth.authorized) {
         try {
@@ -842,15 +902,19 @@ export class StoreBotService {
       const order = auth.order!;
       if (order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'paid') {
         try {
-          await ctx.answerCbQuery('Order has not been delivered yet.', { show_alert: true });
+          await ctx.answerCbQuery(lang === 'km' ? 'ការបញ្ជាទិញមិនទាន់បានប្រគល់ជូននៅឡើយទេ។' : 'Order has not been delivered yet.', { show_alert: true });
         } catch {}
         return;
       }
 
       try {
-        const { text, keyboard, code } = await FulfillmentService.get2FaSubScreen(orderId);
+        const { text, keyboard, code } = await FulfillmentService.get2FaSubScreen(orderId, lang);
         try {
-          await ctx.answerCbQuery(code && code !== 'N/A' && code !== 'ERROR' ? `Live Code: ${code}` : '2FA Status Updated');
+          await ctx.answerCbQuery(
+            code && code !== 'N/A' && code !== 'ERROR'
+              ? (lang === 'km' ? `កូដ Live៖ ${code}` : `Live Code: ${code}`)
+              : (lang === 'km' ? 'ស្ថានភាព 2FA បានធ្វើបច្ចុប្បន្នភាព' : '2FA Status Updated')
+          );
         } catch {}
         await ctx.editMessageText(formatTelegramHtml(text), {
           parse_mode: 'HTML',
@@ -859,9 +923,9 @@ export class StoreBotService {
       } catch (err: any) {
         try {
           if (!isMessageNotModifiedError(err)) {
-            await ctx.answerCbQuery('Error loading 2FA authenticator.');
+            await ctx.answerCbQuery(lang === 'km' ? 'មានបញ្ហាក្នុងការផ្ទុកកូដ 2FA Authenticator' : 'Error loading 2FA authenticator.');
           } else {
-            await ctx.answerCbQuery('Code is up to date.');
+            await ctx.answerCbQuery(lang === 'km' ? 'កូដថ្មីចុងក្រោយបង្អស់ហើយ' : 'Code is up to date.');
           }
         } catch {}
       }
@@ -869,6 +933,9 @@ export class StoreBotService {
 
     this.bot.action(/^send_qr:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const fromId = ctx.from?.id;
+      const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'km';
+
       const auth = verifyCustomerOrderAccess(ctx, orderId);
       if (!auth.authorized) {
         try {
@@ -879,29 +946,32 @@ export class StoreBotService {
       const order = auth.order!;
       if (order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'paid') {
         try {
-          await ctx.answerCbQuery('Order has not been delivered yet.', { show_alert: true });
+          await ctx.answerCbQuery(lang === 'km' ? 'ការបញ្ជាទិញមិនទាន់បានប្រគល់ជូននៅឡើយទេ។' : 'Order has not been delivered yet.', { show_alert: true });
         } catch {}
         return;
       }
 
       try {
         try {
-          await ctx.answerCbQuery('Generating 2FA QR code...');
+          await ctx.answerCbQuery(lang === 'km' ? 'កំពុងបង្កើតរូបភាព 2FA QR...' : 'Generating 2FA QR code...');
         } catch {}
         const qrBuffer = await FulfillmentService.generate2FaQrBuffer(orderId);
         await ctx.replyWithPhoto(
           { source: qrBuffer },
-          { caption: '📷 Scan with Google Authenticator or 2FAS' }
+          { caption: lang === 'km' ? '📷 ស្កេនជាមួយ Google Authenticator ឬ 2FAS' : '📷 Scan with Google Authenticator or 2FAS' }
         );
       } catch {
         try {
-          await ctx.answerCbQuery('Error generating 2FA QR code.');
+          await ctx.answerCbQuery(lang === 'km' ? 'មានបញ្ហាក្នុងការបង្កើត 2FA QR' : 'Error generating 2FA QR code.');
         } catch {}
       }
     });
 
     this.bot.action(/^sub_warranty:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const fromId = ctx.from?.id;
+      const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'km';
+
       const auth = verifyCustomerOrderAccess(ctx, orderId);
       if (!auth.authorized) {
         try {
@@ -911,7 +981,7 @@ export class StoreBotService {
       }
 
       try {
-        const { text, keyboard } = FulfillmentService.getWarrantySubScreen(orderId);
+        const { text, keyboard } = FulfillmentService.getWarrantySubScreen(orderId, lang);
         await ctx.editMessageText(formatTelegramHtml(text), {
           parse_mode: 'HTML',
           reply_markup: keyboard,
@@ -919,13 +989,16 @@ export class StoreBotService {
         await ctx.answerCbQuery();
       } catch {
         try {
-          await ctx.answerCbQuery('Error checking warranty.');
+          await ctx.answerCbQuery(lang === 'km' ? 'មានបញ្ហាក្នុងការពិនិត្យមើលការធានា' : 'Error checking warranty.');
         } catch {}
       }
     });
 
     this.bot.action(/^sub_main:(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
+      const fromId = ctx.from?.id;
+      const lang = (fromId ? DataStore.getUserLanguagePreference(fromId) : null) || 'km';
+
       const auth = verifyCustomerOrderAccess(ctx, orderId);
       if (!auth.authorized) {
         try {
@@ -936,13 +1009,13 @@ export class StoreBotService {
       const order = auth.order!;
       if (order.status !== 'delivered' && order.status !== 'completed' && order.status !== 'paid') {
         try {
-          await ctx.answerCbQuery('Order has not been delivered yet.', { show_alert: true });
+          await ctx.answerCbQuery(lang === 'km' ? 'ការបញ្ជាទិញមិនទាន់បានប្រគល់ជូននៅឡើយទេ។' : 'Order has not been delivered yet.', { show_alert: true });
         } catch {}
         return;
       }
 
       try {
-        const cardText = FulfillmentService.getMainDeliveryCardText(orderId);
+        const cardText = FulfillmentService.getMainDeliveryCardText(orderId, lang);
         const keyboard = FulfillmentService.getMainDeliveryKeyboard(orderId);
         await ctx.editMessageText(formatTelegramHtml(cardText), {
           parse_mode: 'HTML',
@@ -952,7 +1025,7 @@ export class StoreBotService {
       } catch (err) {
         try {
           if (!isMessageNotModifiedError(err)) {
-            await ctx.answerCbQuery('Error loading delivery card.');
+            await ctx.answerCbQuery(lang === 'km' ? 'មានបញ្ហាក្នុងការផ្ទុកព័ត៌មានទំនិញ' : 'Error loading delivery card.');
           } else {
             await ctx.answerCbQuery();
           }
