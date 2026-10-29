@@ -11,7 +11,23 @@ import {
   UserCheck,
   Gift,
   Zap,
+  Package,
+  HelpCircle,
+  Check,
 } from 'lucide-react';
+
+export const ROBUX_PACKAGES = [
+  { amount: 100, price: 0.35 },
+  { amount: 200, price: 0.70 },
+  { amount: 400, price: 1.40 },
+  { amount: 500, price: 1.75 },
+  { amount: 800, price: 2.80 },
+  { amount: 1000, price: 3.50, isPopular: true },
+  { amount: 1700, price: 5.95 },
+  { amount: 2000, price: 7.00 },
+  { amount: 4500, price: 15.75 },
+  { amount: 10000, price: 35.00 },
+];
 import { Product, CouponValidationResult, RobloxProfile, formatDeliveryMode } from '../../types';
 import { StoreAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
@@ -65,8 +81,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [propQuantity, isAccount, maxStock]);
 
+  const [selectedRobuxAmount, setSelectedRobuxAmount] = useState<number>(1000);
+  const [buyerConfirmedAge18, setBuyerConfirmedAge18] = useState<boolean>(false);
+  const [buyerUnder18, setBuyerUnder18] = useState<boolean>(false);
+  const [showHowToLogin2FA, setShowHowToLogin2FA] = useState<boolean>(false);
+
   const effectiveQuantity = isAccount ? 1 : Math.min(Math.max(1, quantity), maxStock);
-  const subtotal = Number((product.price * effectiveQuantity).toFixed(2));
+  const selectedRobuxPackage = isRobux
+    ? ROBUX_PACKAGES.find((p) => p.amount === selectedRobuxAmount) || ROBUX_PACKAGES[0]
+    : null;
+  const currentItemPrice = isRobux && selectedRobuxPackage ? selectedRobuxPackage.price : product.price;
+  const subtotal = Number((currentItemPrice * effectiveQuantity).toFixed(2));
 
   const requiresRoblox = Boolean(
     product.requires_roblox_username ||
@@ -92,8 +117,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isVerifyingRoblox, setIsVerifyingRoblox] = useState(false);
   const [robloxVerifyError, setRobloxVerifyError] = useState<string | null>(null);
   const [recipientConfirmed, setRecipientConfirmed] = useState(false);
-  // Robux checkout step: 'confirm_account' -> 'final_payment'
-  const [robuxReviewStep, setRobuxReviewStep] = useState<'confirm_account' | 'final_payment'>('confirm_account');
+  // Robux checkout step: 'confirm_account' -> 'packages_and_age' -> 'final_payment'
+  const [robuxReviewStep, setRobuxReviewStep] = useState<'confirm_account' | 'packages_and_age' | 'final_payment'>('confirm_account');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to verify Roblox account eligibility for Robux:
@@ -243,7 +268,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const isFulfillmentReady =
     !requiresRoblox ||
-    (Boolean(verifiedProfile) && recipientConfirmed && (!isRobux || checkRobuxEligibility(verifiedProfile).eligible));
+    (Boolean(verifiedProfile) &&
+      recipientConfirmed &&
+      (!isRobux || (checkRobuxEligibility(verifiedProfile).eligible && buyerConfirmedAge18 && !buyerUnder18)));
 
   const handleConfirmRobuxAccount = () => {
     setErrorMessage(null);
@@ -273,7 +300,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       );
       return;
     }
-    setRobuxReviewStep('final_payment');
+    setRobuxReviewStep('packages_and_age');
   };
 
   const handleProceedToPayment = async () => {
@@ -292,6 +319,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           setErrorMessage(
             check.reason ||
               'Roblox account eligibility: Roblox Kids, Roblox Select, and unverified accounts cannot purchase Robux.'
+          );
+          return;
+        }
+        if (buyerUnder18) {
+          setErrorMessage(
+            language === 'km'
+              ? 'ការបញ្ជាទិញមិនត្រូវបានអនុញ្ញាតទេ៖ អ្នកទិញក្រោមអាយុ ១៨ ឆ្នាំមិនត្រូវបានអនុញ្ញាតឱ្យទិញ Robux ឡើយ។'
+              : 'Buyers under 18 years of age are not permitted to complete Robux purchases.'
+          );
+          return;
+        }
+        if (!buyerConfirmedAge18) {
+          setErrorMessage(
+            language === 'km'
+              ? 'សូមបញ្ជាក់ថាអ្នកមានអាយុចាប់ពី ១៨ ឆ្នាំឡើងទៅ ដើម្បីបន្តការទូទាត់។'
+              : 'Please confirm that you are at least 18 years old to complete this purchase.'
           );
           return;
         }
@@ -315,6 +358,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       robloxUserId: verifiedProfile?.id ? String(verifiedProfile.id) : undefined,
       recipientConfirmed,
       confirmationChecked: recipientConfirmed,
+      buyerConfirmedAge18: isRobux ? buyerConfirmedAge18 : undefined,
+      buyerUnder18: isRobux ? buyerUnder18 : undefined,
       idempotencyKey,
     };
 
@@ -426,12 +471,57 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </span>
                 {effectiveQuantity > 1 && (
                   <span className="text-[10px] text-slate-400 font-medium">
-                    (${product.price.toFixed(2)} × {effectiveQuantity})
+                    (${currentItemPrice.toFixed(2)} × {effectiveQuantity})
                   </span>
                 )}
               </div>
             </div>
           </div>
+
+          {/* 2FA Login Assistance for Game Accounts */}
+          {isAccount && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowHowToLogin2FA(!showHowToLogin2FA)}
+                className="w-full py-2 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+                <span>How to Login with 2FA</span>
+              </button>
+
+              {showHowToLogin2FA && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-fadeIn">
+                  <h4 className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{language === 'km' ? 'របៀបចូលប្រើគណនីមាន 2FA' : 'How to Login with 2FA'}</span>
+                  </h4>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-200 text-[11px] leading-relaxed">
+                    <li>
+                      {language === 'km'
+                        ? 'បើកកម្មវិធី ឬគេហទំព័រ Roblox រួចបញ្ចូល Username និង Password ដែលទទួលបានក្នុងឃ្លាំងដឹកជញ្ជូន។'
+                        : 'Open Roblox and enter the Username and Password from your delivered vault.'}
+                    </li>
+                    <li>
+                      {language === 'km'
+                        ? 'នៅពេល Roblox សួររកកូដ 2-Step Verification សូមយកកូដ ៦ ខ្ទង់បន្តផ្ទាល់ (Live 2FA Code) ពីប្រអប់ដឹកជញ្ជូន។'
+                        : 'When prompted for 2-step verification, copy the Live 6-digit Authenticator Code from your vault.'}
+                    </li>
+                    <li>
+                      {language === 'km'
+                        ? 'បិទភ្ជាប់កូដ ៦ ខ្ទង់ រួចចុច Verify ដើម្បីចូលគណនីដោយសុវត្ថិភាព។'
+                        : 'Paste the 6-digit code and click Verify to complete login safely.'}
+                    </li>
+                    <li>
+                      {language === 'km'
+                        ? 'អ្នកក៏អាចស្កេន QR ឬចម្លង Setup Key ចូល Google Authenticator សម្រាប់ប្រើលើកក្រោយ។'
+                        : 'You can also scan the QR or copy the Setup Key into Google Authenticator for future logins.'}
+                    </li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quantity Controls (if multi-quantity supported and stock >= 2) */}
           {showQuantityControls && (
@@ -592,6 +682,124 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           )}
 
+          {/* Robux Packages & Age Confirmation (Displayed when isRobux) */}
+          {isRobux && (
+            <div className="space-y-3 p-3.5 rounded-2xl bg-black/40 border border-[#FFD166]/20 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-white flex items-center gap-1.5">
+                  <Package className="w-4 h-4 text-[#FFD166]" />
+                  <span>
+                    {language === 'km' ? 'កញ្ចប់ Robux និងតម្លៃ' : 'Robux Packages & Prices'}
+                  </span>
+                </label>
+                <span className="text-[10px] text-amber-400 font-bold">
+                  $3.50 / 1,000 R$
+                </span>
+              </div>
+
+              {/* Packages Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {ROBUX_PACKAGES.map((pkg) => {
+                  const isSelected = selectedRobuxAmount === pkg.amount;
+                  return (
+                    <button
+                      type="button"
+                      key={pkg.amount}
+                      onClick={() => setSelectedRobuxAmount(pkg.amount)}
+                      className={`p-2.5 rounded-xl border text-left transition-all active:scale-[0.98] relative flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-amber-500/20 border-[#FFD166] text-white shadow-[0_0_12px_rgba(255,209,102,0.25)]'
+                          : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-white">
+                          {pkg.amount.toLocaleString()} R$
+                        </span>
+                        {isSelected && (
+                          <Check className="w-3.5 h-3.5 text-[#FFD166] shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[11px] font-bold text-[#FFD166]">
+                          ${pkg.price.toFixed(2)} USD
+                        </span>
+                        {pkg.isPopular && (
+                          <span className="text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 border border-amber-500/40">
+                            HOT
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Robux Age Confirmation & Policy Block */}
+              <div className="pt-2 border-t border-white/10 space-y-2.5">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-black text-white flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{language === 'km' ? 'ការបញ្ជាក់អាយុ & គោលការណ៍' : 'Age Confirmation & Policy'}</span>
+                  </span>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    {language === 'km'
+                      ? 'ការបញ្ចូល Robux តម្រូវឱ្យមានការបញ្ជាក់អាយុ (១៨ ឆ្នាំឡើង)។ ការទិញមិនអាចបង្វិលប្រាក់វិញបានទេ ប្រសិនបើលោកអ្នកមិនអាចទទួលបាន ឬបញ្ចូលឈ្មោះខុស។'
+                      : 'Robux top-up requires age confirmation (18+). Virtual currency is delivered directly to the username provided. Strictly NO REFUNDS if you cannot claim.'}
+                  </p>
+                </div>
+
+                {/* Age Choice Checkboxes */}
+                <div className="space-y-1.5">
+                  <label className={`flex items-start gap-2.5 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    buyerConfirmedAge18 && !buyerUnder18
+                      ? 'bg-emerald-500/10 border-emerald-500/30'
+                      : 'bg-white/5 border-white/5 hover:bg-white/10'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={buyerConfirmedAge18 && !buyerUnder18}
+                      onChange={(e) => {
+                        setBuyerConfirmedAge18(e.target.checked);
+                        if (e.target.checked) setBuyerUnder18(false);
+                      }}
+                      className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-0 bg-black/40 border-white/20 cursor-pointer"
+                    />
+                    <span className="text-[11px] text-slate-200 leading-snug">
+                      <strong className="text-white">
+                        {language === 'km' ? 'ខ្ញុំមានអាយុ ១៨ ឆ្នាំឡើងទៅ' : 'I am 18 years or older'}
+                      </strong>
+                      <span className="block text-[10px] text-slate-400 mt-0.5">
+                        {language === 'km'
+                          ? 'ខ្ញុំយល់ព្រមថានេះជាការទិញរូបិយប័ណ្ណនិម្មិត Roblox ហើយមិនអាចបង្វិលប្រាក់វិញបានឡើយ (No Refund)។'
+                          : 'I acknowledge this is a virtual currency purchase and agree there are strictly NO REFUNDS once ordered.'}
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className={`flex items-center gap-2.5 p-2 rounded-xl border cursor-pointer transition-colors ${
+                    buyerUnder18
+                      ? 'bg-rose-500/10 border-rose-500/30'
+                      : 'bg-white/5 border-white/5 hover:bg-white/10'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={buyerUnder18}
+                      onChange={(e) => {
+                        setBuyerUnder18(e.target.checked);
+                        if (e.target.checked) setBuyerConfirmedAge18(false);
+                      }}
+                      className="w-4 h-4 rounded text-rose-500 focus:ring-0 bg-black/40 border-white/20 cursor-pointer"
+                    />
+                    <span className="text-[11px] text-rose-300">
+                      {language === 'km' ? 'ខ្ញុំមានអាយុក្រោម ១៨ ឆ្នាំ (មិនអាចទិញបាន)' : 'I am under 18 years old (ineligible)'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Coupon Code Input */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -695,33 +903,46 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </button>
             </>
           ) : (
-            <button
-              disabled={isSubmitting || !isFulfillmentReady}
-              onClick={handleProceedToPayment}
-              className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm text-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                isSubmitting || !isFulfillmentReady
-                  ? 'bg-white/10 text-slate-500 cursor-not-allowed opacity-60'
-                  : 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin text-black" />
-                  <span>Generating KHPay QR...</span>
-                </>
-              ) : requiresRoblox && !verifiedProfile ? (
-                <span>ENTER VERIFIED ROBLOX RECIPIENT</span>
-              ) : requiresRoblox && !recipientConfirmed ? (
-                <span>CONFIRM RECIPIENT TO PROCEED</span>
-              ) : isRobux && verifiedProfile && !checkRobuxEligibility(verifiedProfile).eligible ? (
-                <span>ACCOUNT INELIGIBLE FOR ROBUX</span>
-              ) : (
-                <>
-                  <span>PAY ${finalTotal.toFixed(2)} WITH KHPAY</span>
-                  <ArrowRight className="w-4 h-4 text-black" />
-                </>
-              )}
-            </button>
+            <>
+              <button
+                disabled={isSubmitting || !isFulfillmentReady}
+                onClick={handleProceedToPayment}
+                className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm text-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  isSubmitting || !isFulfillmentReady
+                    ? 'bg-white/10 text-slate-500 cursor-not-allowed opacity-60'
+                    : 'btn-3d-gold hover:brightness-110 active:scale-[0.98]'
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin text-black" />
+                    <span>Generating KHPay QR...</span>
+                  </>
+                ) : requiresRoblox && !verifiedProfile ? (
+                  <span>ENTER VERIFIED ROBLOX RECIPIENT</span>
+                ) : requiresRoblox && !recipientConfirmed ? (
+                  <span>CONFIRM RECIPIENT TO PROCEED</span>
+                ) : isRobux && verifiedProfile && !checkRobuxEligibility(verifiedProfile).eligible ? (
+                  <span>ACCOUNT INELIGIBLE FOR ROBUX</span>
+                ) : isRobux && buyerUnder18 ? (
+                  <span>UNDER 18 CANNOT PURCHASE ROBUX</span>
+                ) : isRobux && !buyerConfirmedAge18 ? (
+                  <span>CONFIRM AGE 18+ TO PAY</span>
+                ) : (
+                  <>
+                    <span>PAY ${finalTotal.toFixed(2)} WITH KHPAY</span>
+                    <ArrowRight className="w-4 h-4 text-black" />
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2 px-4 rounded-xl font-bold text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                Back Home
+              </button>
+            </>
           )}
         </div>
       </div>

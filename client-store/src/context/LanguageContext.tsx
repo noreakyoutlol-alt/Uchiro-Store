@@ -85,11 +85,25 @@ const translations = {
     proceed_to_payment: 'Proceed to KHPay Checkout',
     payment_title: 'Scan to Pay with KHPay',
     payment_countdown: 'Payment window expires in',
-    open_aba: 'Open ABA Mobile',
-    open_bakong: 'Open Mobile Banking',
     copy_payment_data: 'Copy Payment Reference',
     verifying_payment: 'Verifying payment automatically...',
     payment_successful: 'Payment Confirmed!',
+
+    // Robux Age Confirmation
+    robux_age_confirm_title: 'Age Confirmation Required',
+    robux_age_confirm_desc: 'Robux top-up requires age confirmation. By confirming, you acknowledge this is a virtual currency purchase for Roblox. No refunds if you cannot claim after purchase.',
+    robux_age_under18: 'I am under 18 years old',
+    robux_age_18plus: 'I am 18 years or older',
+    robux_no_refund_notice: 'No refunds if unable to claim after purchase. Robux is sent to the username you provide.',
+    robux_not_official: 'This is not an official Roblox top-up. Robux is sent to your username by our supplier.',
+    robux_username_label: 'Roblox Username',
+    robux_username_placeholder: 'Enter your Roblox username',
+    robux_packages_title: 'Robux Packages & Prices',
+    robux_per_usd: 'Robux per $',
+    robux_select_package: 'Select a package',
+    robux_continue: 'Continue to Payment',
+    robux_back_home: 'Back to Home',
+    how_to_login_2fa: 'How to Login with 2FA',
 
     // Delivered Order & Authenticator
     order_delivered: 'Order Delivered Successfully (Auto)',
@@ -267,6 +281,22 @@ const translations = {
     copy_payment_data: 'ចម្លងព័ត៌មានទូទាត់',
     verifying_payment: 'កំពុងផ្ទៀងផ្ទាត់ការទូទាត់...',
     payment_successful: 'ការទូទាត់ទទួលបានជោគជ័យ!',
+
+    // Robux Age Confirmation
+    robux_age_confirm_title: 'បញ្ជាក់អាយុរបស់អ្នក',
+    robux_age_confirm_desc: 'ការទិញ Robux តម្រូវឱ្យបញ្ជាក់អាយុ។ Robux នឹងត្រូវផ្ញើទៅកាន់ឈ្មោះ Roblox ដែលអ្នកបានផ្ដល់ជូន។ មិនអាចបង្វិលប្រាក់វិញបានទេ ប្រសិនបើអ្នកមិនអាចទទួល ឬដាក់ឈ្មោះខុស។',
+    robux_age_under18: 'ខ្ញុំអាយុក្រោម ១៨ ឆ្នាំ',
+    robux_age_18plus: 'ខ្ញុំមានអាយុ ១៨ ឆ្នាំឡើងទៅ',
+    robux_no_refund_notice: 'មិនមានការបង្វិលប្រាក់វិញទេ (No Refund) បន្ទាប់ពីទិញរួច។ Robux នឹងត្រូវផ្ញើទៅកាន់ឈ្មោះ Roblox របស់អ្នក។',
+    robux_not_official: 'Robux នឹងត្រូវបានផ្ទេរចូលគណនីរបស់អ្នកដោយផ្ទាល់ពីអ្នកផ្គត់ផ្គង់របស់យើង។',
+    robux_username_label: 'ឈ្មោះគណនី Roblox',
+    robux_username_placeholder: 'បញ្ចូលឈ្មោះ Roblox របស់អ្នក',
+    robux_packages_title: 'កញ្ចប់ Robux និងតម្លៃ',
+    robux_per_usd: 'Robux ក្នុង ១ ដុល្លារ',
+    robux_select_package: 'ជ្រើសរើសកញ្ចប់ Robux',
+    robux_continue: 'Proceed to Payment',
+    robux_back_home: 'Back to Home',
+    how_to_login_2fa: 'How to Login with 2FA',
 
     // Delivered Order & Authenticator
     order_delivered: 'ផ្ញើជូនភ្លាមៗ (Auto) ជោគជ័យ',

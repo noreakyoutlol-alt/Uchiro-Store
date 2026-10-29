@@ -3,8 +3,6 @@ import { QRCodeCanvas } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import {
   Clock,
-  Download,
-  ExternalLink,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -382,47 +380,18 @@ export const KHQRPaymentScreen: React.FC<KHQRPaymentScreenProps> = ({
           )}
         </div>
 
-        {/* Action Buttons: [ Download QR ] and [ Open ABA Mobile ] */}
+        {/* Action / Return to Store */}
         <div className="px-5 pb-5 space-y-2.5">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handleDownloadQR}
-              disabled={isPaid || isCompositingQR}
-              className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 text-center disabled:opacity-50"
-            >
-              {isCompositingQR ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 text-[#FFD166] animate-spin" />
-                  <span>Preparing...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-3.5 h-3.5 text-slate-300" />
-                  <span>Download QR</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handleOpenABA}
-              disabled={isPaid}
-              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-110 border border-cyan-400/40 text-white text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-95 text-center disabled:opacity-50 shadow-md shadow-cyan-600/20"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Open ABA Mobile</span>
-            </button>
-          </div>
-
-          <p className="text-[10px] text-center text-slate-400 leading-tight">
-            Mobile checkout: Tap <strong className="text-white">Open ABA Mobile</strong> or scan QR code with your mobile banking app.
+          <p className="text-[11px] text-center text-slate-400 leading-tight">
+            Scan this QR code with Bakong, ABA Mobile, or any Cambodian banking app to complete your payment.
           </p>
 
           {/* Close / Return Button */}
           <button
             onClick={onClose}
-            className="w-full py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium transition-colors"
+            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 hover:text-white text-xs font-bold transition-colors"
           >
-            Cancel / Return to Store
+            Back to Home
           </button>
         </div>
       </div>

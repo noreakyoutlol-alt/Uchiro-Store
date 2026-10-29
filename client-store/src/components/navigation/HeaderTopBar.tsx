@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { ShieldCheck, Music, VolumeX } from 'lucide-react';
 import { TelegramUser, Profile } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
-import { SettingsModal } from '../settings/SettingsModal';
+import { useAudio } from '../../context/AudioPlayerContext';
 import { StoreAPI } from '../../services/api';
 
 export interface HeaderTopBarProps {
@@ -68,7 +68,7 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
   onOpenProfile,
 }) => {
   const { language, setLanguage } = useLanguage();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const { isPlaying, togglePlay } = useAudio();
   const [avatarError, setAvatarError] = useState(false);
 
   const displayName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Telegram User';
@@ -202,15 +202,23 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
             </span>
           </button>
 
-          {/* Settings & BGM Audio Drawer Toggle */}
+          {/* Music Toggle */}
           <button
             type="button"
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-amber-400/50 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-amber-500 dark:hover:text-amber-400 transition-all active:scale-95 shadow-sm shrink-0"
-            title="Settings"
-            aria-label="Settings"
+            onClick={togglePlay}
+            className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full border flex items-center justify-center transition-all active:scale-95 shadow-sm shrink-0 ${
+              isPlaying
+                ? 'bg-amber-500/20 border-amber-400 text-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.3)] animate-pulse'
+                : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-amber-400 hover:border-amber-400/40'
+            }`}
+            title={isPlaying ? 'Pause Music' : 'Play Music'}
+            aria-label="Toggle Background Music"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {isPlaying ? (
+              <Music className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5" />
+            )}
           </button>
 
           {/* Luxury Cyberpunk Points Badge */}
@@ -231,12 +239,6 @@ export const HeaderTopBar: React.FC<HeaderTopBarProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Settings & Audio Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
     </header>
   );
 };

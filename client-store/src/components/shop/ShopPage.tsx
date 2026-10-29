@@ -69,12 +69,19 @@ export const ShopPage: React.FC<ShopPageProps> = ({
     );
   }, [selectedCategorySlug]);
 
-  // Products belonging to the selected collection
+  // Helper to determine if a product is actually sold out / consumed
+  const isProductSold = (p: Product) => {
+    if (typeof p.stock === 'number' && p.stock <= 0) return true;
+    if ((p as any).is_delivered === true || (p as any).status === 'consumed' || (p as any).status === 'sold') return true;
+    return false;
+  };
+
+  // Products belonging to the selected collection (Only sold products hide; unsold products stay in store)
   const collectionProducts = useMemo(() => {
     if (!selectedCategorySlug) return [];
-    return products.filter((p) =>
-      matchProductToCollection(p, selectedCategorySlug, categories)
-    );
+    return products
+      .filter((p) => !isProductSold(p))
+      .filter((p) => matchProductToCollection(p, selectedCategorySlug, categories));
   }, [products, categories, selectedCategorySlug]);
 
   // Compute ONLY product types that ACTUALLY EXIST in this collection
@@ -121,13 +128,15 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   const globalSearchResults = useMemo(() => {
     if (selectedCategorySlug || !searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
-    let list = products.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        (p.badge && p.badge.toLowerCase().includes(q)) ||
-        (p.description && p.description.toLowerCase().includes(q)) ||
-        (p.short_description && p.short_description.toLowerCase().includes(q))
-    );
+    let list = products
+      .filter((p) => !isProductSold(p))
+      .filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          (p.badge && p.badge.toLowerCase().includes(q)) ||
+          (p.description && p.description.toLowerCase().includes(q)) ||
+          (p.short_description && p.short_description.toLowerCase().includes(q))
+      );
 
     if (sortBy === 'price_asc') {
       list.sort((a, b) => a.price - b.price);

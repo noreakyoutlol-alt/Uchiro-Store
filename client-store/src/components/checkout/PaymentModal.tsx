@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   X,
-  Download,
-  ExternalLink,
   Clock,
   ShieldCheck,
   CheckCircle2,
@@ -173,26 +171,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             Scan with ABA Mobile, Bakong, or any Cambodian Banking Mini App
           </p>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-2 w-full pt-1">
-            <button
-              type="button"
-              onClick={downloadQR}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all active:scale-95"
-            >
-              <Download className="w-3.5 h-3.5 text-[#FFD166]" />
-              <span>Save QR</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleOpenABAMobile(abaDeepLink)}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#005F73] hover:bg-[#0A9396] text-white text-xs font-bold shadow-md shadow-[#005F73]/20 transition-all active:scale-95"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-cyan-300" />
-              <span>ABA Mobile</span>
-            </button>
-          </div>
         </div>
 
         {/* Footer */}

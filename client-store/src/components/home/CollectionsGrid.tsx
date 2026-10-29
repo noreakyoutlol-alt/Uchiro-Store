@@ -194,7 +194,10 @@ export const CollectionsGrid: React.FC<CollectionsGridProps> = ({
         {GAME_COLLECTIONS.map((c) => {
           const isSelected = selectedSlug === c.slug;
           const count = products.length > 0
-            ? products.filter((p) => matchProductToCollection(p, c.slug, categories)).length
+            ? products.filter((p) => {
+                const isSold = typeof p.stock === 'number' ? p.stock <= 0 : (p as any).is_delivered === true || (p as any).status === 'consumed' || (p as any).status === 'sold';
+                return !isSold && matchProductToCollection(p, c.slug, categories);
+              }).length
             : null;
 
           return (

@@ -20,6 +20,7 @@ import {
   Loader2,
   Gift,
   Package,
+  HelpCircle,
 } from 'lucide-react';
 import { Order, CustomerDeliveryResult, CustomerTotpResult } from '../../types';
 import { StoreAPI } from '../../services/api';
@@ -58,6 +59,7 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
   // UI state
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showHowToLogin, setShowHowToLogin] = useState<boolean>(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isFetchingRef = useRef<boolean>(false);
@@ -611,10 +613,51 @@ export const DeliveredOrderModal: React.FC<DeliveredOrderModalProps> = ({
               {/* ================= SECTION 2: AUTHENTICATOR (ONLY WHEN ACCOUNT HAS 2FA) ================= */}
               {hasAuthenticator && delivery?.authenticator && (
                 <div className="space-y-3.5 pt-1 border-t border-white/5">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-slate-300 uppercase tracking-wider">
-                    <KeyRound className="w-4 h-4 text-[#FFD166]" />
-                    <span>{language === 'km' ? 'ការផ្ទៀងផ្ទាត់ 2FA & កូដផ្ទាល់' : 'Authenticator Setup & Live Code'}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-slate-300 uppercase tracking-wider">
+                      <KeyRound className="w-4 h-4 text-[#FFD166]" />
+                      <span>{language === 'km' ? 'ការផ្ទៀងផ្ទាត់ 2FA & កូដផ្ទាល់' : 'Authenticator Setup & Live Code'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowHowToLogin(!showHowToLogin)}
+                      className="py-1 px-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all"
+                    >
+                      <HelpCircle className="w-3 h-3 text-amber-400" />
+                      <span>How to Login with 2FA</span>
+                    </button>
                   </div>
+
+                  {showHowToLogin && (
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-fadeIn">
+                      <h4 className="font-bold text-amber-300 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>{language === 'km' ? 'របៀបចូលប្រើគណនីមាន 2FA' : 'How to Login with 2FA'}</span>
+                      </h4>
+                      <ol className="list-decimal list-inside space-y-1.5 text-slate-200 text-[11px] leading-relaxed">
+                        <li>
+                          {language === 'km'
+                            ? 'បើកកម្មវិធី ឬគេហទំព័រ Roblox រួចបញ្ចូល Username និង Password ខាងលើ។'
+                            : 'Open Roblox and enter the Username and Password shown above.'}
+                        </li>
+                        <li>
+                          {language === 'km'
+                            ? 'នៅពេល Roblox សួររកកូដ 2-Step Verification សូមចម្លងកូដ ៦ ខ្ទង់ផ្ទាល់ (Live 2FA Code) ពីប្រអប់ខាងលើ។'
+                            : 'When Roblox prompts for 2-step verification, copy the Live 6-digit Authenticator Code above.'}
+                        </li>
+                        <li>
+                          {language === 'km'
+                            ? 'បិទភ្ជាប់កូដ ៦ ខ្ទង់ រួចចុច Verify ដើម្បីចូលគណនីភ្លាមៗ។'
+                            : 'Paste the 6-digit code and click Verify to complete login.'}
+                        </li>
+                        <li>
+                          {language === 'km'
+                            ? 'អ្នកក៏អាចស្កេន QR ឬចម្លង Setup Key ចូល Google Authenticator ដើម្បីទទួលបានកូដរាល់ពេលចូល។'
+                            : 'You can also scan the QR or copy the Setup Key into Google Authenticator for future logins.'}
+                        </li>
+                      </ol>
+                    </div>
+                  )}
 
                   {/* 1. Authenticator App Setup Key (Full Manual Setup Key) */}
                   <div className="p-3.5 rounded-2xl bg-black/50 border border-white/10 space-y-1.5">
